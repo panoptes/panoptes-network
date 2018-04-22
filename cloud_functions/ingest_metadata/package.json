@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@google-cloud/storage": "^1.6.0",
-    "fitsjs": "^0.6.6",
-    "pg": "^7.4.1"
-  }
-}
