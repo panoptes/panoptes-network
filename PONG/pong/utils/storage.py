@@ -28,6 +28,20 @@ def get_bucket(name):
     return bucket
 
 
+def get_observation_blob(blob_name, bucket_name='panoptes-survey'):
+    """Returns an individual Blob.
+
+    Args:
+        blob_name (str): Full name of Blob to be fetched.
+        bucket_name (str, optional): Name of Storage bucket where Observation is
+            stored, default `panoptes-survey` (Shouldn't need to change).
+
+    Returns:
+        google.cloud.storage.blob.Blob|None: Blob object or None.
+    """
+    return get_bucket(bucket_name).get_blob(blob_name)
+
+
 def get_observation_blobs(prefix, include_pointing=False, bucket_name='panoptes-survey'):
     """Returns the list of Storage blobs (files) matching the prefix.
 
@@ -40,7 +54,7 @@ def get_observation_blobs(prefix, include_pointing=False, bucket_name='panoptes-
             stored, default `panoptes-survey` (Shouldn't need to change).
 
     Returns:
-        TYPE: Description
+        google.cloud.storage.blob.Blob: Blob object.
     """
 
     # The bucket we will use to fetch our objects
@@ -62,7 +76,8 @@ def download_fits_file(img_blob, save_dir='.', force=False, callback=None):
     """Downloads (and uncompresses) the image blob data.
 
     Args:
-        img_blob (google.cloud.storage.blob.Blob): Blob object corresponding to stored FITS file.
+        img_blob (str|google.cloud.storage.blob.Blob): Blob object corresponding to FITS file.
+            If just the blob name is given then file will be downloaded.
         save_dir (str, optional): Path for saved file, defaults to current directory.
         force (bool, optional): Force a download even if file exists locally, default False.
         callback (callable, optional): A callable object that gets called at end of
@@ -71,6 +86,9 @@ def download_fits_file(img_blob, save_dir='.', force=False, callback=None):
     Returns:
         str: Path to local (uncompressed) FITS file
     """
+    if isinstance(img_blob, str):
+        img_blob = get_observation_blob(img_blob)
+
     fits_fz_fn = img_blob.name.replace('/', '_')
     fits_fz_fn = os.path.join(save_dir, fits_fz_fn)
     fits_fn = fits_fz_fn.replace('.fz', '')
