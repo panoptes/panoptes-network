@@ -34,17 +34,30 @@ def receive_messages(project, subscription_name, loop=True):
 
         # Get header from Storage
         storage_blob = attrs['objectId']
-        logger.log_text("Blob notifcation for  {}".format(storage_blob))
+        logger.log_text("Blob notification for  {}".format(storage_blob))
 
-        if storage_blob.endswith('.fits') or storage_blob.endswith('.fz'):
+        if str(storage_blob).endswith('.fits') or str(storage_blob).endswith('.fz'):
+            logger.log_text("Processing as FITS observation")
+
             # Store header in meta db
-            header = get_header(storage_blob)
+            try:
+                header = get_header(storage_blob)
+                logger.log_text("Header for {}".format(header['IMGID']))
+            except Exception as e:
+                logger.error("Problem getting header: {}".format(e))
+
             header['piaa_state'] = 'received'
-            img_id = add_header_to_db(header)
+            try:
+                logger.log_text("Adding header information to metadb")
+                img_id = add_header_to_db(header)
+            except Exception as e:
+                logger.log_text("Error: {}".format(e))
+                logger.error(e)
             if img_id:
                 logger.log_text("Image {} received by metadb".format(img_id))
 
                 # Accept the change message
+                logger.log_text("Acknowledging message {}".format(message.insertId))
                 message.ack()
 
         return True
