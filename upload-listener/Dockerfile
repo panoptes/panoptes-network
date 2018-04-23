@@ -14,6 +14,9 @@ ENV POCS $PANDIR/POCS
 ENV PAWS $PANDIR/PAWS  
 ENV PANUSER root
 
+ADD . /app
+WORKDIR /app
+
 # Use "bash" as replacement for	"sh"
 # Note: I don't think this is the preferred way to do this anymore
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh \
@@ -37,12 +40,13 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh \
 	&& cd $pan_dir \
 	&& git clone https://github.com/panoptes/POCS \
 	&& cd $POCS && /opt/conda/bin/pip install -Ur requirements.txt \
+	&& cd $POCS && /opt/conda/bin/pip install . \
+	&& cd $PANDIR \
+	&& cd /app \
+	&& /opt/conda/bin/pip install -r requirements.txt \
 	&& cd $PANDIR \
 	&& /opt/conda/bin/conda clean --all --yes
 
-ADD . /app
-WORKDIR /app
-RUN /opt/conda/bin/pip install -r requirements.txt
 
 # Set entrypoint as the Flask notification listener and expose port
 ENTRYPOINT ["/opt/conda/bin/python3", "./upload_listener.py", "--subscription=new-image-listener"]
