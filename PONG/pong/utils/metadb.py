@@ -93,3 +93,69 @@ def meta_insert(table, **kwargs):
     except Exception as e:
         warn(e)
         return None
+
+
+def add_header_to_db(header):
+    """Add FITS image info to metadb.
+
+    Args:
+        header (dict): FITS Header data from an observation.
+
+    Returns:
+        bool: If all header data was successfully stored.
+    """
+    unit_id = int(header['OBSERVER'].strip().replace('PAN', ''))
+    seq_id = header['SEQID'].strip()
+    img_id = header['IMAGEID'].strip()
+    camera_id = header['INSTRUME'].strip()
+
+    unit_data = {
+        'id': unit_id,
+        'name': header['OBSERVER'].strip(),
+        'lat': float(header['LAT-OBS']),
+        'lon': float(header['LONG-OBS']),
+        'elevation': float(header['ELEV-OBS']),
+    }
+    meta_insert('units', **unit_data)
+
+    camera_data = {
+        'unit_id': unit_id,
+        'id': camera_id,
+    }
+    meta_insert('cameras', **camera_data)
+
+    seq_data = {
+        'id': seq_id,
+        'unit_id': unit_id,
+        'start_date': header['SEQID'].split('_')[-1],
+        'exp_time': header['EXPTIME'],
+        'ra_rate': header['RA-RATE'],
+        'pocs_version': header['CREATOR'],
+    }
+    meta_insert('sequences', **seq_data)
+
+    image_data = {
+        'id': img_id,
+        'seq_id': seq_id,
+        'obs_date': header['DATE-OBS'],
+        'moon_frac': header['MOONFRAC'],
+        'moon_sep': header['MOONSEP'],
+        'ra_mnt': header['RA-MNT'],
+        'ha_mnt': header['HA-MNT'],
+        'dec_mnt': header['DEC-MNT'],
+        'airmass': header['AIRMASS'],
+        'exp_time': header['EXPTIME'],
+        'iso': header['ISO'],
+        'camera_id': camera_id,
+        'center_ra': header['CRVAL1'],
+        'center_dec': header['CRVAL2'],
+        'cam_temp': header['CAMTEMP'].split(' ')[0],
+        'cam_colortmp': header['COLORTMP'],
+        'cam_circconf': header['CIRCCONF'].split(' ')[0],
+        'cam_measrggb': header['MEASRGGB'],
+        'cam_red_balance': header['REDBAL'],
+        'cam_blue_balance': header['BLUEBAL'],
+    }
+    db_img_id = meta_insert('images', **image_data)
+
+    return db_img_id == img_id
