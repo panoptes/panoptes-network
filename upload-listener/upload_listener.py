@@ -38,10 +38,11 @@ def receive_messages(project, subscription_name, loop=True):
             header = get_header(storage_blob)
             header['piaa_state'] = 'received'
             img_id = add_header_to_db(header)
-            logger.info("Image {} received by metadb".format(img_id))
+            if img_id:
+                logger.info("Image {} received by metadb".format(img_id))
 
-        # Accept the change message
-        message.ack()
+                # Accept the change message
+                message.ack()
 
         return True
 
