@@ -4,14 +4,16 @@ import time
 
 from google.cloud import pubsub
 from google.cloud import logging
+from google.cloud.logging.handlers import CloudLoggingHandler
 
 from pong.utils.storage import get_header
 from pong.utils.metadb import add_header_to_db
 
 # Instantiates a client
 logging_client = logging.Client()
-
-logging_client.setup_logging(log_level=logging.INFO)
+handler = CloudLoggingHandler(logging_client)
+logging.handlers.setup_logging(handler)
+logging.getLogger().setLevel(logging.DEBUG)
 
 # The name of the log to write to
 log_name = 'upload-listener-log'
