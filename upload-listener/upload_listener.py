@@ -4,9 +4,19 @@ from warnings import warn
 import time
 
 from google.cloud import pubsub
+from google.cloud import logging
 
 from pong.utils.storage import get_header
 from pong.utils.metadb import add_header_to_db
+
+# Instantiates a client
+logging_client = logging.Client()
+
+# The name of the log to write to
+log_name = 'upload-listener-log'
+
+# Selects the log to write to
+logger = logging_client.logger(log_name)
 
 
 def receive_messages(project, subscription_name, loop=True):
@@ -16,37 +26,37 @@ def receive_messages(project, subscription_name, loop=True):
         project, subscription_name)
 
     def callback(message):
-        print('Received message: {}'.format(message))
+        logger.debug('Received message: {}'.format(message))
 
         attrs = dict(message.attributes)
 
         # Get header from Storage
         storage_blob = attrs['objectId']
+        logger.info("Blob notifcation for  {}".format(storage_blob))
 
         if storage_blob.endswith('.fits*'):
             # Store header in meta db
             header = get_header(storage_blob)
             header['piaa_state'] = 'received'
-            add_header_to_db(header)
+            img_id = add_header_to_db(header)
+            logger.info("Image {} received by metadb".format(img_id))
 
         # Accept the change message
         message.ack()
 
-    subscription = subscriber.subscribe(subscription_path)
-    future = subscription.open(callback)
+        return True
+
+    flow_control = pubsub.types.FlowControl(max_messages=10)
+    subscription = subscriber.subscribe(subscription_path,
+                                        callback=callback,
+                                        flow_control=flow_control)
+    logger.debug(subscription)
 
     # The subscriber is non-blocking, so we must keep the main thread from
     # exiting to allow it to process messages in the background.
-    print('Listening for messages on {}'.format(subscription_path))
+    logger.info('Listening for messages on {}'.format(subscription_path))
     while loop:
-        try:
-            future.result()
-        except Exception as e:
-            warn(e)
-            subscription.close()
-            break
-        else:
-            time.sleep(60)
+        time.sleep(60)
 
 
 if __name__ == '__main__':
