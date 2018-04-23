@@ -1,0 +1,2 @@
+-r ./PONG/requirements.txt
+-r upload-listener/requirements.txt

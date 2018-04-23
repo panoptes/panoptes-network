@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from warnings import warn
 import time
 
 from google.cloud import pubsub
