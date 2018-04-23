@@ -21,7 +21,7 @@ def get_bucket(name):
     bucket = None
 
     try:
-        bucket = client.get_bucket('my-bucket')
+        bucket = client.get_bucket(name)
     except google.cloud.exceptions.NotFound:
         print('Sorry, that bucket does not exist!')
 
