@@ -98,6 +98,10 @@ def meta_insert(table, **kwargs):
 def add_header_to_db(header):
     """Add FITS image info to metadb.
 
+    Note:
+        This function doesn't check header for proper entries and
+        assumes a large list of keywords. See source for details.
+
     Args:
         header (dict): FITS Header data from an observation.
 
@@ -147,8 +151,6 @@ def add_header_to_db(header):
         'exp_time': header['EXPTIME'],
         'iso': header['ISO'],
         'camera_id': camera_id,
-        'center_ra': header['CRVAL1'],
-        'center_dec': header['CRVAL2'],
         'cam_temp': header['CAMTEMP'].split(' ')[0],
         'cam_colortmp': header['COLORTMP'],
         'cam_circconf': header['CIRCCONF'].split(' ')[0],
@@ -156,6 +158,14 @@ def add_header_to_db(header):
         'cam_red_balance': header['REDBAL'],
         'cam_blue_balance': header['BLUEBAL'],
     }
+
+    # Add plate-solved info.
+    try:
+        image_data['center_ra'] = header['CRVAL1']
+        image_data['center_dec'] = header['CRVAL2']
+    except KeyError:
+        pass
+
     db_img_id = meta_insert('images', **image_data)
 
     return db_img_id == img_id
