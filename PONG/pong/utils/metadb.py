@@ -3,6 +3,7 @@ import os
 from warnings import warn
 
 import psycopg2
+from astropy.wcs import WCS
 
 
 def get_db_conn(instance='panoptes-meta', db_name='panoptes', db_user='panoptes', port=5432):
@@ -135,9 +136,15 @@ def add_header_to_db(header):
         'exp_time': header['EXPTIME'],
         'ra_rate': header['RA-RATE'],
         'pocs_version': header['CREATOR'],
-        'piaa_state': header['piaa_state']
+        'piaa_state': header['piaa_state'],
     }
-    meta_insert('sequences', **seq_data)
+    try:
+        bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
+        seq_data['coord_bounds'] = '[({}), ({})]'.format(bl, tr)
+        meta_insert('sequences', **seq_data)
+    except Exception:
+        del seq_data['coord_bounds']
+        meta_insert('sequences', **seq_data)
 
     image_data = {
         'id': img_id,
