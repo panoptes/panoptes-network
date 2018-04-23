@@ -1,4 +1,4 @@
 google-cloud-pubsub==0.32.1
 google-cloud-storage==1.8.0
 google-cloud-logging==1.6.0
--e git+https://github.com/panoptes/panoptes-network#egg=PONG&subdirectory=PONG
+-e git+https://github.com/panoptes/panoptes-network@1f92de32992824c0c7408baaddaa4d9a54b862f5#egg=PONG&subdirectory=PONG
