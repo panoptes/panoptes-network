@@ -1,2 +1,4 @@
 google-cloud-pubsub==0.32.1
+google-cloud-storage==1.8.0
+google-cloud-logging==1.6.0
 pong

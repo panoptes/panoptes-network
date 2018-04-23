@@ -107,7 +107,7 @@ def add_header_to_db(header):
         header (dict): FITS Header data from an observation.
 
     Returns:
-        bool: If all header data was successfully stored.
+        str: The image_id.
     """
     unit_id = int(header['OBSERVER'].strip().replace('PAN', ''))
     seq_id = header['SEQID'].strip()
@@ -176,4 +176,4 @@ def add_header_to_db(header):
 
     db_img_id = meta_insert('images', **image_data)
 
-    return db_img_id == img_id
+    return db_img_id
