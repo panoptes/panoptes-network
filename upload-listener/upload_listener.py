@@ -11,6 +11,8 @@ from pong.utils.metadb import add_header_to_db
 # Instantiates a client
 logging_client = logging.Client()
 
+logging_client.setup_logging(log_level=logging.INFO)
+
 # The name of the log to write to
 log_name = 'upload-listener-log'
 

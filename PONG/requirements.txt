@@ -1,4 +1,5 @@
 google-cloud-storage==1.8.0
 google-cloud-pubsub==0.32.1
 google-cloud-logging==1.6.0
+psycopg2
 -e git+https://github.com/panoptes/POCS#egg=pocs
