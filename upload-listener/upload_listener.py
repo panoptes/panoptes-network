@@ -13,7 +13,6 @@ from pong.utils.metadb import add_header_to_db
 logging_client = logging.Client()
 handler = CloudLoggingHandler(logging_client)
 logging.handlers.setup_logging(handler)
-logging.getLogger().setLevel(logging.DEBUG)
 
 # The name of the log to write to
 log_name = 'upload-listener-log'
@@ -29,21 +28,21 @@ def receive_messages(project, subscription_name, loop=True):
         project, subscription_name)
 
     def callback(message):
-        logger.debug('Received message: {}'.format(message))
+        logger.log_text('Received message: {}'.format(message))
 
         attrs = dict(message.attributes)
 
         # Get header from Storage
         storage_blob = attrs['objectId']
-        logger.info("Blob notifcation for  {}".format(storage_blob))
+        logger.log_text("Blob notifcation for  {}".format(storage_blob))
 
-        if storage_blob.endswith('.fits*'):
+        if storage_blob.endswith('.fits') or storage_blob.endswith('.fz'):
             # Store header in meta db
             header = get_header(storage_blob)
             header['piaa_state'] = 'received'
             img_id = add_header_to_db(header)
             if img_id:
-                logger.info("Image {} received by metadb".format(img_id))
+                logger.log_text("Image {} received by metadb".format(img_id))
 
                 # Accept the change message
                 message.ack()
@@ -54,11 +53,10 @@ def receive_messages(project, subscription_name, loop=True):
     subscription = subscriber.subscribe(subscription_path,
                                         callback=callback,
                                         flow_control=flow_control)
-    logger.debug(subscription)
 
     # The subscriber is non-blocking, so we must keep the main thread from
     # exiting to allow it to process messages in the background.
-    logger.info('Listening for messages on {}'.format(subscription_path))
+    logger.log_text('Listening for messages on {}'.format(subscription_path))
     while loop:
         time.sleep(60)
 
