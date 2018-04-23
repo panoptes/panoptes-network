@@ -5,9 +5,8 @@ import time
 
 from google.cloud import pubsub
 
-from astropy.wcs import WCS
-
-from pong.utils.storage import get_header, get_observation_blobs
+from pong.utils.storage import get_header
+from pong.utils.metadb import add_header_to_db
 
 
 def receive_messages(project, subscription_name, loop=True):
@@ -24,13 +23,11 @@ def receive_messages(project, subscription_name, loop=True):
         # Get header from Storage
         storage_blob = attrs['objectId']
 
-        # Store header in meta db
-        header = get_header(storage_blob)
-        wcs = WCS(header)
-
-        # Check for plate-solve and start job if needed
-        if wcs.is_celestial() is False:
-            pass
+        if storage_blob.endswith('.fits*'):
+            # Store header in meta db
+            header = get_header(storage_blob)
+            header['piaa_state'] = 'received'
+            add_header_to_db(header)
 
         # Accept the change message
         message.ack()

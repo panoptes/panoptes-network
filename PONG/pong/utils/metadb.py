@@ -135,6 +135,7 @@ def add_header_to_db(header):
         'exp_time': header['EXPTIME'],
         'ra_rate': header['RA-RATE'],
         'pocs_version': header['CREATOR'],
+        'piaa_state': header['piaa_state']
     }
     meta_insert('sequences', **seq_data)
 
