@@ -3,8 +3,8 @@
 FROM gcr.io/panoptes-survey/piaa:latest as pan-network
 MAINTAINER Developers for PANOPTES project<https://github.com/panoptes/POCS>
 
-ARG meta_db='146.148.50.241'
-ARG tess_db='35.226.47.134'
+ARG meta_db
+ARG tess_db
 
 ENV METADB_IP=${meta_db}
 ENV TESSDB_IP=${TESS_db}
