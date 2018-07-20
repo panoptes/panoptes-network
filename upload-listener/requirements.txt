@@ -1,5 +1,4 @@
 google-cloud-pubsub==0.32.1
 google-cloud-storage==1.8.0
 google-cloud-logging==1.6.0
-psycopg2
--e git+https://github.com/panoptes/panoptes-network@observation-upload-ingest#egg=PONG&subdirectory=PONG
+psycopg2-binary
