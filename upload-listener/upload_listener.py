@@ -51,12 +51,12 @@ def receive_messages(project, subscription_name, topic, loop=True):
         if 'overwroteGeneration' not in attrs and attrs['eventType'] == 'OBJECT_FINALIZE':
 
             if str(storage_blob).endswith('.fits') or str(storage_blob).endswith('.fz'):
-                logger.log_text("New image file uploaded:  {}".format(storage_blob))
+                logger.log_text("New image file uploaded to bucket:  {}".format(storage_blob))
 
                 # Download (and uncompress) the FITS file and get headers
                 try:
                     fits_fn = download_fits_file(storage_blob, save_dir='/images')
-                    logger.log_text("Downloaded FITS: {}".format(fits_fn))
+                    logger.log_text("FITS for processing: {}".format(fits_fn))
                 except Exception as e:
                     logger.log_text("Problem getting file: {}".format(e))
                     return False
@@ -81,7 +81,7 @@ def receive_messages(project, subscription_name, topic, loop=True):
                         except Exception as e:
                             logger.log_text("Skipping header: {}".format(e))
 
-                except SolveError as e:
+                except Exception as e:
                     logger.log_text("Can't solve file: {}".format(e))
                     header['plate_solved'] = False
                 else:
