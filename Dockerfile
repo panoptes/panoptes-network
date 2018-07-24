@@ -3,13 +3,11 @@
 FROM gcr.io/panoptes-survey/piaa:latest as pan-network
 MAINTAINER Developers for PANOPTES project<https://github.com/panoptes/POCS>
 
-ARG meta_db
-ARG tess_db
+COPY . /app
 
-ENV METADB_IP=${meta_db}
-ENV TESSDB_IP=${TESS_db}
-
-ADD . /app
+ENV METADB_IP="${METADB_IP}"
+ENV TESSDB_IP="${TESSDB_IP}"
+ENV PGPASSWORD="${PGPASSWORD}"
 
 # Use "bash" as replacement for "sh"
 # Note: I don't think this is the preferred way to do this anymore
@@ -28,5 +26,4 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh \
 
 WORKDIR /app
 
-# Set entrypoint as the Flask notification listener and expose port
 CMD ["/app/upload-listener/listener.sh"]

@@ -12,7 +12,6 @@ from astropy.io import fits
 from pong.utils.storage import download_fits_file, upload_fits_file
 from pong.utils.metadb import get_db_proxy_conn, add_header_to_db
 from pocs.utils.images import fits as fits_utils
-from pocs.utils.error import SolveError
 from pocs.utils.data import Downloader
 
 # Instantiates a client
@@ -22,7 +21,7 @@ logging.handlers.setup_logging(handler)
 
 # The name of the log to write to
 log_name = 'upload-listener-log'
-
+    
 # Selects the log to write to
 logger = logging_client.logger(log_name)
 
@@ -72,8 +71,8 @@ def receive_messages(project, subscription_name, topic, loop=True):
                 # Plate-solve the file and upload if successful
                 logger.log_text("Plate solving file: {}".format(fits_fn))
                 try:
-                    solve_info = fits_utils.get_solve_field(fits_fn, timeout=60)
-                    header['plate_solved'] = True
+                    solve_info = fits_utils.get_solve_field(fits_fn, timeout=120)
+                    header['SOLVED'] = True
                     for k, v in solve_info.items():
                         try:
                             fits_k = k[0:8].upper()
@@ -83,7 +82,7 @@ def receive_messages(project, subscription_name, topic, loop=True):
 
                 except Exception as e:
                     logger.log_text("Can't solve file: {}".format(e))
-                    header['plate_solved'] = False
+                    header['SOLVED'] = False
                 else:
                     # If we have solved then upload
                     try:
@@ -165,7 +164,7 @@ if __name__ == '__main__':
 
     logger.log_text("Downloading files for plate-solving")
     try:
-        dl = Downloader(data_folder=args.folder)
+        dl = Downloader(data_folder=args.folder, wide_field=True, narrow_field=True)
         dl.download_all_files()
     except Exception as e:
         logger.log_text("Can't download solve files: {}".format(e))
