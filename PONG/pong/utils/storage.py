@@ -1,6 +1,8 @@
 import os
 import re
 import time
+import subprocess
+import shutil
 from warnings import warn
 
 import google.cloud.exceptions
@@ -229,3 +231,32 @@ def get_header(img_blob, parse_line=None):
         i += 1
 
     return headers
+
+
+def upload_to_bucket(bucket, local_path, remote_path):
+    """ Upload to Google Storage Bucket using gsutil.
+
+    Note:
+        This function does no sanity checking on `remote_path`.
+
+    Args:
+        bucket (str): Bucket name.
+        local_path (str): Path to local file.
+        remote_path (str): Path to remote file.
+    """
+    gsutil = shutil.which('gsutil')
+    assert gsutil is not None, "gsutil command line utility not found"
+
+    bucket = 'gs://{}/'.format(bucket)
+    # normpath strips the trailing slash so add here so we place in directory
+    run_cmd = [gsutil, '-mq', 'cp', local_path, bucket + remote_path]
+    print("Running: {}".format(run_cmd))
+
+    try:
+        completed_process = subprocess.run(run_cmd, stdout=subprocess.PIPE)
+
+        if completed_process.returncode != 0:
+            print("Problem uploading")
+            print(completed_process.stdout)
+    except Exception as e:
+        print("Problem uploading: {}".format(e))
