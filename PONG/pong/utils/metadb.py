@@ -5,6 +5,31 @@ from warnings import warn
 import psycopg2
 from astropy.wcs import WCS
 
+host_lookup = {
+    'panoptes-meta': os.environ['METADB_IP'],
+    'tess-catalog': os.environ['TESSDB_IP'],
+}
+
+
+def get_db_proxy_conn(host='127.0.0.1', db_name='panoptes', db_user='postgres', port=5432):
+    try:
+        pg_pass = os.environ['PGPASSWORD']
+    except KeyError:
+        warn("DB password has not been set")
+        return None
+
+    conn_params = {
+        'host': host,
+        'port': port,
+        'user': db_user,
+        'dbname': db_name,
+        'password': pg_pass,
+    }
+    conn_str = ' '.join("{}={}".format(k, v) for k, v in conn_params.items())
+
+    conn = psycopg2.connect(conn_str)
+    return conn
+
 
 def get_db_conn(instance='panoptes-meta', db_name='panoptes', db_user='panoptes', port=5432):
     """Gets a connection to the Cloud SQL db.
@@ -27,11 +52,6 @@ def get_db_conn(instance='panoptes-meta', db_name='panoptes', db_user='panoptes'
     ssl_root_cert = os.path.join(os.environ['SSL_KEYS_DIR'], instance, 'server-ca.pem')
     ssl_client_cert = os.path.join(os.environ['SSL_KEYS_DIR'], instance, 'client-cert.pem')
     ssl_client_key = os.path.join(os.environ['SSL_KEYS_DIR'], instance, 'client-key.pem')
-
-    host_lookup = {
-        'panoptes-meta': os.environ['METADB_IP'],
-        'tess-catalog': os.environ['TESSDB_IP'],
-    }
 
     conn_params = {
         'sslmode': 'verify-full',
@@ -60,13 +80,13 @@ def get_cursor(**kwargs):
     Returns:
         `psycopg2.Cursor`: Cursor object.
     """
-    conn = get_db_conn(**kwargs)
+    conn = get_db_proxy_conn(**kwargs)
     cur = conn.cursor()
 
     return cur
 
 
-def meta_insert(table, **kwargs):
+def meta_insert(table, conn=None, logger=None, **kwargs):
     """Inserts arbitrary key/value pairs into a table.
 
     Args:
@@ -77,7 +97,9 @@ def meta_insert(table, **kwargs):
     Returns:
         tuple|None: Returns the inserted row or None.
     """
-    conn = get_db_conn()
+    if conn is None:
+        conn = get_db_proxy_conn()
+
     cur = conn.cursor()
 
     col_names = ','.join(kwargs.keys())
@@ -86,17 +108,19 @@ def meta_insert(table, **kwargs):
     insert_sql = 'INSERT INTO {} ({}) VALUES ({}) ON CONFLICT DO NOTHING RETURNING *'.format(
         table, col_names, col_val_holders)
 
-    cur.execute(insert_sql, list(kwargs.values()))
-    conn.commit()
-
     try:
+        cur.execute(insert_sql, list(kwargs.values()))
+        conn.commit()
         return cur.fetchone()
     except Exception as e:
-        warn(e)
+        conn.rollback()
+        warn("Error on fetch: {}".format(e))
+        if logger:
+            logger.log_text("Can't insert row: {}".format(e))
         return None
 
 
-def add_header_to_db(header):
+def add_header_to_db(header, conn=None, logger=None):
     """Add FITS image info to metadb.
 
     Note:
@@ -121,13 +145,13 @@ def add_header_to_db(header):
         'lon': float(header['LONG-OBS']),
         'elevation': float(header['ELEV-OBS']),
     }
-    meta_insert('units', **unit_data)
+    meta_insert('units', conn=conn, logger=logger, **unit_data)
 
     camera_data = {
         'unit_id': unit_id,
         'id': camera_id,
     }
-    meta_insert('cameras', **camera_data)
+    meta_insert('cameras', conn=conn, logger=logger, **camera_data)
 
     seq_data = {
         'id': seq_id,
@@ -136,22 +160,30 @@ def add_header_to_db(header):
         'exp_time': header['EXPTIME'],
         'ra_rate': header['RA-RATE'],
         'pocs_version': header['CREATOR'],
-        'piaa_state': header['piaa_state'],
+        'piaa_state': header['PSTATE'],
     }
     try:
         bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
-        seq_data['coord_bounds'] = '[({}), ({})]'.format(bl, tr)
-        meta_insert('sequences', **seq_data)
-    except Exception:
-        del seq_data['coord_bounds']
-        meta_insert('sequences', **seq_data)
+        seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
+            bl[0], bl[1],
+            tr[0], tr[1]
+        )
+        meta_insert('sequences', conn=conn, logger=logger, **seq_data)
+    except Exception as e:
+        logger.log_text("Can't get bounds: {}".format(e))
+        if 'coord_bounds' in seq_data:
+            del seq_data['coord_bounds']
+        try:
+            meta_insert('sequences', conn=conn, logger=logger, **seq_data)
+        except Exception as e:
+            raise e
 
     image_data = {
         'id': img_id,
-        'seq_id': seq_id,
-        'obs_date': header['DATE-OBS'],
-        'moon_frac': header['MOONFRAC'],
-        'moon_sep': header['MOONSEP'],
+        'sequence_id': seq_id,
+        'date_obs': header['DATE-OBS'],
+        'moon_fraction': header['MOONFRAC'],
+        'moon_separation': header['MOONSEP'],
         'ra_mnt': header['RA-MNT'],
         'ha_mnt': header['HA-MNT'],
         'dec_mnt': header['DEC-MNT'],
@@ -165,6 +197,7 @@ def add_header_to_db(header):
         'cam_measrggb': header['MEASRGGB'],
         'cam_red_balance': header['REDBAL'],
         'cam_blue_balance': header['BLUEBAL'],
+        'file_path': header['FILEPATH']
     }
 
     # Add plate-solved info.
@@ -174,6 +207,6 @@ def add_header_to_db(header):
     except KeyError:
         pass
 
-    db_img_id = meta_insert('images', **image_data)
+    img_row = meta_insert('images', conn=conn, logger=logger, **image_data)
 
-    return db_img_id
+    return img_row

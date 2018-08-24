@@ -1,4 +1,6 @@
 import os
+import re
+import time
 from warnings import warn
 
 import google.cloud.exceptions
@@ -103,6 +105,14 @@ def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callba
         with open(output_path, 'wb') as f:
             img_blob.download_to_file(f)
 
+    # Wait for download
+    timeout = 10
+    while os.path.exists(fits_fz_fn) is False:
+        timeout -= 1
+        if timeout < 0:
+            return None
+        time.sleep(1)
+
     # Once downloaded, uncompress
     if os.path.exists(output_path) and unpack:
         output_path = fits_utils.fpack(output_path, unpack=True)
@@ -115,6 +125,32 @@ def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callba
             warn('callback must be callable')
 
     return output_path
+
+
+def upload_fits_file(img_path, bucket_name='panoptes-survey'):
+    """Uploads an image to the storage bucket.
+
+    Args:
+        img_blob (str|google.cloud.storage.blob.Blob): Blob object corresponding to FITS file.
+            If just the blob name is given then file will be downloaded.
+        save_dir (str, optional): Path for saved file, defaults to current directory.
+        force (bool, optional): Force a download even if file exists locally, default False.
+        callback (callable, optional): A callable object that gets called at end of
+        function.
+
+    Returns:
+        str: Path to local (uncompressed) FITS file
+    """
+    bucket = get_bucket(bucket_name)
+
+    # Replace anything before the unit id
+    bucket_path = re.sub(r'^.*PAN', 'PAN', img_path).replace('_', '/')
+
+    try:
+        blob = bucket.blob(bucket_path)
+        blob.upload_from_filename(img_path)
+    except Exception as e:
+        warn("Can't upload file: {}".format(e))
 
 
 def get_header(img_blob, parse_line=None):
