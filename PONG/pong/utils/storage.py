@@ -72,7 +72,7 @@ def get_observation_blobs(prefix, include_pointing=False, bucket_name='panoptes-
     return sorted(objs, key=lambda x: x.name)
 
 
-def download_fits_file(img_blob, save_dir='.', force=False, callback=None):
+def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callback=None):
     """Downloads (and uncompresses) the image blob data.
 
     Args:
@@ -89,19 +89,23 @@ def download_fits_file(img_blob, save_dir='.', force=False, callback=None):
     if isinstance(img_blob, str):
         img_blob = get_observation_blob(img_blob)
 
-    fits_fz_fn = img_blob.name.replace('/', '_')
-    fits_fz_fn = os.path.join(save_dir, fits_fz_fn)
-    fits_fn = fits_fz_fn.replace('.fz', '')
+    output_path = os.path.join(
+        save_dir, 
+        img_blob.name.replace('/', '_')
+    )
+    
+    # Make dir if needed
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # If we don't  have file (or force=True) then download directly to
     # (compressed) FITS file.
-    if not os.path.exists(fits_fn):
-        with open(fits_fz_fn, 'wb') as f:
+    if not os.path.exists(output_path):
+        with open(output_path, 'wb') as f:
             img_blob.download_to_file(f)
 
     # Once downloaded, uncompress
-    if os.path.exists(fits_fz_fn):
-        fits_fn = fits_utils.fpack(fits_fz_fn, unpack=True)
+    if os.path.exists(output_path) and unpack:
+        output_path = fits_utils.fpack(output_path, unpack=True)
 
     # User supplied callback (e.g. logging)
     if callback is not None:
@@ -110,7 +114,7 @@ def download_fits_file(img_blob, save_dir='.', force=False, callback=None):
         except TypeError as e:
             warn('callback must be callable')
 
-    return fits_fn
+    return output_path
 
 
 def get_header(img_blob, parse_line=None):
