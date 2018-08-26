@@ -15,7 +15,7 @@ def get_bucket(name):
     """Get Storage bucket object.
 
     Args:
-        name (str): Name of Storage bucket
+        name (str): Name of Storage bucket.
 
     Returns:
         google.cloud.storage.client.Client|None: Stroage Client or None
@@ -91,6 +91,7 @@ def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callba
             If just the blob name is given then file will be downloaded.
         save_dir (str, optional): Path for saved file, defaults to current directory.
         force (bool, optional): Force a download even if file exists locally, default False.
+        unpack (bool, optional): If file should be uncompressed, default False.
         callback (callable, optional): A callable object that gets called at end of
         function.
 
@@ -101,10 +102,10 @@ def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callba
         img_blob = get_observation_blob(img_blob)
 
     output_path = os.path.join(
-        save_dir, 
+        save_dir,
         img_blob.name.replace('/', '_')
     )
-    
+
     # Make dir if needed
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -116,7 +117,7 @@ def download_fits_file(img_blob, save_dir='.', force=False, unpack=False, callba
 
     # Wait for download
     timeout = 10
-    while os.path.exists(fits_fz_fn) is False:
+    while os.path.exists(output_path) is False:
         timeout -= 1
         if timeout < 0:
             return None
@@ -140,15 +141,9 @@ def upload_fits_file(img_path, bucket_name='panoptes-survey'):
     """Uploads an image to the storage bucket.
 
     Args:
-        img_blob (str|google.cloud.storage.blob.Blob): Blob object corresponding to FITS file.
-            If just the blob name is given then file will be downloaded.
-        save_dir (str, optional): Path for saved file, defaults to current directory.
-        force (bool, optional): Force a download even if file exists locally, default False.
-        callback (callable, optional): A callable object that gets called at end of
-        function.
+        img_path (str): Path to local file to upload.
+        bucket_name (str, optional): Bucket to upload, default 'panoptes-survey'.
 
-    Returns:
-        str: Path to local (uncompressed) FITS file
     """
     bucket = get_bucket(bucket_name)
 
@@ -246,6 +241,8 @@ def upload_to_bucket(bucket, local_path, remote_path):
 
     Note:
         This function does no sanity checking on `remote_path`.
+
+    See also: `upload_fits_file()`
 
     Args:
         bucket (str): Bucket name.
