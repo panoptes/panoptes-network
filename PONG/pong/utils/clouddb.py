@@ -14,7 +14,22 @@ except KeyError:
     host_lookup = dict()
 
 
-def get_db_proxy_conn(host='127.0.0.1', db_name='panoptes', db_user='postgres', port=5432):
+def get_db_proxy_conn(
+        host='127.0.0.1',
+        db_name='panoptes',
+        db_user='panoptes',
+        port=5432):
+    """Return postgress connection to local proxy.
+
+    Args:
+        host (str, optional): Hostname, default localhost.
+        db_user (str, optional): Name of db user, default 'panoptes'.
+        db_name (str, optional): Name of db, default 'postgres'.
+        port (int, optional): DB port.
+
+    Returns:
+        `psycopg2.Connection`: DB connection object.
+    """
     try:
         pg_pass = os.environ['PGPASSWORD']
     except KeyError:
@@ -34,13 +49,16 @@ def get_db_proxy_conn(host='127.0.0.1', db_name='panoptes', db_user='postgres', 
     return conn
 
 
-def get_db_conn(instance='panoptes-meta', db_name='panoptes', db_user='panoptes', port=5432):
+def get_db_conn(instance='panoptes-meta',
+                db_name='panoptes',
+                db_user='panoptes',
+                port=5432):
     """Gets a connection to the Cloud SQL db.
 
     Args:
         instance (str, optional): Cloud SQL instance to connect to.
-        db_user (str, optional): Name of db user.
-        db_name (str, optional): Name of db.
+        db_user (str, optional): Name of db user, default 'panoptes'.
+        db_name (str, optional): Name of db, default 'panoptes'.
         port (int, optional): DB port.
 
     Returns:
@@ -93,7 +111,10 @@ def meta_insert(table, conn=None, logger=None, **kwargs):
     """Inserts arbitrary key/value pairs into a table.
 
     Args:
-        table (str): Table name to be inserted.
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
         **kwargs: List of key/value pairs corresponding to columns in the
             table.
 
@@ -132,6 +153,9 @@ def add_header_to_db(header, conn=None, logger=None):
 
     Args:
         header (dict): FITS Header data from an observation.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
 
     Returns:
         str: The image_id.
