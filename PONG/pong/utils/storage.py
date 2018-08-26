@@ -49,9 +49,16 @@ def get_observation_blob(blob_name, bucket_name='panoptes-survey'):
 def get_observation_blobs(prefix, include_pointing=False, bucket_name='panoptes-survey'):
     """Returns the list of Storage blobs (files) matching the prefix.
 
+    Note:
+        The prefix can be any pattern, e.g:
+            - 'PAN006'  # All images for unit
+            - 'Hd189733'  # All images for field
+            - 'PAN006/Hd189733/7bab97' # All images for unit, field, camera
+            - 'PAN006/*/7bab97' # All images for unit, camera
+            - 'PAN006/Hd189733/7bab97/20180327T071126/' # Specific observation
+
     Args:
-        prefix (str): Path in storage to observation sequence, e.g.
-            'PAN006/Hd189733/7bab97/20180327T071126/'.
+        prefix (str): Path in storage to observation sequence, see note.
         include_pointing (bool, optional): Whether or not to include the pointing file,
             default False.
         bucket_name (str, optional): Name of Storage bucket where Observation is
