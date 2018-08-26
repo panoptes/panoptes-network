@@ -5,10 +5,13 @@ from warnings import warn
 import psycopg2
 from astropy.wcs import WCS
 
-host_lookup = {
-    'panoptes-meta': os.environ['METADB_IP'],
-    'tess-catalog': os.environ['TESSDB_IP'],
-}
+try:
+    host_lookup = {
+        'panoptes-meta': os.environ['METADB_IP'],
+        'tess-catalog': os.environ['TESSDB_IP'],
+    }
+except KeyError:
+    host_lookup = dict()
 
 
 def get_db_proxy_conn(host='127.0.0.1', db_name='panoptes', db_user='postgres', port=5432):
