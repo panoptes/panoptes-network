@@ -37,14 +37,19 @@ def observations():
 
     print(request.args)
 
-    limit = request.args.get('per_page', 5)
-    current_page = request.args.get('current_page', 1)
-    sort = request.args.get('sort').replace('|', ' ')
-    if sort is '':
-        sort = 'start_date desc'
-    offset = 0
+    sort = request.args.get('sort', 'start_date|desc').replace('|', ' ')
 
     cursor = get_db_cursor()
+
+    cursor.execute('SELECT count(*) FROM sequences')
+
+    seq_count = cursor.fetchone()['count']
+    per_page = int(request.args.get('per_page', 5))
+    current_page = request.args.get('current_page', 1)
+    last_page = seq_count // per_page
+    offset = int(current_page * per_page - per_page)
+    from_num = offset
+    to_num = from_num + per_page
 
     select_sql = """
         SELECT t1.*, count(t2.id) as image_count FROM
@@ -55,20 +60,20 @@ def observations():
         LIMIT %s OFFSET %s
         """.format(sort)
 
-    cursor.execute(select_sql, (limit, offset))
+    cursor.execute(select_sql, (per_page, offset))
 
     rows = cursor.fetchall()
 
     links = {
         "pagination": {
-            "total": 10,
-            "per_page": limit,
+            "total": seq_count,
+            "per_page": per_page,
             "current_page": current_page,
-            "last_page": 5,
+            "last_page": last_page,
             "next_page_url": '...',
             "prev_page_url": '...',
-            "from": 1,
-            "to": 10
+            "from": from_num,
+            "to": to_num
         }
     }
 
