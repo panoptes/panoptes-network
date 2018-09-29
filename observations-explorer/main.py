@@ -39,17 +39,23 @@ def observations():
 
     limit = request.args.get('per_page', 5)
     current_page = request.args.get('current_page', 1)
+    sort = request.args.get('sort').replace('|', ' ')
+    if sort is '':
+        sort = 'start_date desc'
     offset = 0
 
     cursor = get_db_cursor()
-    cursor.execute("""
+
+    select_sql = """
         SELECT t1.*, count(t2.id) as image_count FROM
         sequences t1, images t2
         WHERE t1.id=t2.sequence_id
         GROUP BY t1.id
+        ORDER BY {}
         LIMIT %s OFFSET %s
-        """, (limit, offset)
-    )
+        """.format(sort)
+
+    cursor.execute(select_sql, (limit, offset))
 
     rows = cursor.fetchall()
 

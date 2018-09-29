@@ -20,11 +20,13 @@
     { 
       name: 'id', 
       title: 'Sequence ID',
+      sortField: 'unit_id'
     },
-    { name: 'pocs_version', title: 'POCS Version' },
-    { name: 'piaa_state', title: 'State' },
-    { name: 'exp_time', title: 'Exposure Time' },
-    { name: 'image_count', title: 'Images' },
+    { name: 'start_date', title: 'Date', sortField: 'start_date' },
+    { name: 'pocs_version', title: 'POCS Version', sortField: 'pocs_version' },
+    { name: 'piaa_state', title: 'State', sortField: 'piaa_state' },
+    { name: 'exp_time', title: 'Exposure Time', sortField: 'exp_time' },
+    { name: 'image_count', title: 'Images', sortField: 'image_count' },
     ]"
     data-path="data"
     pagination-path="links.pagination"
