@@ -10,12 +10,15 @@
         enabled: true,
         initialSortBy: {field: 'start_date', type: 'desc'}
       }"
+      :theme="nocturnal"
     />
   </div>
 </template>
 
 <script>
 import { VueGoodTable } from 'vue-good-table'
+import 'vue-good-table/dist/vue-good-table.css'
+
 import observations from '../assets/observations.json'
 
 export default {

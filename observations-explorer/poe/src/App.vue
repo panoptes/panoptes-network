@@ -1,15 +1,20 @@
 <template>
   <div id="app">
-    <img src="./assets/logo.png">
+    <img id='logo' src="./assets/logo.png">
+    <h1>{{ name }}</h1>
     <router-view/>
   </div>
 </template>
 
 <script>
-import 'vue-good-table/dist/vue-good-table.css'
 
 export default {
-  name: 'PANOPTES Observations Explorer'
+  name: 'PANOPTES Observations Explorer',
+  data () {
+    return {
+      name: 'PANOPTES Observations Explorer'
+    }
+  }
 }
 </script>
 
@@ -21,5 +26,13 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 60px;
+}
+#logo {
+  width: 20em;
+  margin-top: -3em;
+  margin-bottom: 1em;
+}
+h1 {
+  font-size: 1.5em;
 }
 </style>
