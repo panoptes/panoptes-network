@@ -1,18 +1,15 @@
 <template>
   <div id="app">
-    <img alt="PANOPTES Logo" src="./assets/logo.png">
-    <Observations/>
+    <img src="./assets/logo.png">
+    <router-view/>
   </div>
 </template>
 
 <script>
-import Observations from './components/Observations.vue'
+import 'vue-good-table/dist/vue-good-table.css'
 
 export default {
-  name: 'app',
-  components: {
-    Observations
-  }
+  name: 'PANOPTES Observations Explorer'
 }
 </script>
 
