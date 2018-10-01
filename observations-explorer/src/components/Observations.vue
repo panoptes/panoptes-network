@@ -10,7 +10,6 @@
         enabled: true,
         initialSortBy: {field: 'start_date', type: 'desc'}
       }"
-      :theme="nocturnal"
     />
   </div>
 </template>
@@ -19,16 +18,18 @@
 import { VueGoodTable } from 'vue-good-table'
 import 'vue-good-table/dist/vue-good-table.css'
 
-import observations from '../assets/observations.json'
+import { ObservationsService } from '../services/ObservationsService.js'
+
+let observations = new ObservationsService()
 
 export default {
   name: 'Observations',
-  observations_data: observations,
   components: {
     VueGoodTable
   },
   methods: {
     unitFormatFn: function (value) {
+      // Silly formatting
       let unitId = 'PAN000'
       let l = -1 * value.toFixed(0).length
       unitId = unitId.slice(0, l)
@@ -40,12 +41,13 @@ export default {
     return {
       columns: [
         {
-          label: 'Unit',
+          label: 'PAN ID',
           field: 'unit_id',
           formatFn: this.unitFormatFn,
+          width: '5%',
           filterOptions: {
             enabled: true,
-            placeholder: 'Filter Unit',
+            placeholder: 'PAN ID',
             filterValue: '',
             filterDropdownItems: [
               {value: 1, text: 'PAN001'},
@@ -54,8 +56,9 @@ export default {
           }
         },
         {
-          label: 'Sequence',
+          label: 'Sequence ID',
           field: 'id',
+          width: '10%',
           filterOptions: {
             enabled: true
           }
@@ -64,22 +67,26 @@ export default {
           label: 'Date',
           field: 'start_date',
           type: 'date',
+          width: '10%',
           dateInputFormat: 'YYYY-MM-DDThh:mm:ss',
           dateOutputFormat: 'YYYY-MM-DD  HH:MM:SS'
         },
         {
-          label: 'Exposure Time',
+          label: 'Exptime',
           field: 'exp_time',
-          type: 'decimal'
+          type: 'decimal',
+          width: '5%'
         },
         {
           label: 'Images',
           field: 'image_count',
-          type: 'number'
+          type: 'number',
+          width: '5%'
         },
         {
           label: 'POCS Version',
           field: 'pocs_version',
+          width: '10%',
           filterOptions: {
             enabled: true,
             placeholder: 'Version',
@@ -92,7 +99,8 @@ export default {
         },
         {
           label: 'Status',
-          field: 'piaa_state'
+          field: 'piaa_state',
+          width: '10%'
         }
       ],
       rows: observations.data

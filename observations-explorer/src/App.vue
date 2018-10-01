@@ -9,7 +9,6 @@
 <script>
 
 export default {
-  name: 'PANOPTES Observations Explorer',
   data () {
     return {
       name: 'PANOPTES Observations Explorer'
