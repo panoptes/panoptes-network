@@ -4,6 +4,7 @@ import flask
 import psycopg2.extensions
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2 import OperationalError
+from psycopg2.extras import RealDictCursor
 
 CONNECTION_NAME = getenv(
     'INSTANCE_CONNECTION_NAME',
@@ -73,7 +74,7 @@ def get_observations(sequence_id=None):
             """
 
     rows = list()
-    with conn.cursor() as cursor:
+    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
         cursor.execute(select_sql, (sequence_id, ))
         rows = cursor.fetchall()
         cursor.close()
@@ -92,4 +93,7 @@ def get_observations_data(request):
 
     rows = get_observations(sequence_id)
 
-    return flask.jsonify(dict(data=rows, count=len(rows)))
+    body = flask.jsonify(dict(data=rows, count=len(rows)))
+    headers = {'Access-Control-Allow-Origin': "*"}
+
+    return (body, headers)

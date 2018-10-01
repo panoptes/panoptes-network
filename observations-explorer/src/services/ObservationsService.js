@@ -1,9 +1,13 @@
-import observations from '../assets/observations.json'
+const axios = require('axios')
 
 export class ObservationsService {
   constructor () {
     this.name = 'Observations Service'
-    this.data = observations.data
-    this.total = observations.count
+    this.endpoint = 'http://us-central1-panoptes-survey.cloudfunctions.net/get-observations-data'
+  }
+
+  getObservations () {
+    return axios
+      .get(this.endpoint)
   }
 };

@@ -37,8 +37,18 @@ export default {
       return unitId
     }
   },
+  created () {
+    this.observations.getObservations().then(response => {
+      this.rows = response.data.data
+    })
+      .catch(error => {
+        console.log(error)
+      })
+      .finally(() => (this.loading = false))
+  },
   data () {
     return {
+      observations: observations,
       columns: [
         {
           label: 'PAN ID',
@@ -103,7 +113,7 @@ export default {
           width: '10%'
         }
       ],
-      rows: observations.data
+      rows: []
     }
   }
 }

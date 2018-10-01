@@ -25,7 +25,13 @@ Deploy
 From current directory:
 
 ```bash
+# Deploy function
 gcloud functions deploy get-observations-data \
 	--entry-point get_observations_data \
 	--runtime python37 \
 	--trigger-http
+
+# Update permissions
+gsutil acl ch -u AllUsers:R -r gs://www.panoptes-data.net/index.html
+gsutil acl ch -u AllUsers:R -r gs://www.panoptes-data.net/static/
+```
