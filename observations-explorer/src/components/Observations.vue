@@ -78,8 +78,8 @@ export default {
           field: 'start_date',
           type: 'date',
           width: '10%',
-          dateInputFormat: 'YYYY-MM-DDThh:mm:ss',
-          dateOutputFormat: 'YYYY-MM-DD  HH:MM:SS'
+          dateInputFormat: 'YYYY-MM-DDTHH:mm:ss',
+          dateOutputFormat: 'YYYY-MM-DD HH:mm:ss'
         },
         {
           label: 'Exptime',

@@ -1,7 +1,9 @@
 from os import getenv
 import flask
 
-import psycopg2.extensions
+from decimal import Decimal
+from datetime import datetime
+
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2 import OperationalError
 from psycopg2.extras import RealDictCursor
@@ -18,13 +20,6 @@ pg_config = {
     'password': DB_PASSWORD,
     'dbname': DB_NAME
 }
-
-# Give back floats instead of Decimal so we don't have to bother with serializer.
-DEC2FLOAT = psycopg2.extensions.new_type(
-    psycopg2.extensions.DECIMAL.values,
-    'DEC2FLOAT',
-    lambda value, curs: float(value) if value is not None else None)
-psycopg2.extensions.register_type(DEC2FLOAT)
 
 # Connection pools reuse connections between invocations,
 # and handle dropped or expired connections automatically.
@@ -84,6 +79,13 @@ def get_observations(sequence_id=None):
     return rows
 
 
+def json_decoder(o):
+    if isinstance(o, Decimal):
+        return float(o)
+    elif isinstance(o, datetime):
+        return o.isoformat()
+
+
 def get_observations_data(request):
     request_json = request.get_json()
 
@@ -93,7 +95,7 @@ def get_observations_data(request):
 
     rows = get_observations(sequence_id)
 
-    body = flask.jsonify(dict(data=rows, count=len(rows)))
+    body = flask.json.dumps(dict(data=rows, count=len(rows)), default=json_decoder)
     headers = {'Access-Control-Allow-Origin': "*"}
 
     return (body, headers)
