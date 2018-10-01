@@ -13,11 +13,11 @@ their respective directories. Each directory has a specific README.
 A simple table display of the Observations. This reads JSON files that are provided
 via the [Observations Data CF](#observations-data)
 
-See [POE Readme](observations-explorer/README.md)
+See [README](observations-explorer/README.md).
 
 ## Observations Data
 <a id="observatons-data"></a>
 
 A JSON service for the observations data.
 
-See [POE Readme](observations-explorer/README.md)
+See [README](observations-data/README.md).
