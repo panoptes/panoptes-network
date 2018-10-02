@@ -10,7 +10,18 @@
         enabled: true,
         initialSortBy: {field: 'start_date', type: 'desc'}
       }"
-    />
+    >
+    <template slot="table-row" slot-scope="props">
+      <span v-if="props.column.field == 'id'">
+        <a v-bind:href="'/observations/' + props.row.id">
+          {{props.row.id}}
+        </a>
+      </span>
+      <span v-else>
+        {{props.formattedRow[props.column.field]}}
+      </span>
+    </template>
+    </vue-good-table>
   </div>
 </template>
 
@@ -35,6 +46,10 @@ export default {
       unitId = unitId.slice(0, l)
       unitId += value
       return unitId
+    },
+    sequenceFormatFn: function (value) {
+      let link = '<a href="observations/' + value + '>' + value + '</a>'
+      return link
     }
   },
   created () {
