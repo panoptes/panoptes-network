@@ -13,9 +13,7 @@
     >
     <template slot="table-row" slot-scope="props">
       <span v-if="props.column.field == 'id'">
-        <a v-bind:href="'/observations/' + props.row.id">
-          {{props.row.id}}
-        </a>
+        <router-link v-bind:to="'/observations/' + props.row.id">{{ props.row.id }}</router-link>
       </span>
       <span v-else>
         {{props.formattedRow[props.column.field]}}
