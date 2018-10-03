@@ -6,8 +6,13 @@ export class ObservationsService {
     this.endpoint = 'http://us-central1-panoptes-survey.cloudfunctions.net/get-observations-data'
   }
 
-  getObservations () {
+  getAllObservations () {
     return axios
       .get(this.endpoint)
+  }
+
+  getObservation (sequenceId) {
+    return axios
+      .get(this.endpoint + '?sequence_id=' + sequenceId)
   }
 };

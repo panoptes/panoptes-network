@@ -13,7 +13,10 @@
     >
     <template slot="table-row" slot-scope="props">
       <span v-if="props.column.field == 'id'">
-        <router-link v-bind:to="'/observations/' + props.row.id">{{ props.row.id }}</router-link>
+        <!-- Link to Observation -->
+        <router-link v-bind:to="'/observations/' + props.row.id">
+          {{ props.row.id }}
+        </router-link>
       </span>
       <span v-else>
         {{props.formattedRow[props.column.field]}}
@@ -51,7 +54,7 @@ export default {
     }
   },
   created () {
-    this.observations.getObservations().then(response => {
+    this.observations.getAllObservations().then(response => {
       this.rows = response.data.data
     })
       .catch(error => {
