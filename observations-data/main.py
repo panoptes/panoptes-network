@@ -54,10 +54,9 @@ def get_observations(sequence_id=None):
     if sequence_id:
         select_sql = """
             SELECT *
-            FROM sequences t1, images t2
-            WHERE t1.id=t2.sequence_id
-                AND t1.id=%s
-            ORDER BY t2.date_obs DESC
+            FROM images
+            WHERE sequence_id=%s
+            ORDER BY date_obs DESC
             """
     else:
         select_sql = """
@@ -92,10 +91,17 @@ def get_observations_data(request):
     sequence_id = None
     if request_json and 'sequence_id' in request_json:
         sequence_id = request_json['sequence_id']
+    elif request.args and 'sequence_id' in request.args:
+        sequence_id = request.args['sequence_id']
+
+    print("Looking up observations for sequence_id={}".format(sequence_id))
 
     rows = get_observations(sequence_id)
 
     body = flask.json.dumps(dict(data=rows, count=len(rows)), default=json_decoder)
-    headers = {'Access-Control-Allow-Origin': "*"}
+    headers = {
+        'content-type': "application/json",
+        'Access-Control-Allow-Origin': "*",
+    }
 
     return (body, headers)

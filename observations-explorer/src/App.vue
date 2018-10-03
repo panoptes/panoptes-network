@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <img id='logo' src="./assets/logo.png">
+    <router-link to="/"><img id='logo' src="./assets/logo.png"></router-link>
     <h1>{{ name }}</h1>
     <router-view/>
   </div>
@@ -19,7 +19,7 @@ export default {
 
 <style>
 #app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  font-family: 'Fira Code Medium', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
@@ -33,5 +33,8 @@ export default {
 }
 h1 {
   font-size: 1.5em;
+}
+h1 a {
+  text-decoration: none;
 }
 </style>
