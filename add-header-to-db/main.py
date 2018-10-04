@@ -145,7 +145,7 @@ def add_header_to_db(header):
             'cam_measrggb': header['MEASRGGB'],
             'cam_red_balance': header['REDBAL'],
             'cam_blue_balance': header['BLUEBAL'],
-            'file_path': header.get('FILEPATH', '')
+            'file_path': header.get('FILENAME', '')
         }
 
         # Add plate-solved info.
