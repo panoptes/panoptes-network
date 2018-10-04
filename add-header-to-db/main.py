@@ -24,51 +24,25 @@ pg_config = {
 pg_pool = None
 
 
-def __connect(host):
-    """
-    Helper function to connect to Postgres
-    """
-    global pg_pool
-    pg_config['host'] = host
-    pg_pool = SimpleConnectionPool(1, 1, **pg_config)
-
-
-def meta_insert(table, cursor, **kwargs):
-    """Inserts arbitrary key/value pairs into a table.
-
+# Entry point
+def header_to_db(request):
+    """Responds to any HTTP request.
     Args:
-        table (str): Table in which to insert.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-        **kwargs: List of key/value pairs corresponding to columns in the
-            table.
-
+        request (flask.Request): HTTP request object.
     Returns:
-        tuple|None: Returns the inserted row or None.
+        The response text or any set of values that can be turned into a
+        Response object using
+        `make_response <http://flask.pocoo.org/docs/0.12/api/#flask.Flask.make_response>`.
     """
-    col_names = list()
-    col_values = list()
-    for name, value in kwargs.items():
-        col_names.append(name)
-        col_values.append(value)
+    request_json = request.get_json()
+    if request_json and 'header' in request_json:
 
-    col_names_str = ','.join(col_names)
-    col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
+        # Pass the parsed header information
+        add_header_to_db(request_json['header'])
 
-    insert_sql = '''INSERT INTO {} ({})
-                    VALUES ({})
-                    ON CONFLICT DO NOTHING RETURNING *'''.format(
-        table,
-        col_names_str,
-        col_val_holders)
-
-    try:
-        cursor.execute(insert_sql, col_values)
-    except Exception as e:
-        print("Error in insert: " + e)
-
-    return
+        return f'Header information added to meta database.'
+    else:
+        return f'No Path!'
 
 
 def add_header_to_db(header):
@@ -191,18 +165,48 @@ def add_header_to_db(header):
     return
 
 
-def header_to_db(request):
-    """Responds to any HTTP request.
+def meta_insert(table, cursor, **kwargs):
+    """Inserts arbitrary key/value pairs into a table.
+
     Args:
-        request (flask.Request): HTTP request object.
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+        **kwargs: List of key/value pairs corresponding to columns in the
+            table.
+
     Returns:
-        The response text or any set of values that can be turned into a
-        Response object using
-        `make_response <http://flask.pocoo.org/docs/0.12/api/#flask.Flask.make_response>`.
+        tuple|None: Returns the inserted row or None.
     """
-    request_json = request.get_json()
-    if request_json and 'header' in request_json:
-        add_header_to_db(request_json['header'])
-        return f'Header information added to meta database.'
-    else:
-        return f'No Path!'
+    col_names = list()
+    col_values = list()
+    for name, value in kwargs.items():
+        col_names.append(name)
+        col_values.append(value)
+
+    col_names_str = ','.join(col_names)
+    col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
+
+    insert_sql = '''INSERT INTO {} ({})
+                    VALUES ({})
+                    ON CONFLICT DO NOTHING RETURNING *'''.format(
+        table,
+        col_names_str,
+        col_val_holders)
+
+    try:
+        cursor.execute(insert_sql, col_values)
+    except Exception as e:
+        print("Error in insert: " + e)
+
+    return
+
+
+def __connect(host):
+    """
+    Helper function to connect to Postgres
+    """
+    global pg_pool
+    pg_config['host'] = host
+    pg_pool = SimpleConnectionPool(1, 1, **pg_config)
