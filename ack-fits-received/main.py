@@ -4,7 +4,7 @@ from google.cloud import storage
 import requests
 
 PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
-BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-test-bucket')
+BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-bucket')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 
