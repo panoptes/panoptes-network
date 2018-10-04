@@ -36,9 +36,16 @@ def header_to_db(request):
     """
     request_json = request.get_json()
     if request_json and 'header' in request_json:
+        header = request_json['header']
+
+        unit_id = int(header['OBSERVER'].strip().replace('PAN', ''))
+        seq_id = header['SEQID'].strip()
+        img_id = header['IMAGEID'].strip()
+        camera_id = header['INSTRUME'].strip()
+        print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
 
         # Pass the parsed header information
-        add_header_to_db(request_json['header'])
+        add_header_to_db(header)
 
         return f'Header information added to meta database.'
     else:
@@ -108,15 +115,16 @@ def add_header_to_db(header):
             'pocs_version': header['CREATOR'],
             'piaa_state': header.get('PSTATE', 'metadata_received'),
         }
-        # print("Inserting sequence: {}".format(seq_data))
+        print("Inserting sequence: {}".format(seq_data))
         try:
             bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
+            print(f'WCS info: {bl} {tl} {tr} {br}')
             seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
                 bl[0], bl[1],
                 tr[0], tr[1]
             )
             meta_insert('sequences', cursor, **seq_data)
-            # print("Sequence inserted: {}".format(seq_id))
+            print("Sequence inserted w/ bounds: {}".format(seq_id))
         except Exception as e:
             print("Can't get bounds: {}".format(e))
             if 'coord_bounds' in seq_data:
