@@ -90,6 +90,14 @@ export default {
           }
         },
         {
+          label: 'Field',
+          field: 'field',
+          width: '10%',
+          filterOptions: {
+            enabled: true
+          }
+        },
+        {
           label: 'Date',
           field: 'start_date',
           type: 'date',
