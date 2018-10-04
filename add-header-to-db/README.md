@@ -22,8 +22,8 @@ is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-				 header-to-metadb \
-				 --entry-point header_to_db \
-				 --runtime python37 \
-				 --trigger-http
+                 header-to-metadb \
+                 --entry-point header_to_db \
+                 --runtime python37 \
+                 --trigger-http
 ```
