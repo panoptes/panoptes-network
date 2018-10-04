@@ -104,6 +104,7 @@ def add_header_to_db(header):
             'start_date': header['SEQID'].split('_')[-1],
             'exp_time': header['EXPTIME'],
             'ra_rate': header['RA-RATE'],
+            'field': header.get('FIELD', ''),
             'pocs_version': header['CREATOR'],
             'piaa_state': header.get('PSTATE', 'metadata_received'),
         }
