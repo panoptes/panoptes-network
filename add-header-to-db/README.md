@@ -27,3 +27,9 @@ gcloud functions deploy \
                  --runtime python37 \
                  --trigger-http
 ```
+
+> :bulb: There is also a small convenience script called `deploy.sh` that
+does the same thing. 
+```bash
+./deploy.sh
+```
