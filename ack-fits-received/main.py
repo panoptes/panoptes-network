@@ -28,14 +28,6 @@ def ack_fits_received(data, context):
     filename = data['name']
     file_id = data['id']  # Includes storage generation
 
-    print('Event ID: {}'.format(context.event_id))
-    print('Event type: {}'.format(context.event_type))
-    print('Bucket: {}'.format(data['bucket']))
-    print('File: {}'.format(filename))
-    print('Metageneration: {}'.format(data['metageneration']))
-    print('Created: {}'.format(data['timeCreated']))
-    print('Updated: {}'.format(data['updated']))
-
     if filename.endswith('.fz'):
         storage_blob = bucket.get_blob(data['name'])
         header = lookup_fits_header(storage_blob)
