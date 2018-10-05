@@ -38,7 +38,7 @@ def header_to_db(request):
     if request_json and 'header' in request_json:
         header = request_json['header']
 
-        unit_id = int(header['OBSERVER'].strip().replace('PAN', ''))
+        unit_id = int(header['PANID'].strip().replace('PAN', ''))
         seq_id = header['SEQID'].strip()
         img_id = header['IMAGEID'].strip()
         camera_id = header['INSTRUME'].strip()
@@ -85,7 +85,7 @@ def add_header_to_db(header):
     conn.set_isolation_level(0)
     with conn.cursor() as cursor:
 
-        unit_id = int(header['OBSERVER'].strip().replace('PAN', ''))
+        unit_id = int(header['PANID'].replace('PAN', ''))
         seq_id = header['SEQID'].strip()
         img_id = header['IMAGEID'].strip()
         camera_id = header['INSTRUME'].strip()

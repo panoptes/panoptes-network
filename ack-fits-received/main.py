@@ -4,7 +4,7 @@ from google.cloud import storage
 import requests
 
 PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
-BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-bucket')
+BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 
@@ -39,6 +39,12 @@ def ack_fits_received(data, context):
     if filename.endswith('.fz'):
         storage_blob = bucket.get_blob(data['name'])
         header = lookup_fits_header(storage_blob)
+
+        # Scrub some fields
+        unit_id, field, camera_id, seq_time, filename = file_id.split('/')
+
+        header['PANID'] = unit_id
+        header['FIELD'] = field
         header['FILENAME'] = file_id
         header['PSTATE'] = 'fits_received'
 
