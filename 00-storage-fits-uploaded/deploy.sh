@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 gcloud functions deploy \
-                 ack-fits-received \
+                 00-storage-fits-uploaded \
                  --entry-point ack_fits_received \
                  --runtime python37 \
                  --trigger-resource panoptes-survey \

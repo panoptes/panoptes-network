@@ -1,5 +1,0 @@
-# Function dependencies, for example:
-# package>=version
-astropy >= 3.0.0
-PyYAML
-psycopg2

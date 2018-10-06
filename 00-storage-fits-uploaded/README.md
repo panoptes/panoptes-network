@@ -7,8 +7,9 @@ This function acknowledges a [PubSub](https://cloud.google.com/pubsub/) message
 that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/) 
 (see also the documentation about using [Storage Triggers](https://cloud.google.com/functions/docs/calling/storage)).
 
-The function will check for FITS files and pass the header information to
-the `add-header-to-db` cloud function.
+Triggered when file is uploaded to bucket. Checks for FITS and if found will
+set a few header variables and then forward to endpoint for adding headers
+to the metadatabase.
 
 > :memo: Todo: Trigger plate-solving here.
 
@@ -25,15 +26,16 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `header-to-metadb`
+name of the function in `main.py` that we want called and `00-storage-fits-uploaded`
 is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 header-to-metadb \
-                 --entry-point header_to_db \
+                 00-storage-fits-uploaded \
+                 --entry-point ack_fits_received \
                  --runtime python37 \
-                 --trigger-http
+                 --trigger-resource panoptes-survey \
+                 --trigger-event google.storage.object.finalize
 ```
 
 > :bulb: There is also a small convenience script called `deploy.sh` that

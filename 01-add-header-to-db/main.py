@@ -1,9 +1,15 @@
 from os import getenv
+from google.cloud import storage
 
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
 from astropy.wcs import WCS
+
+PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
+BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
+client = storage.Client(project=PROJECT_ID)
+bucket = client.get_bucket(BUCKET_NAME)
 
 CONNECTION_NAME = getenv(
     'INSTANCE_CONNECTION_NAME',
@@ -26,7 +32,13 @@ pg_pool = None
 
 # Entry point
 def header_to_db(request):
-    """Responds to any HTTP request.
+    """Add a FITS header to the datbase.
+
+    This endpoint looks for two parameters, `headers` and `lookup_file`. If
+    `lookup_file` is present then the header information will be pull from the file
+    itself. Additionally, any `headers` will be used to update the header information
+    from the file. If no `lookup_file` is found then only the `headers` will be used.
+
     Args:
         request (flask.Request): HTTP request object.
     Returns:
@@ -35,21 +47,33 @@ def header_to_db(request):
         `make_response <http://flask.pocoo.org/docs/0.12/api/#flask.Flask.make_response>`.
     """
     request_json = request.get_json()
-    if request_json and 'header' in request_json:
+
+    if 'lookup_file' in request_json:
+        lookup_file = request_json['lookup_file']
+    elif 'lookup_file' in request.args:
+        lookup_file = request.args['lookup_file']
+
+    if 'header' in request_json:
         header = request_json['header']
 
-        unit_id = int(header['PANID'].strip().replace('PAN', ''))
-        seq_id = header['SEQID'].strip()
-        img_id = header['IMAGEID'].strip()
-        camera_id = header['INSTRUME'].strip()
-        print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
+    if not lookup_file and not header:
+        return f'No header or lookup_file, nothing to do!'
 
-        # Pass the parsed header information
-        add_header_to_db(header)
+    if lookup_file:
+        print("Looking up header for file: ", lookup_file)
+        storage_blob = bucket.get_blob(data['name'])
+        header.update(lookup_fits_header(storage_blob))
 
-        return f'Header information added to meta database.'
-    else:
-        return f'No Path!'
+    unit_id = int(header['PANID'].strip().replace('PAN', ''))
+    seq_id = header['SEQID'].strip()
+    img_id = header['IMAGEID'].strip()
+    camera_id = header['INSTRUME'].strip()
+    print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
+
+    # Pass the parsed header information
+    add_header_to_db(header)
+
+    return f'Header information added to meta database.'
 
 
 def add_header_to_db(header):
@@ -210,6 +234,76 @@ def meta_insert(table, cursor, **kwargs):
         print("Error in insert: " + e)
 
     return
+
+
+def lookup_fits_header(remote_path):
+    """Read the FITS header from storage.
+
+    FITS Header Units are stored in blocks of 2880 bytes consisting of 36 lines
+    that are 80 bytes long each. The Header Unit always ends with the single
+    word 'END' on a line (not necessarily line 36).
+
+    Here the header is streamed from Storage until the 'END' is found, with
+    each line given minimal parsing.
+
+    See https://fits.gsfc.nasa.gov/fits_primer.html for overview of FITS format.
+
+    Args:
+        remote_path (`google.cloud.storage.blob.Blob`): Blob or path to remote blob.
+            If just the blob name is given then the blob is looked up first.
+
+    Returns:
+        dict: FITS header as a dictonary.
+    """
+    i = 1
+    if remote_path.name.endswith('.fz'):
+        i = 2  # We skip the compression header info
+
+    headers = dict()
+
+    streaming = True
+    while streaming:
+        # Get a header card
+        start_byte = 2880 * (i - 1)
+        end_byte = (2880 * i) - 1
+        b_string = remote_path.download_as_string(start=start_byte, end=end_byte)
+
+        # Loop over 80-char lines
+        for j in range(0, len(b_string), 80):
+            item_string = b_string[j:j + 80].decode()
+
+            # End of FITS Header, stop streaming
+            if item_string.startswith('END'):
+                streaming = False
+                break
+
+            # Get key=value pairs (skip COMMENTS and HISTORY)
+            if item_string.find('=') > 0:
+                k, v = item_string.split('=')
+
+                # Remove FITS comment
+                if ' / ' in v:
+                    v = v.split(' / ')[0]
+
+                v = v.strip()
+
+                # Cleanup and discover type in dumb fashion
+                if v.startswith("'") and v.endswith("'"):
+                    v = v.replace("'", "").strip()
+                elif v.find('.') > 0:
+                    v = float(v)
+                elif v == 'T':
+                    v = True
+                elif v == 'F':
+                    v = False
+                else:
+                    v = int(v)
+
+                headers[k.strip()] = v
+
+        i += 1
+
+    return headers
 
 
 def __connect(host):
