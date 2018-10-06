@@ -62,7 +62,9 @@ def header_to_db(request):
     if lookup_file:
         print("Looking up header for file: ", lookup_file)
         storage_blob = bucket.get_blob(data['name'])
-        header.update(lookup_fits_header(storage_blob))
+        file_headers = lookup_fits_header(storage_blob)
+        file_headers.update(headers)
+        headers = file_headers
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID'].strip()
