@@ -30,12 +30,12 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `01-header-to-metadb`
+name of the function in `main.py` that we want called and `header-to-metadb`
 is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 01-header-to-metadb \
+                 header-to-metadb \
                  --entry-point header_to_db \
                  --runtime python37 \
                  --trigger-http

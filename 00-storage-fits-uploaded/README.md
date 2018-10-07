@@ -26,12 +26,12 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `00-storage-fits-uploaded`
+name of the function in `main.py` that we want called and `ack-fits-received`
 is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 00-storage-fits-uploaded \
+                 ack-fits-received \
                  --entry-point ack_fits_received \
                  --runtime python37 \
                  --trigger-resource panoptes-survey \

@@ -1,4 +1,5 @@
 from os import getenv
+import re
 from google.cloud import storage
 
 from psycopg2 import OperationalError
@@ -48,6 +49,8 @@ def header_to_db(request):
     """
     request_json = request.get_json()
 
+    header = dict()
+
     if 'lookup_file' in request_json:
         lookup_file = request_json['lookup_file']
     elif 'lookup_file' in request.args:
@@ -61,10 +64,19 @@ def header_to_db(request):
 
     if lookup_file:
         print("Looking up header for file: ", lookup_file)
-        storage_blob = bucket.get_blob(data['name'])
+        storage_blob = bucket.get_blob(lookup_file)
         file_headers = lookup_fits_header(storage_blob)
-        file_headers.update(headers)
-        headers = file_headers
+        file_headers.update(header)
+
+        file_headers['FILENAME'] = lookup_file
+
+        print("Trying to match: ", lookup_file)
+        match = re.match(r'(PAN\d\d\d)/(.*?)/', lookup_file)
+        if match:
+            file_headers['PANID'] = match[1]
+            file_headers['FIELD'] = match[2]
+
+        header = file_headers
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID'].strip()
@@ -111,91 +123,95 @@ def add_header_to_db(header):
     conn.set_isolation_level(0)
     with conn.cursor() as cursor:
 
-        unit_id = int(header['PANID'].replace('PAN', ''))
-        seq_id = header['SEQID'].strip()
-        img_id = header['IMAGEID'].strip()
-        camera_id = header['INSTRUME'].strip()
-
-        unit_data = {
-            'id': unit_id,
-            'name': header['OBSERVER'].strip(),
-            'lat': float(header['LAT-OBS']),
-            'lon': float(header['LONG-OBS']),
-            'elevation': float(header['ELEV-OBS']),
-        }
-        meta_insert('units', cursor, **unit_data)
-
-        camera_data = {
-            'unit_id': unit_id,
-            'id': camera_id,
-        }
-        meta_insert('cameras', cursor, **camera_data)
-
-        seq_data = {
-            'id': seq_id,
-            'unit_id': unit_id,
-            'start_date': header['SEQID'].split('_')[-1],
-            'exp_time': header['EXPTIME'],
-            'ra_rate': header['RA-RATE'],
-            'field': header.get('FIELD', ''),
-            'pocs_version': header['CREATOR'],
-            'piaa_state': header.get('PSTATE', 'metadata_received'),
-        }
-        print("Inserting sequence: {}".format(seq_data))
         try:
-            bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
-            print(f'WCS info: {bl} {tl} {tr} {br}')
-            seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
-                bl[0], bl[1],
-                tr[0], tr[1]
-            )
-            meta_insert('sequences', cursor, **seq_data)
-            print("Sequence inserted w/ bounds: {}".format(seq_id))
-        except Exception as e:
-            print("Can't get bounds: {}".format(e))
-            if 'coord_bounds' in seq_data:
-                del seq_data['coord_bounds']
+            unit_id = int(header.get('PANID').replace('PAN', ''))
+            seq_id = header.get('SEQID', '').strip()
+            img_id = header.get('IMAGEID', '').strip()
+            camera_id = header.get('INSTRUME', '').strip()
+
+            unit_data = {
+                'id': unit_id,
+                'name': header.get('OBSERVER', '').strip(),
+                'lat': float(header.get('LAT-OBS')),
+                'lon': float(header.get('LONG-OBS')),
+                'elevation': float(header.get('ELEV-OBS')),
+            }
+            meta_insert('units', cursor, **unit_data)
+
+            camera_data = {
+                'unit_id': unit_id,
+                'id': camera_id,
+            }
+            meta_insert('cameras', cursor, **camera_data)
+
+            seq_data = {
+                'id': seq_id,
+                'unit_id': unit_id,
+                'start_date': header.get('SEQID', None).split('_')[-1],
+                'exp_time': header.get('EXPTIME'),
+                'ra_rate': header.get('RA-RATE'),
+                'field': header.get('FIELD', ''),
+                'pocs_version': header.get('CREATOR', ''),
+                'piaa_state': header.get('PSTATE', 'metadata_received'),
+            }
+            print("Inserting sequence: {}".format(seq_data))
+
             try:
+                bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
+                print(f'WCS info: {bl} {tl} {tr} {br}')
+                seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
+                    bl[0], bl[1],
+                    tr[0], tr[1]
+                )
                 meta_insert('sequences', cursor, **seq_data)
+                print("Sequence inserted w/ bounds: {}".format(seq_id))
             except Exception as e:
-                print("Can't insert sequence: {}".format(seq_id))
-                raise e
+                print("Can't get bounds: {}".format(e))
+                if 'coord_bounds' in seq_data:
+                    del seq_data['coord_bounds']
+                try:
+                    meta_insert('sequences', cursor, **seq_data)
+                except Exception as e:
+                    print("Can't insert sequence: {}".format(seq_id))
+                    raise e
 
-        image_data = {
-            'id': img_id,
-            'sequence_id': seq_id,
-            'date_obs': header['DATE-OBS'],
-            'moon_fraction': header['MOONFRAC'],
-            'moon_separation': header['MOONSEP'],
-            'ra_mnt': header['RA-MNT'],
-            'ha_mnt': header['HA-MNT'],
-            'dec_mnt': header['DEC-MNT'],
-            'airmass': header['AIRMASS'],
-            'exp_time': header['EXPTIME'],
-            'iso': header['ISO'],
-            'camera_id': camera_id,
-            'cam_temp': header['CAMTEMP'].split(' ')[0],
-            'cam_colortmp': header['COLORTMP'],
-            'cam_circconf': header['CIRCCONF'].split(' ')[0],
-            'cam_measrggb': header['MEASRGGB'],
-            'cam_red_balance': header['REDBAL'],
-            'cam_blue_balance': header['BLUEBAL'],
-            'file_path': header.get('FILENAME', '')
-        }
+            image_data = {
+                'id': img_id,
+                'sequence_id': seq_id,
+                'date_obs': header.get('DATE-OBS'),
+                'moon_fraction': header.get('MOONFRAC'),
+                'moon_separation': header.get('MOONSEP'),
+                'ra_mnt': header.get('RA-MNT'),
+                'ha_mnt': header.get('HA-MNT'),
+                'dec_mnt': header.get('DEC-MNT'),
+                'airmass': header.get('AIRMASS'),
+                'exp_time': header.get('EXPTIME'),
+                'iso': header.get('ISO'),
+                'camera_id': camera_id,
+                'cam_temp': header.get('CAMTEMP').split(' ')[0],
+                'cam_colortmp': header.get('COLORTMP'),
+                'cam_circconf': header.get('CIRCCONF').split(' ')[0],
+                'cam_measrggb': header.get('MEASRGGB'),
+                'cam_red_balance': header.get('REDBAL'),
+                'cam_blue_balance': header.get('BLUEBAL'),
+                'file_path': header.get('FILENAME', '')
+            }
 
-        # Add plate-solved info.
-        try:
-            image_data['center_ra'] = header['CRVAL1']
-            image_data['center_dec'] = header['CRVAL2']
-        except KeyError:
-            pass
+            # Add plate-solved info.
+            try:
+                image_data['center_ra'] = header['CRVAL1']
+                image_data['center_dec'] = header['CRVAL2']
+            except KeyError:
+                pass
 
-        meta_insert('images', cursor, **image_data)
+            meta_insert('images', cursor, **image_data)
+        except Exception as e:
+            print(e)
+        finally:
+            cursor.close()
+            pg_pool.putconn(conn)
 
-        cursor.close()
-
-    pg_pool.putconn(conn)
-    print("Header added for SEQ={} IMG={}".format(header['SEQID'], header['IMAGEID']))
+    print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
 
     return
 
@@ -223,12 +239,23 @@ def meta_insert(table, cursor, **kwargs):
     col_names_str = ','.join(col_names)
     col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
 
+    # Build update set
+    update_cols = list()
+    for col in col_names:
+        if col in ['id']:
+            continue
+        update_cols.append('{0} = EXCLUDED.{0}'.format(col))
+
     insert_sql = '''INSERT INTO {} ({})
                     VALUES ({})
-                    ON CONFLICT DO NOTHING RETURNING *'''.format(
+                    ON CONFLICT (id)
+                    DO UPDATE SET {}
+                    '''.format(
         table,
         col_names_str,
-        col_val_holders)
+        col_val_holders,
+        ', '.join(update_cols)
+    )
 
     try:
         cursor.execute(insert_sql, col_values)
@@ -272,7 +299,7 @@ def lookup_fits_header(remote_path):
 
         # Loop over 80-char lines
         for j in range(0, len(b_string), 80):
-            item_string = b_string[j:j + 80].decode()
+            item_string = b_string[j: j + 80].decode()
 
             # End of FITS Header, stop streaming
             if item_string.startswith('END'):
