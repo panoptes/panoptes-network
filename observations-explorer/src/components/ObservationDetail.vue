@@ -1,6 +1,23 @@
 <template>
   <div>
     <h2>{{ $route.params.id }}</h2>
+
+    : {{ thumbUrl }} :
+    <hr>
+    : {{ files }} :
+    <hr>
+    <img v-bind:src="thumbUrl" width="200px"/>
+    <lightbox
+        v-if="thumbUrl"
+        thumbnail=this.thumbUrl
+        :images=this.files.jpg
+    >
+        <lightbox-default-loader slot="loader"></lightbox-default-loader> <!-- If you want to use built-in loader -->
+        <!-- <div slot="loader"></div> --> <!-- If you want to use your own loader -->
+    </lightbox>
+
+    <!-- <video ref="videoRef" src="" id="video-container" width="25%" controls></video> -->
+
     <vue-good-table
       :columns="columns"
       :rows="rows"
@@ -20,6 +37,7 @@
 <script>
 import { VueGoodTable } from 'vue-good-table'
 import 'vue-good-table/dist/vue-good-table.css'
+import Lightbox from 'vue-pure-lightbox'
 
 import { ObservationsService } from '../services/ObservationsService.js'
 let observations = new ObservationsService()
@@ -27,7 +45,8 @@ let observations = new ObservationsService()
 export default {
   name: 'ObservationDetail',
   components: {
-    VueGoodTable
+    VueGoodTable,
+    Lightbox
   },
   methods: {
     formatImagelink: function (value) {
@@ -37,6 +56,11 @@ export default {
   created () {
     this.observations.getObservation(this.$route.params.id).then(response => {
       this.rows = response.data.data
+      this.files = response.data.sequence_files
+      this.sequenceDir = response.data.sequence_dir
+      // this.thumbUrl = this.baseUrl + '/' + this.sequenceDir + '/' + this.files.jpg[0]
+      // this.timelapseUrl = this.baseUrl + '/' + this.sequenceDir + '/' + this.files.mp4[0]
+      // this.$refs.videoRef.src = this.timelapseUrl
     })
       .catch(error => {
         console.log(error)
@@ -47,6 +71,10 @@ export default {
     return {
       info: null,
       observations: observations,
+      files: [],
+      sequenceDir: '',
+      baseUrl: 'https://storage.googleapis.com/panoptes-survey',
+      timelapseUrl: '',
       columns: [
         {
           label: 'Time',

@@ -1,5 +1,6 @@
-from os import getenv
+import os
 import flask
+from collections import defaultdict
 
 from decimal import Decimal
 from datetime import datetime
@@ -8,13 +9,23 @@ from psycopg2.pool import SimpleConnectionPool
 from psycopg2 import OperationalError
 from psycopg2.extras import RealDictCursor
 
-CONNECTION_NAME = getenv(
+from google.cloud import storage
+
+
+# Storage Bucket
+PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
+client = storage.Client(project=PROJECT_ID)
+bucket = client.get_bucket(BUCKET_NAME)
+
+# Cloud SQL
+CONNECTION_NAME = os.getenv(
     'INSTANCE_CONNECTION_NAME',
     'panoptes-survey:us-central1:panoptes-meta'
 )
-DB_USER = getenv('POSTGRES_USER', 'panoptes')
-DB_PASSWORD = getenv('POSTGRES_PASSWORD', None)
-DB_NAME = getenv('POSTGRES_DATABASE', 'metadata')
+DB_USER = os.getenv('POSTGRES_USER', 'panoptes')
+DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', None)
+DB_NAME = os.getenv('POSTGRES_DATABASE', 'metadata')
 pg_config = {
     'user': DB_USER,
     'password': DB_PASSWORD,
@@ -26,13 +37,49 @@ pg_config = {
 pg_pool = None
 
 
-def __connect(host):
-    """
-    Helper function to connect to Postgres
-    """
-    global pg_pool
-    pg_config['host'] = host
-    pg_pool = SimpleConnectionPool(1, 1, **pg_config)
+def get_observations_data(request):
+    request_json = request.get_json()
+
+    sequence_id = None
+    if request_json and 'sequence_id' in request_json:
+        sequence_id = request_json['sequence_id']
+    elif request.args and 'sequence_id' in request.args:
+        sequence_id = request.args['sequence_id']
+
+    print("Looking up observations for sequence_id={}".format(sequence_id))
+    rows = get_observations(sequence_id)
+    print("Found {} rows".format(len(rows)))
+    response_json = dict(data=rows, count=len(rows))
+
+    # If looking for a specific sequence then get file information
+    sequence_files = defaultdict(list)
+    if sequence_id:
+        # Look for filename in first row
+        seq_dir_in_bucket = ''
+        try:
+            seq_dir_in_bucket = rows[0]['file_path']
+            print("Seq dir: ", seq_dir_in_bucket)
+        except IndexError:
+            print("No rows")
+
+        sequence_dir = os.path.dirname(seq_dir_in_bucket)
+        if sequence_dir > '':
+            print("Looking for files in {}".format(sequence_dir))
+            for blob in bucket.list_blobs(prefix=sequence_dir):
+                filename = os.path.basename(blob.name)
+                _, ext = os.path.splitext(filename)
+                sequence_files[ext.replace('.', '')].append(filename)
+
+            response_json['sequence_files'] = sequence_files
+            response_json['sequence_dir'] = sequence_dir
+
+    body = flask.json.dumps(response_json, default=json_decoder)
+    headers = {
+        'content-type': "application/json",
+        'Access-Control-Allow-Origin': "*",
+    }
+
+    return (body, headers)
 
 
 def get_observations(sequence_id=None):
@@ -48,13 +95,29 @@ def get_observations(sequence_id=None):
             print(e)
             # If production settings fail, use local development ones
             __connect('localhost')
+
     conn = pg_pool.getconn()
     conn.set_isolation_level(0)
 
     if sequence_id:
         select_sql = """
-            SELECT *
-            FROM images
+            SELECT
+                id,
+                sequence_id,
+                camera_id,
+                date_obs,
+                file_path,
+                airmass,
+                center_dec,
+                center_ra,
+                dec_mnt,
+                exp_time,
+                ha_mnt,
+                iso,
+                moon_fraction,
+                moon_separation,
+                ra_mnt
+            FROM images t1
             WHERE sequence_id=%s
             ORDER BY date_obs DESC
             """
@@ -85,23 +148,10 @@ def json_decoder(o):
         return o.isoformat()
 
 
-def get_observations_data(request):
-    request_json = request.get_json()
-
-    sequence_id = None
-    if request_json and 'sequence_id' in request_json:
-        sequence_id = request_json['sequence_id']
-    elif request.args and 'sequence_id' in request.args:
-        sequence_id = request.args['sequence_id']
-
-    print("Looking up observations for sequence_id={}".format(sequence_id))
-
-    rows = get_observations(sequence_id)
-
-    body = flask.json.dumps(dict(data=rows, count=len(rows)), default=json_decoder)
-    headers = {
-        'content-type': "application/json",
-        'Access-Control-Allow-Origin': "*",
-    }
-
-    return (body, headers)
+def __connect(host):
+    """
+    Helper function to connect to Postgres
+    """
+    global pg_pool
+    pg_config['host'] = host
+    pg_pool = SimpleConnectionPool(1, 1, **pg_config)
