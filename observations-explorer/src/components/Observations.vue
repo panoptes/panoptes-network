@@ -51,8 +51,6 @@
 </template>
 
 <script>
-import { VueGoodTable } from 'vue-good-table'
-
 import { ObservationsService } from '../services/ObservationsService.js'
 
 let observations = new ObservationsService()
@@ -60,7 +58,6 @@ let observations = new ObservationsService()
 export default {
   name: 'Observations',
   components: {
-    VueGoodTable
   },
   methods: {
   },

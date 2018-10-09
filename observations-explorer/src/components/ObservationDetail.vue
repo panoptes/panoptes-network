@@ -10,7 +10,8 @@
       position="is-centered" 
       type="is-boxed">
       <b-tab-item label="Info">
-        Hi
+        Start Time: {{ rows[0].date_obs | moment("YYYY-MM-DD hh:mm:ss") }}
+        Image Count: {{ rows.length }}
       </b-tab-item>
 
       <b-tab-item label="Images">
@@ -112,7 +113,7 @@ export default {
   data () {
     return {
       sequenceId: this.$route.params.sequenceId,
-      activeTab: 1,
+      activeTab: 0,
       isImageModalActive: false,
       info: null,
       observations: observations,
