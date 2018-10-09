@@ -1,40 +1,40 @@
 <template>
   <div id="app">
-    <router-link to="/"><img id='logo' src="./assets/logo.png"></router-link>
-    <h1>{{ name }}</h1>
+    <div id="nav">
+      <router-link to="/">
+        <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
+      </router-link>
+    </div>
+    <h1>PANOPTES Observations Explorer</h1>
     <router-view/>
   </div>
 </template>
 
-<script>
-
-export default {
-  data () {
-    return {
-      name: 'PANOPTES Observations Explorer'
-    }
-  }
-}
-</script>
-
-<style>
+<style lang="scss">
 #app {
-  font-family: 'Fira Code Medium', Helvetica, Arial, sans-serif;
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
 }
-#logo {
-  width: 20em;
-  margin-top: -3em;
-  margin-bottom: 1em;
+#nav {
+  padding: .1em;
+  a {
+    font-weight: bold;
+    color: #2c3e50;
+    &.router-link-exact-active {
+      color: #42b983;
+    }
+  }
+}
+#pan-logo {
+  height: 3.14159em;
 }
 h1 {
   font-size: 1.5em;
 }
-h1 a {
-  text-decoration: none;
+h2 {
+  font-size: 1.25em;
 }
 </style>
