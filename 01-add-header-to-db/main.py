@@ -71,17 +71,32 @@ def header_to_db(request):
         file_headers['FILENAME'] = storage_blob.public_url
 
         print("Trying to match: ", lookup_file)
-        match = re.match(r'(PAN\d\d\d)/(.*?)/', lookup_file)
+        match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
         if match:
             file_headers['PANID'] = match[1]
             file_headers['FIELD'] = match[2]
+            file_headers['INSTRUME'] = match[3]
+            file_headers['SEQTIME'] = match[4]
+            file_headers['IMGTIME'] = match[5]
+
+            file_headers['SEQID'] = '{}_{}_{}'.format(
+                file_headers['PANID'],
+                file_headers['INSTRUME'],
+                file_headers['SEQTIME']
+            )
+
+            file_headers['IMAGEID'] = '{}_{}_{}'.format(
+                file_headers['PANID'],
+                file_headers['INSTRUME'],
+                file_headers['IMGTIME']
+            )
 
         header = file_headers
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
-    seq_id = header['SEQID'].strip()
-    img_id = header['IMAGEID'].strip()
-    camera_id = header['INSTRUME'].strip()
+    seq_id = header['SEQID']
+    img_id = header['IMAGEID']
+    camera_id = header['INSTRUME']
     print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
 
     # Pass the parsed header information
