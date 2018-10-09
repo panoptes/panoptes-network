@@ -64,13 +64,11 @@ def get_observations_data(request):
                 print("No rows")
 
         if sequence_dir > '':
-            # Get all the files in the folder and sort them according
-            # to othe basename for the file.
             print("Looking for files in {}".format(sequence_dir))
             for blob in bucket.list_blobs(prefix=sequence_dir):
-                filebase, fileext = os.path.splitext(os.path.basename(blob.name))
-                filebase = os.path.basename(filebase).split('.')[0]  # Handle .fits.fz
-                sequence_files[filebase].append(blob.public_url)
+                filename = os.path.basename(blob.name)
+                _, ext = os.path.splitext(filename)
+                sequence_files[ext.replace('.', '')].append(blob.public_url)
 
             response_json['sequence_files'] = sequence_files
             response_json['sequence_dir'] = sequence_dir
