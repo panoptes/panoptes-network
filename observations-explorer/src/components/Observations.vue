@@ -1,28 +1,52 @@
 <template>
   <div>
-    <vue-good-table
-      :columns="columns"
-      :rows="rows"
-      :pagination-options="{
-        enabled: true
-      }"
-      :sort-options="{
-        enabled: true,
-        initialSortBy: {field: 'start_date', type: 'desc'}
-      }"
+    <b-table 
+      :data="rows" 
+      :bordered="true"
+      :paginated="true"
+      :paginationSimple="true"
+      :striped="true"
+      :narrowed="true"
+      :hoverable="true"
+      default-sort="date_obs"
     >
-    <template slot="table-row" slot-scope="props">
-      <span v-if="props.column.field == 'id'">
-        <!-- Link to Observation -->
-        <router-link v-bind:to="'/observations/' + props.row.id">
-          {{ props.row.id }}
-        </router-link>
-      </span>
-      <span v-else>
-        {{props.formattedRow[props.column.field]}}
-      </span>
-    </template>
-    </vue-good-table>
+      <template slot-scope="props">
+          <b-table-column field="unit_id" label="Unit ID" sortable>
+              {{ props.row.unit_id | unitId }}
+          </b-table-column>
+
+          <b-table-column field="start_date" label="Date" sortable date>
+            {{ new Date(props.row.start_date) | moment("YYYY-MM-DD hh:mm:ss") }}
+          </b-table-column>
+
+          <b-table-column field="id" label="Sequence ID" sortable>
+              <router-link :to="{ name: 'observationDetail', params: { sequenceId: props.row.id }}">
+                {{ props.row.id}}
+              </router-link>
+          </b-table-column>
+
+          <b-table-column field="field" label="Field" sortable>
+              {{ props.row.field }}
+          </b-table-column>     
+
+          <b-table-column field="pocs_version" label="POCS" sortable>
+              {{ props.row.pocs_version }}
+          </b-table-column>                
+
+          <b-table-column field="exp_time" label="Exptime" numeric>
+              {{ props.row.exp_time }}
+          </b-table-column>                
+
+          <b-table-column field="image_count" label="Images" sortable numeric>
+              {{ props.row.image_count }}
+          </b-table-column>
+
+          <b-table-column field="piaa_state" label="Status" sortable>
+              {{ props.row.piaa_state }}
+          </b-table-column>     
+      </template>        
+    </b-table>
+
   </div>
 </template>
 
@@ -39,17 +63,15 @@ export default {
     VueGoodTable
   },
   methods: {
-    unitFormatFn: function (value) {
+  },
+  filters: {
+    unitId: function (value) {
       // Silly formatting
       let unitId = 'PAN000'
       let l = -1 * value.toFixed(0).length
       unitId = unitId.slice(0, l)
       unitId += value
-      return unitId
-    },
-    sequenceFormatFn: function (value) {
-      let link = '<a href="observations/' + value + '>' + value + '</a>'
-      return link
+      return unitId      
     }
   },
   created () {
@@ -64,78 +86,6 @@ export default {
   data () {
     return {
       observations: observations,
-      columns: [
-        {
-          label: 'PAN ID',
-          field: 'unit_id',
-          formatFn: this.unitFormatFn,
-          width: '10%',
-          filterOptions: {
-            enabled: true,
-            placeholder: 'PAN ID',
-            filterValue: '',
-            filterDropdownItems: [
-              {value: 1, text: 'PAN001'},
-              {value: 6, text: 'PAN006'}
-            ]
-          }
-        },
-        {
-          label: 'Sequence ID',
-          field: 'id',
-          width: '10%',
-          filterOptions: {
-            enabled: true
-          }
-        },
-        {
-          label: 'Field',
-          field: 'field',
-          width: '10%',
-          filterOptions: {
-            enabled: true
-          }
-        },
-        {
-          label: 'Date',
-          field: 'start_date',
-          type: 'date',
-          width: '15%',
-          dateInputFormat: 'YYYY-MM-DDTHH:mm:ss',
-          dateOutputFormat: 'YYYY-MM-DD HH:mm:ss'
-        },
-        {
-          label: 'Exptime',
-          field: 'exp_time',
-          type: 'decimal',
-          width: '5%'
-        },
-        {
-          label: 'Images',
-          field: 'image_count',
-          type: 'number',
-          width: '5%'
-        },
-        {
-          label: 'POCS Version',
-          field: 'pocs_version',
-          width: '10%',
-          filterOptions: {
-            enabled: true,
-            placeholder: 'Version',
-            filterValue: '',
-            filterDropdownItems: [
-              'POCSv0.6.0',
-              'POCSv0.6.1'
-            ]
-          }
-        },
-        {
-          label: 'Status',
-          field: 'piaa_state',
-          width: '10%'
-        }
-      ],
       rows: []
     }
   }

@@ -1,7 +1,7 @@
 <template>
 <nav class="panel">
   <p class="panel-heading">
-    {{ sequenceId }}
+    {{ sequenceId.split('_').join(' ') }}
   </p>
   <div class="panel-block">
     <b-tabs
@@ -23,7 +23,7 @@
           default-sort="date_obs"
         >
             <template slot-scope="props">
-                <b-table-column field="date" label="Date" sortable date>
+                <b-table-column field="date_obs" label="Date" sortable date>
                   {{ new Date(props.row.date_obs) | moment("YYYY-MM-DD hh:mm:ss") }}
                 </b-table-column>
 

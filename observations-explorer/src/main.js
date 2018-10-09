@@ -6,7 +6,9 @@ import Buefy from 'buefy'
 import 'buefy/dist/buefy.css'
 import 'vue-good-table/dist/vue-good-table.css'
 
-Vue.use(Buefy)
+Vue.use(Buefy, {
+    defaultIconPack: 'fas'	
+})
 Vue.use(require('vue-moment'));
 
 Vue.config.productionTip = false
