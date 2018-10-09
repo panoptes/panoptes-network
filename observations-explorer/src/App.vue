@@ -5,11 +5,9 @@
         <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
       </router-link>
     </div>
-    <h1 class="title">PANOPTES Observations Explorer</h1>
+    <h1 class="subtitle">PANOPTES Observations Explorer</h1>
     <div>
-      <div>
         <router-view/>
-      </div>
     </div>
   </div>
 </template>
