@@ -5,10 +5,12 @@
         <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
       </router-link>
     </div>
-    <h1>PANOPTES Observations Explorer</h1>
-    <section class="section">
-      <router-view/>
-    </section></div>
+    <h1 class="title">PANOPTES Observations Explorer</h1>
+    <div>
+      <div>
+        <router-view/>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -18,17 +20,9 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
 }
 #nav {
-  padding: .1em;
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-    &.router-link-exact-active {
-      color: #42b983;
-    }
-  }
+  margin-top: 1em;
 }
 #pan-logo {
   height: 3.14159em;

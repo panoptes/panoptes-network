@@ -19,7 +19,7 @@
             {{ new Date(props.row.start_date) | moment("YYYY-MM-DD hh:mm:ss") }}
           </b-table-column>
 
-          <b-table-column field="id" label="Sequence ID" sortable>
+          <b-table-column field="id" label="Seq ID" sortable>
               <router-link :to="{ name: 'observationDetail', params: { sequenceId: props.row.id }}">
                 {{ props.row.id}}
               </router-link>
