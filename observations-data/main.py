@@ -55,20 +55,22 @@ def get_observations_data(request):
     sequence_files = defaultdict(list)
     if sequence_id:
         # Look for filename in first row
-        seq_dir_in_bucket = ''
-        try:
-            seq_dir_in_bucket = rows[0]['file_path']
-            print("Seq dir: ", seq_dir_in_bucket)
-        except IndexError:
-            print("No rows")
+        sequence_dir = ''
+        if rows[0]['file_path'] > '':
+            try:
+                sequence_dir = os.path.join(*rows[0]['file_path'].split('/')[4:8])
+                print("Seq dir: ", sequence_dir)
+            except IndexError:
+                print("No rows")
 
-        sequence_dir = os.path.dirname(seq_dir_in_bucket)
         if sequence_dir > '':
+            # Get all the files in the folder and sort them according
+            # to othe basename for the file.
             print("Looking for files in {}".format(sequence_dir))
             for blob in bucket.list_blobs(prefix=sequence_dir):
-                filename = os.path.basename(blob.name)
-                _, ext = os.path.splitext(filename)
-                sequence_files[ext.replace('.', '')].append(filename)
+                filebase, fileext = os.path.splitext(os.path.basename(blob.name))
+                filebase = os.path.basename(filebase).split('.')[0]  # Handle .fits.fz
+                sequence_files[filebase].append(blob.public_url)
 
             response_json['sequence_files'] = sequence_files
             response_json['sequence_dir'] = sequence_dir

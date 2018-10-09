@@ -60,7 +60,7 @@ def header_to_db(request):
         header = request_json['header']
 
     if not lookup_file and not header:
-        return f'No header or lookup_file, nothing to do!'
+        return 'No header or lookup_file, nothing to do!'
 
     if lookup_file:
         print("Looking up header for file: ", lookup_file)
@@ -68,7 +68,7 @@ def header_to_db(request):
         file_headers = lookup_fits_header(storage_blob)
         file_headers.update(header)
 
-        file_headers['FILENAME'] = lookup_file
+        file_headers['FILENAME'] = storage_blob.public_url
 
         print("Trying to match: ", lookup_file)
         match = re.match(r'(PAN\d\d\d)/(.*?)/', lookup_file)
@@ -194,7 +194,7 @@ def add_header_to_db(header):
                 'cam_measrggb': header.get('MEASRGGB'),
                 'cam_red_balance': header.get('REDBAL'),
                 'cam_blue_balance': header.get('BLUEBAL'),
-                'file_path': header.get('FILENAME', '')
+                'file_path': header.get('FILENAME')
             }
 
             # Add plate-solved info.

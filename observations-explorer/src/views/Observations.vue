@@ -1,6 +1,10 @@
 <template>
   <div class="observations">
-    <Observations />
+	<section class="section">
+	  <div class="container">
+	    <Observations />
+	  </div>
+	</section>    
   </div>
 </template>
 

@@ -28,7 +28,6 @@
 
 <script>
 import { VueGoodTable } from 'vue-good-table'
-import 'vue-good-table/dist/vue-good-table.css'
 
 import { ObservationsService } from '../services/ObservationsService.js'
 
@@ -70,7 +69,7 @@ export default {
           label: 'PAN ID',
           field: 'unit_id',
           formatFn: this.unitFormatFn,
-          width: '5%',
+          width: '10%',
           filterOptions: {
             enabled: true,
             placeholder: 'PAN ID',
@@ -101,7 +100,7 @@ export default {
           label: 'Date',
           field: 'start_date',
           type: 'date',
-          width: '10%',
+          width: '15%',
           dateInputFormat: 'YYYY-MM-DDTHH:mm:ss',
           dateOutputFormat: 'YYYY-MM-DD HH:mm:ss'
         },

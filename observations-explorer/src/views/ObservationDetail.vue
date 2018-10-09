@@ -1,7 +1,8 @@
 <template>
   <div class="observations">
-  	<h2> {{ sequenceId }} </h2>
-  	<ObservationDetail />
+	  <div class="container">
+			<ObservationDetail />
+	  </div>
   </div>
 </template>
 

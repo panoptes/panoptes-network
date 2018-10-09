@@ -6,7 +6,9 @@
       </router-link>
     </div>
     <h1>PANOPTES Observations Explorer</h1>
-    <router-view/>
+    <section class="section">
+      <router-view/>
+    </section></div>
   </div>
 </template>
 
@@ -30,11 +32,5 @@
 }
 #pan-logo {
   height: 3.14159em;
-}
-h1 {
-  font-size: 1.5em;
-}
-h2 {
-  font-size: 1.25em;
 }
 </style>
