@@ -1,52 +1,31 @@
 <template>
-  <div class="container">
+  <div>
     <b-table 
-      :data="rows" 
-      :bordered="true"
-      :paginated="true"
-      :paginationSimple="true"
-      :striped="true"
-      :narrowed="true"
-      :hoverable="true"
-      default-sort="date_obs"
+      :items="rows" 
+      :fields="fields"
+      :per-page="perPage"
+      :current-page="currentPage"
+      sort-by="start_date"
+      :sort-desc=true
+      striped
+      hover
+      bordered
+      outlined
+      responsive
+      small
     >
-      <template slot-scope="props">
-          <b-table-column field="unit_id" label="Unit ID" sortable>
-              {{ props.row.unit_id | unitId }}
-          </b-table-column>
-
-          <b-table-column field="start_date" label="Date" sortable date>
-            {{ new Date(props.row.start_date) | moment("YYYY-MM-DD hh:mm:ss") }}
-          </b-table-column>
-
-          <b-table-column field="id" label="Seq ID" sortable>
-              <router-link :to="{ name: 'observationDetail', params: { sequenceId: props.row.id }}">
-                {{ props.row.id}}
-              </router-link>
-          </b-table-column>
-
-          <b-table-column field="field" label="Field" sortable>
-              {{ props.row.field }}
-          </b-table-column>     
-
-          <b-table-column field="pocs_version" label="POCS" sortable>
-              {{ props.row.pocs_version }}
-          </b-table-column>                
-
-          <b-table-column field="exp_time" label="Exptime" numeric>
-              {{ props.row.exp_time }}
-          </b-table-column>                
-
-          <b-table-column field="image_count" label="Images" sortable numeric>
-              {{ props.row.image_count }}
-          </b-table-column>
-
-          <b-table-column field="piaa_state" label="Status" sortable>
-              {{ props.row.piaa_state }}
-          </b-table-column>     
-      </template>        
+    <template slot="id" slot-scope="data">
+      <router-link 
+        :to="{ name: 'observationDetail', params: { sequenceId: data.value, info: data.item }}">
+        {{ data.value }}
+      </router-link>
+    </template>    
     </b-table>
-
+    <b-row>
+      <b-col cols="3">
+        <b-pagination :total-rows="rows.length" :per-page="perPage" v-model="currentPage" class="my-0" />
+      </b-col>
+    </b-row>
   </div>
 </template>
 
@@ -60,8 +39,6 @@ export default {
   components: {
   },
   methods: {
-  },
-  filters: {
     unitId: function (value) {
       // Silly formatting
       let unitId = 'PAN000'
@@ -73,7 +50,7 @@ export default {
   },
   created () {
     this.observations.getAllObservations().then(response => {
-      this.rows = response.data.data
+      this.rows = response.data.items
     })
       .catch(error => {
         console.log(error)
@@ -82,8 +59,20 @@ export default {
   },
   data () {
     return {
+      perPage: 10,
+      currentPage: 0,
       observations: observations,
-      rows: []
+      rows: [],
+      fields: [
+        { label: 'Unit', key: 'unit_id', sortable: true, formatter: this.unitId },
+        { label: 'Sequence', key: 'id', sortable: true },
+        { label: 'Field', key: 'field', sortable: true },
+        { label: 'POCS Version', key: 'pocs_version', sortable: true },
+        { label: 'Date', key: 'start_date', sortable: true },
+        { label: 'Exp Time', key: 'exp_time', sortable: true },
+        { label: 'Image Count', key: 'image_count', sortable: true },
+        { label: 'Status', key: 'piaa_state', sortable: true }
+      ]
     }
   }
 }
