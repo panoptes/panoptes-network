@@ -22,12 +22,14 @@ def ack_fits_received(data, context):
         None; the output is written to Stackdriver Logging
     """
 
+    print("Received: {}".format(data))
     filename = data['name']
     file_id = data['id']  # Includes storage generation
 
     if filename.endswith('.fz'):
 
         # Scrub some fields
+        print("Processing {}".format(file_id))
         unit_id, field, camera_id, seq_time, filename = file_id.split('/')
 
         header = {
