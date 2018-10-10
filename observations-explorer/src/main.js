@@ -2,12 +2,12 @@ import Vue from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-import Buefy from 'buefy'
-import 'buefy/dist/buefy.css'
+import BootstrapVue from 'bootstrap-vue'
 
-Vue.use(Buefy, {
-    defaultIconPack: 'fas'	
-})
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue/dist/bootstrap-vue.css'
+
+Vue.use(BootstrapVue)
 Vue.use(require('vue-moment'));
 
 Vue.config.productionTip = false
