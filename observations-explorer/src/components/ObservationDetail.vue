@@ -30,8 +30,8 @@
             <template slot="date_obs" slot-scope="data">
               {{ data.value | moment("HH:mm:ss") }}
             </template>            
-            <template slot="center_ra" slot-scope="data">
-              {{ data.value }}
+            <template slot="center" slot-scope="data">
+              {{ data['item']['center_ra'] }}° / {{ data['item']['center_dec'] }}°
             </template>                        
             <template slot="file_path" slot-scope="data">
               <b-link 
@@ -135,11 +135,10 @@ export default {
       fields: [
         { label: 'Time', key: 'date_obs', sortable: true },
         { label: 'Airmass', key: 'airmass', sortable: true },
-        { label: 'ISO', key: 'iso', sortable: true },
-        { label: 'Moon Sep', key: 'moon_separation', sortable: true },
-        { label: 'Moon Frac', key: 'moon_fraction', sortable: true },
-        { label: 'Exp Time', key: 'exp_time', sortable: true },
-        { label: 'Center', key: 'center_ra', sortable: true },
+        { label: 'MoonSep', key: 'moon_separation', sortable: true },
+        { label: 'MoonFrac', key: 'moon_fraction', sortable: true },
+        { label: 'Exptime', key: 'exp_time', sortable: true },
+        { label: 'Center', key: 'center', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
       ]
     }
