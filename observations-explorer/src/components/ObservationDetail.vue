@@ -35,7 +35,7 @@
             </template>                        
             <template slot="file_path" slot-scope="data">
               <b-link 
-                v-if="jpg_files.length"
+                v-if="jpg_files"
                 :href="data.value | toJpg" target="_blank" 
                 >
                 <font-awesome-icon icon="image"></font-awesome-icon>
