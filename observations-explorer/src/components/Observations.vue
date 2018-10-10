@@ -12,10 +12,11 @@
       bordered
       outlined
       responsive
+      small
     >
     <template slot="id" slot-scope="data">
       <router-link 
-        :to="{ name: 'observationDetail', params: { sequenceId: data.value}}">
+        :to="{ name: 'observationDetail', params: { sequenceId: data.value, info: data.item }}">
         {{ data.value }}
       </router-link>
     </template>    
@@ -49,7 +50,7 @@ export default {
   },
   created () {
     this.observations.getAllObservations().then(response => {
-      this.rows = response.data.data
+      this.rows = response.data.items
     })
       .catch(error => {
         console.log(error)

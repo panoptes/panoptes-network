@@ -4,19 +4,17 @@
     <b-tab title="info" active>
       <b-card-group deck>
         <b-card header="<b>Info</b>">
-          <b-list-group>
-            <b-list-group-item class="d-flex justify-content-between align-items-center">
-                Cras justo odio
-                <b-badge variant="info">42</b-badge>
-            </b-list-group-item>
-            <b-list-group-item>Dapibus ac facilisis in</b-list-group-item>
-            <b-list-group-item>Vestibulum at eros</b-list-group-item>
-          </b-list-group>
+          <ObservationSummary 
+            :sequence="sequence"
+          />
         </b-card>
-        <b-card no-body header="<b>Images</b>">
+        <b-card 
+          no-body
+          :header="'<b>Images <small>(' + images.length + ')</small></b>'"
+          >
           <b-card-body>
             <b-table 
-              :items="rows" 
+              :items="images" 
               :fields="fields"
               :per-page="perPage"
               :current-page="currentPage"
@@ -32,8 +30,14 @@
             <template slot="date_obs" slot-scope="data">
               {{ data.value | moment("HH:mm:ss") }}
             </template>            
+            <template slot="center_ra" slot-scope="data">
+              {{ data.value }}
+            </template>                        
             <template slot="file_path" slot-scope="data">
-              <b-link :href="data.value | toJpg" target="_blank" >
+              <b-link 
+                v-if="jpg_files.length"
+                :href="data.value | toJpg" target="_blank" 
+                >
                 <font-awesome-icon icon="image"></font-awesome-icon>
               </b-link>
               </a>
@@ -43,7 +47,7 @@
           <b-row>
             <b-col cols="12">
               <b-pagination 
-                :total-rows="rows.length" 
+                :total-rows="images.length" 
                 :per-page="perPage" 
                 v-model="currentPage" 
                 class="float-right"
@@ -54,7 +58,10 @@
         </b-card>
       </b-card-group>      
     </b-tab>
-    <b-tab title="timelapse">
+    <b-tab 
+      title="timelapse"
+      :disabled="timelapseUrl == ''"
+      >
       <b-embed
         type="video"
         controls
@@ -68,7 +75,7 @@
 
 <script>
 import { ObservationsService } from '../services/ObservationsService.js'
-import ImagePreview from '@/components/ImagePreview'
+import ObservationSummary from '@/components/ObservationSummary'
 
 const baseUrl = 'https://storage.googleapis.com/panoptes-survey'
 
@@ -77,18 +84,26 @@ let observations = new ObservationsService()
 export default {
   name: 'ObservationDetail',
   components: {
-    ImagePreview
+    ObservationSummary
   },
   methods: {
   },
   created () {
     this.observations.getObservation(this.sequenceId).then(response => {
-      this.rows = response.data.data
-      this.files = response.data.sequence_files
-      this.images = this.files.jpg
-      this.sequenceDir = response.data.sequence_dir
-      this.thumbUrl = this.files.jpg[0]
-      this.timelapseUrl = this.files.mp4[0]
+      this.info = response.data.items
+
+      this.sequence = this.info.sequence
+      this.sequenceDir = this.info.sequence_dir
+      this.images = this.info.images
+
+      this.files = this.info.sequence_files
+      if (this.files !== undefined) {
+        this.jpg_files = this.files.jpg
+        this.thumbUrl = this.files.jpg[0]
+        this.timelapseUrl = this.files.mp4[0]
+      } else {
+        this.files = []
+      }
     })
       .catch(error => {
         console.log(error)
@@ -103,19 +118,20 @@ export default {
   data () {
     return {
       sequenceId: this.$route.params.sequenceId,
+      info: {},
+      sequence: {},
+      sequenceDir: '',
+      images: [],
+      files: [],
+      jpg_files: [],
       activeTab: 0,
       perPage: 10,
       currentPage: 1,
       isImageModalActive: false,
-      info: null,
       observations: observations,
-      files: [],
-      images: [],
-      sequenceDir: '',
       baseUrl: baseUrl,
       thumbUrl: '',
       timelapseUrl: '',
-      rows: [],
       fields: [
         { label: 'Time', key: 'date_obs', sortable: true },
         { label: 'Airmass', key: 'airmass', sortable: true },
@@ -123,13 +139,9 @@ export default {
         { label: 'Moon Sep', key: 'moon_separation', sortable: true },
         { label: 'Moon Frac', key: 'moon_fraction', sortable: true },
         { label: 'Exp Time', key: 'exp_time', sortable: true },
+        { label: 'Center', key: 'center_ra', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
-      ],
-      miniFields: [
-        { label: 'Time', key: 'date_obs', sortable: true },
-        { label: 'Exp Time', key: 'exp_time', sortable: true },
-        { label: 'Image', key: 'file_path', sortable: false }
-      ],      
+      ]
     }
   }
 }
@@ -142,5 +154,8 @@ h1, h2 {
 }
 a {
   color: #42b983;
+}
+table th {
+  text-align: center;
 }
 </style>
