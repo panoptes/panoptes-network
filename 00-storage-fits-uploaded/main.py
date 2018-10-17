@@ -15,6 +15,11 @@ def ack_fits_received(data, context):
     set a few header variables and then forward to endpoint for adding headers
     to the metadatabase.
 
+    The header is looked up from the file id, including the storage bucket file
+    generation id, which are stored into the headers.
+
+    panoptes-survey/PAN001/M42/14d3bd/20181011T134202/20181011T134333.fits.fz/1539272833023747
+
     Args:
         data (dict): The Cloud Functions event payload.
         context (google.cloud.functions.Context): Metadata of triggering event.
@@ -23,22 +28,23 @@ def ack_fits_received(data, context):
     """
 
     print("Received: {}".format(data))
-    filename = data['name']
-    file_id = data['id']  # Includes storage generation
+    file_path = data['name']
+    file_id = data['id']  # Includes bucket & storage generation
 
-    if filename.endswith('.fz'):
+    if file_path.endswith('.fz'):
 
         # Scrub some fields
-        print("Processing {}".format(file_id))
-        unit_id, field, camera_id, seq_time, filename = file_id.split('/')
+        print("Processing {}".format(file_path))
+        unit_id, field, camera_id, seq_time, filename = file_path.split('/')
 
         header = {
             'PANID': unit_id,
             'FIELD': field,
-            'FILENAME': file_id,
+            'FILENAME': file_path,
+            'FILEID': file_id,
             'PSTATE': 'fits_received',
         }
 
         # Send to add-header-to-db
-        print("Forwarding to add-header-to-db: {}".format(file_id))
-        requests.post(add_header_endpoint, json={'header': header, 'lookup_file': filename})
+        print("Forwarding to add-header-to-db: {}".format(header))
+        requests.post(add_header_endpoint, json={'header': header, 'lookup_file': file_path})

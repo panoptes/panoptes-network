@@ -62,36 +62,42 @@ def header_to_db(request):
     if not lookup_file and not header:
         return 'No header or lookup_file, nothing to do!'
 
+    print(f"File: {lookup_file}")
+    print(f"Header: {header}")
+
     if lookup_file:
         print("Looking up header for file: ", lookup_file)
         storage_blob = bucket.get_blob(lookup_file)
-        file_headers = lookup_fits_header(storage_blob)
-        file_headers.update(header)
+        if storage_blob:
+            file_headers = lookup_fits_header(storage_blob)
+            file_headers.update(header)
 
-        file_headers['FILENAME'] = storage_blob.public_url
+            file_headers['FILENAME'] = storage_blob.public_url
 
-        print("Trying to match: ", lookup_file)
-        match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
-        if match:
-            file_headers['PANID'] = match[1]
-            file_headers['FIELD'] = match[2]
-            file_headers['INSTRUME'] = match[3]
-            file_headers['SEQTIME'] = match[4]
-            file_headers['IMGTIME'] = match[5]
+            print("Trying to match: ", lookup_file)
+            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
+            if match:
+                file_headers['PANID'] = match[1]
+                file_headers['FIELD'] = match[2]
+                file_headers['INSTRUME'] = match[3]
+                file_headers['SEQTIME'] = match[4]
+                file_headers['IMGTIME'] = match[5]
 
-            file_headers['SEQID'] = '{}_{}_{}'.format(
-                file_headers['PANID'],
-                file_headers['INSTRUME'],
-                file_headers['SEQTIME']
-            )
+                file_headers['SEQID'] = '{}_{}_{}'.format(
+                    file_headers['PANID'],
+                    file_headers['INSTRUME'],
+                    file_headers['SEQTIME']
+                )
 
-            file_headers['IMAGEID'] = '{}_{}_{}'.format(
-                file_headers['PANID'],
-                file_headers['INSTRUME'],
-                file_headers['IMGTIME']
-            )
+                file_headers['IMAGEID'] = '{}_{}_{}'.format(
+                    file_headers['PANID'],
+                    file_headers['INSTRUME'],
+                    file_headers['IMGTIME']
+                )
 
-        header = file_headers
+            header = file_headers
+        else:
+            return f"Nothing found in storage bucket for {lookup_file}"
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID']
