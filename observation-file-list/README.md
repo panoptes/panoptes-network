@@ -2,14 +2,18 @@ Get Observations Data
 =====================
 
 Type: [Google Cloud Function](https://cloud.google.com/functions/)
-Purpose: Retrieve observations metadata, either from database or existing json file.
-Name: get-observations-data
+Purpose: Generate a downloadable text file that can be used by wget or curl to download the observation images.
+Name: observation-file-list
 Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/get-observations-data
 Payload Example: 
 
 	```
-	{ "sequence_id": "$SEQUENCE_ID" }
+	{ "header": fits_header }
 	```
+
+TODO:
+
+	* Add support for different file types.
 
 Environment Variables:
 

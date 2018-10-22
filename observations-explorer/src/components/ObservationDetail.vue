@@ -13,6 +13,8 @@
           :header="'<b>Images <small>(' + images.length + ')</small></b>'"
           >
           <b-card-body>
+            <b-row>
+            </b-row>
             <b-table 
               :items="images" 
               :fields="fields"
@@ -45,7 +47,24 @@
 
           </b-table>            
           <b-row>
-            <b-col cols="12">
+            <b-col cols="6">              
+              <b-button size='sm' variant='link'>
+                <a :href='"http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=" + sequenceId'>Download file list</a>
+              </b-button>
+              <font-awesome-icon icon="question-circle" id="downloadList"></font-awesome-icon>
+
+            </b-col>
+            <b-popover target="downloadList" triggers="hover focus" delay="500">
+               <template slot="title">Download File List</template>
+               Clicking this link will download a text file that contains a list
+               of FITS files for this observation.
+
+               You can use a tool like <code>wget</code> or <code>curl</code> to download
+               the files:
+               <br/><br/>
+               <code>wget -i {{sequenceId}}.txt</code>
+            </b-popover>
+            <b-col cols="6">
               <b-pagination 
                 :total-rows="images.length" 
                 :per-page="perPage" 
