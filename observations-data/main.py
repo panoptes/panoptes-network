@@ -79,7 +79,7 @@ def get_observations_data(request):
         items = get_sequences()
 
     print("Found {} rows".format(len(items)))
-    response_json = dict(items=items, total=len(items['images']))
+    response_json = dict(items=items, total=len(items))
 
     body = flask.json.dumps(response_json, default=json_decoder)
     headers = {
