@@ -35,20 +35,20 @@ def get_db_proxy_conn(
     """
     if db_pass is None:
         db_pass = os.getenv('PGPASSWORD')
-
+        
     conn_params = {
         'host': host,
         'port': port,
         'user': db_user,
         'dbname': db_name,
-        'password': db_pass,
     }
 
     try:
         conn = psycopg2.connect(**conn_params)
-    except psycopg2.OperationalError:
-        raise error.GoogleCloudError("Can't connect to cloud db"
-                                     "Make sure the cloud sql proxy is running.")
+    except psycopg2.OperationalError as e:
+        raise error.GoogleCloudError("Can't connect to cloud db "
+                                     "Make sure the cloud sql proxy is running. {}".format(e)
+                                    )
 
     return conn
 
