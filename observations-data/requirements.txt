@@ -1,0 +1,5 @@
+-e git://github.com/panoptes/POCS@develop#egg=pocs
+astropy
+google-cloud-storage
+psycopg2
+PyYAML

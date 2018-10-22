@@ -1,19 +1,23 @@
-# panoptes-network
+# PANOPTES Network
+
 Software related to the wider PANOPTES network that ties the individual units together.
+This is a repository to host the various Google Cloud Environment techonologies,
+such as the Cloud Funcitions (CF) and any AppEngine definitions.
 
-## PONG - PANOPTES Observatory Network via Google
+Each subfolder defines a different serivce and the services should be used from
+their respective directories. Each directory has a specific README.
 
-Software to be used within the Google Cloud Environment (GCE) to network the individual
-PANOPTES observatories together.
+## POE - PANOPTES Observations Explorer
+<a id="observations-explorer"></a>
 
-This also includes some helper utilities for working with various Google products.
+A simple table display of the Observations. This reads JSON files that are provided
+via the [Observations Data CF](#observations-data)
 
-## Upload Listener
+See [README](observations-explorer/README.md).
 
-This Dockerfile runs a script that listens for change notifications on the Storage
-bucket associated with observation image uploads.
+## Observations Data
+<a id="observatons-data"></a>
 
-This effectively serves as the first step in a processing pipeline and acts as a
-preprocessor.
+A JSON service for the observations data.
 
-See [README](upload-listener/README.md) for details.
+See [README](observations-data/README.md).
