@@ -13,8 +13,6 @@
           :header="'<b>Images <small>(' + images.length + ')</small></b>'"
           >
           <b-card-body>
-            <b-row>
-            </b-row>
             <b-table 
               :items="images" 
               :fields="fields"

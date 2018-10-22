@@ -1,10 +1,23 @@
 <template>
   <div>
+    <b-row>
+      <b-col cols="3">
+        <b-form-group>
+          <b-input-group size="sm">
+            <b-form-input v-model="filter"placeholder="Type to Search"/>
+            <b-input-group-append>
+              <b-btn :disabled="!filter" @click="filter = ''">Clear</b-btn>
+            </b-input-group-append>
+          </b-input-group>
+        </b-form-group>
+      </b-col>              
+    </b-row>    
     <b-table 
       :items="rows" 
       :fields="fields"
       :per-page="perPage"
       :current-page="currentPage"
+      :filter="filter"
       sort-by="start_date"
       :sort-desc=true
       striped
@@ -62,6 +75,7 @@ export default {
       perPage: 10,
       currentPage: 0,
       observations: observations,
+      filter: null,
       rows: [],
       fields: [
         { label: 'Unit', key: 'unit_id', sortable: true, formatter: this.unitId },
