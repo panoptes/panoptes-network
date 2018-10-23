@@ -8,7 +8,6 @@ from datetime import datetime
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2 import OperationalError
 from psycopg2.extras import RealDictCursor
-
 from google.cloud import storage
 
 
@@ -108,7 +107,11 @@ def get_sequences():
     conn.set_isolation_level(0)
 
     select_sql = """
-        SELECT t1.*, count(t2.id) as image_count
+        SELECT
+            t1.*,
+            count(t2.id) as image_count,
+            min(t2.date_obs) as first_image_time,
+            max(t2.date_obs) as last_image_time
         FROM sequences t1, images t2
         WHERE t1.id=t2.sequence_id
         GROUP BY t1.id
