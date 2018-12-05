@@ -111,17 +111,20 @@ def get_sequences():
         SELECT t1.*, count(t2.id) as image_count
         FROM sequences t1, images t2
         WHERE t1.id=t2.sequence_id
+            AND t1.start_date > CURRENT_DATE - interval '7 days'
+            AND image_count >= 5
         GROUP BY t1.id
         ORDER BY t1.start_date DESC
         """
 
     rows = list()
-    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(select_sql)
-        rows = cursor.fetchall()
-        cursor.close()
-
-    pg_pool.putconn(conn)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(select_sql)
+                rows = cursor.fetchall()
+                cursor.close()
+    finally:
+        pg_pool.putconn(conn)
 
     return rows
 
@@ -203,12 +206,13 @@ def get_observation_info(sequence_id):
         """
 
     rows = list()
-    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(select_sql, (sequence_id, ))
-        rows = cursor.fetchone()
-        cursor.close()
-
-    pg_pool.putconn(conn)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(select_sql, (sequence_id, ))
+            rows = cursor.fetchone()
+            cursor.close()
+    finally:
+        pg_pool.putconn(conn)
 
     return rows
 
