@@ -76,7 +76,7 @@ def get_observations_data(request):
 
             items['sequence_files'] = sequence_files
     else:
-        items = get_sequences()
+        items = get_sequences(request_json)
 
     print("Found {} rows".format(len(items)))
     response_json = dict(items=items, total=len(items))
@@ -90,8 +90,11 @@ def get_observations_data(request):
     return (body, headers)
 
 
-def get_sequences():
+def get_sequences(params):
     global pg_pool
+
+    num_days = params.get('num_days', 7)
+    image_count = params.get('image_count', 5)
 
     # Initialize the pool lazily, in case SQL access isn't needed for this
     # GCF instance. Doing so minimizes the number of active SQL connections,
@@ -107,13 +110,13 @@ def get_sequences():
     conn = pg_pool.getconn()
     conn.set_isolation_level(0)
 
-    select_sql = """
+    select_sql = f"""
         SELECT t1.*, count(t2.id) as image_count
         FROM sequences t1, images t2
         WHERE t1.id=t2.sequence_id
-            AND t1.start_date > CURRENT_DATE - interval '7 days'
-            AND image_count >= 5
+            AND t1.start_date > CURRENT_DATE - interval '{num_days} days'
         GROUP BY t1.id
+        HAVING count(t2.id) >= {image_count}
         ORDER BY t1.start_date DESC
         """
 
