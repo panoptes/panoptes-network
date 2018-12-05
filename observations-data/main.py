@@ -39,7 +39,7 @@ pg_pool = None
 
 def get_observations_data(request):
     """ENTRYPOINT - get the observation data """
-    request_json = request.get_json()
+    request_json = request.get_json() or dict()
 
     sequence_id = None
     if request_json and 'sequence_id' in request_json:
