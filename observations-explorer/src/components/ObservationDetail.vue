@@ -122,7 +122,7 @@ export default {
       }
     })
       .catch(error => {
-        this.$router.push('/')
+        this.$router.replace({ name: 'home' })
       })
       .finally(() => (this.loading = false))
   },
