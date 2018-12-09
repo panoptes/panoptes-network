@@ -93,7 +93,7 @@ def get_observations_data(request):
 def get_sequences(params):
     global pg_pool
 
-    num_days = params.get('num_days', 7)
+    num_days = params.get('num_days', 21)
     image_count = params.get('image_count', 5)
 
     # Initialize the pool lazily, in case SQL access isn't needed for this
