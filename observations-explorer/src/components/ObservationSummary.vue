@@ -16,12 +16,11 @@
     <dt class="col-sm-3">POCS Version</dt>
     <dd class="col-sm-9">{{ sequence.pocs_version }}</dd>    
 
-    <dt class="col-sm-3">State</dt>
-    <dd class="col-sm-9">{{ sequence.piaa_state }}</dd>        
-
-
     <dt class="col-sm-3">Images</dt>
     <dd class="col-sm-9">{{ sequence.image_count }}</dd>            
+
+    <dt class="col-sm-3">Bucket Path</dt>
+    <dd class="col-sm-9">{{ sequenceDir }}</dd>    
   </dl>
 </div>
 </template>
@@ -38,7 +37,8 @@ export default {
   components: {
   },
   props: {
-    sequence: Object
+    sequence: Object,
+    sequenceDir: ''
   },
   filters: {
     unitId: function (value) {
@@ -54,17 +54,6 @@ export default {
       return unitId      
     }
   },  
-  created () {
-    // if (this.sequence === null) {
-    //   this.observations.getObservation(this.sequenceId).then(response => {
-    //     this.sequence = response.data.data
-    //   })
-    //     .catch(error => {
-    //       console.log(error)
-    //     })
-    //     .finally(() => (this.loading = false))
-    // }
-  },
   data () {
     return {
       observations: observations
