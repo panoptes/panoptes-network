@@ -8,6 +8,7 @@ from astropy.io import fits
 
 PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
+UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-pretty-pictures')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 
@@ -107,7 +108,7 @@ def make_rgb_fits(request):
 
 def upload_blob(source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
-    bucket = client.get_bucket('panoptes-test-bucket')
+    bucket = client.get_bucket(UPLOAD_BUCKET)
     blob = bucket.blob(destination_blob_name)
 
     blob.upload_from_filename(source_file_name)
