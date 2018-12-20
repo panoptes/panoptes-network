@@ -23,6 +23,17 @@ Payload: JSON message of the form:
 	}
 	```
 
+Example
+-------
+
+Using [httpie](https://httpie.org/):
+
+```bash
+http https://us-central1-panoptes-survey.cloudfunctions.net/make-rgb-fits \
+	cr2_file=PAN001/46Pwirtanen/14d3bd/20181216T075740/20181216T080457.cr2
+
+```
+
 Deploy
 ------
 
