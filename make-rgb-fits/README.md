@@ -1,5 +1,5 @@
 Make separate RGB FITS files
-===========================+
+============================
 
 This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
 
