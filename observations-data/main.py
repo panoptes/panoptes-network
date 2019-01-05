@@ -8,6 +8,7 @@ from datetime import datetime
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2 import OperationalError
 from psycopg2.extras import RealDictCursor
+
 from google.cloud import storage
 
 
@@ -38,7 +39,7 @@ pg_pool = None
 
 def get_observations_data(request):
     """ENTRYPOINT - get the observation data """
-    request_json = request.get_json()
+    request_json = request.get_json() or dict()
 
     sequence_id = None
     if request_json and 'sequence_id' in request_json:
@@ -46,9 +47,15 @@ def get_observations_data(request):
     elif request.args and 'sequence_id' in request.args:
         sequence_id = request.args['sequence_id']
 
+    # Used for looking up existing file.
+    json_bucket_location = None
+
     if sequence_id:
         print("Looking up observations for sequence_id={}".format(sequence_id))
+        # Lookup information about each image from the database.
         images = get_images(sequence_id)
+
+        # Lookup information about the observation as a whole.
         sequence = get_observation_info(sequence_id)
         sequence_files = defaultdict(list)
         items = {
@@ -56,13 +63,14 @@ def get_observations_data(request):
             "sequence": sequence
         }
 
-        # Look for filename in first row
+        # Get the actual directory in the storage bucket.
         sequence_dir = ''
         if images[0]['file_path'] > '':
             try:
                 sequence_dir = os.path.join(*images[0]['file_path'].split('/')[4:8])
                 items['sequence_dir'] = sequence_dir
                 print("Seq dir: ", sequence_dir)
+                json_bucket_location = os.path.join(sequence_dir, 'observation_info.json')
             except IndexError:
                 print("No rows")
 
@@ -75,12 +83,22 @@ def get_observations_data(request):
 
             items['sequence_files'] = sequence_files
     else:
-        items = get_sequences()
+        items = get_sequences(request_json)
 
     print("Found {} rows".format(len(items)))
     response_json = dict(items=items, total=len(items))
 
     body = flask.json.dumps(response_json, default=json_decoder)
+
+    # Store the json document for next time.
+    if json_bucket_location:
+        print(f'Uploading observation json to {json_bucket_location}')
+        try:
+            upload_json_string(body, json_bucket_location)
+            print(f'Upload complete')
+        except Exception as e:
+            print(f"Problem with upload {e}")
+
     headers = {
         'content-type': "application/json",
         'Access-Control-Allow-Origin': "*",
@@ -89,8 +107,11 @@ def get_observations_data(request):
     return (body, headers)
 
 
-def get_sequences():
+def get_sequences(params):
     global pg_pool
+
+    num_days = params.get('num_days', 21)
+    min_image_count = params.get('min_image_count', 5)
 
     # Initialize the pool lazily, in case SQL access isn't needed for this
     # GCF instance. Doing so minimizes the number of active SQL connections,
@@ -106,25 +127,24 @@ def get_sequences():
     conn = pg_pool.getconn()
     conn.set_isolation_level(0)
 
-    select_sql = """
-        SELECT
-            t1.*,
-            count(t2.id) as image_count,
-            min(t2.date_obs) as first_image_time,
-            max(t2.date_obs) as last_image_time
+    select_sql = f"""
+        SELECT t1.*, count(t2.id) as image_count
         FROM sequences t1, images t2
         WHERE t1.id=t2.sequence_id
+            AND t1.start_date > CURRENT_DATE - interval '{num_days} days'
         GROUP BY t1.id
+        HAVING count(t2.id) >= {min_image_count}
         ORDER BY t1.start_date DESC
         """
 
     rows = list()
-    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(select_sql)
-        rows = cursor.fetchall()
-        cursor.close()
-
-    pg_pool.putconn(conn)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(select_sql)
+            rows = cursor.fetchall()
+            cursor.close()
+    finally:
+        pg_pool.putconn(conn)
 
     return rows
 
@@ -206,12 +226,13 @@ def get_observation_info(sequence_id):
         """
 
     rows = list()
-    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(select_sql, (sequence_id, ))
-        rows = cursor.fetchone()
-        cursor.close()
-
-    pg_pool.putconn(conn)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(select_sql, (sequence_id, ))
+            rows = cursor.fetchone()
+            cursor.close()
+    finally:
+        pg_pool.putconn(conn)
 
     return rows
 
@@ -230,3 +251,9 @@ def __connect(host):
     global pg_pool
     pg_config['host'] = host
     pg_pool = SimpleConnectionPool(1, 1, **pg_config)
+
+
+def upload_json_string(string_content, destination_blob_name):
+    """Uploads a json string to the the bucket."""
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_string(string_content, content_type='application/json')

@@ -2,78 +2,77 @@
 <b-card>
   <b-tabs card>
     <b-tab title="info" active>
-      <b-card-group deck>
-        <b-card header="<b>Info</b>">
-          <ObservationSummary 
-            :sequence="sequence"
-          />
-        </b-card>
-        <b-card 
-          no-body
-          :header="'<b>Images <small>(' + images.length + ')</small></b>'"
+      <b-card header="<b>Info</b>">
+        <ObservationSummary 
+          :sequence="sequence"
+          :sequenceDir="sequenceDir"
+        />
+      </b-card>
+      <b-card 
+        no-body
+        :header="'<b>Images <small>(' + images.length + ')</small></b>'"
+        >
+        <b-card-body>
+          <b-table 
+            :items="images" 
+            :fields="fields"
+            :per-page="perPage"
+            :current-page="currentPage"
+            sort-by="date_obs"
+            :sort-desc=false
+            caption-top
+            bordered
+            striped
+            narrowed
+            hoverable
+            small
           >
-          <b-card-body>
-            <b-table 
-              :items="images" 
-              :fields="fields"
-              :per-page="perPage"
-              :current-page="currentPage"
-              sort-by="date_obs"
-              :sort-desc=false
-              caption-top
-              bordered
-              striped
-              narrowed
-              hoverable
-              small
-            >
-            <template slot="date_obs" slot-scope="data">
-              {{ data.value | moment("HH:mm:ss") }}
-            </template>            
-            <template slot="center" slot-scope="data">
-              {{ data['item']['center_ra'] }}° / {{ data['item']['center_dec'] }}°
-            </template>                        
-            <template slot="file_path" slot-scope="data">
-              <b-link 
-                v-if="jpg_files"
-                :href="data.value | toJpg" target="_blank" 
-                >
-                <font-awesome-icon icon="image"></font-awesome-icon>
-              </b-link>
-              </a>
-            </template>  
+          <template slot="date_obs" slot-scope="data">
+            {{ data.value | moment("HH:mm:ss") }}
+          </template>            
+          <template slot="center" slot-scope="data">
+            {{ data['item']['center_ra'] }}° / {{ data['item']['center_dec'] }}°
+          </template>                        
+          <template slot="file_path" slot-scope="data">
+            <b-link 
+              v-if="jpg_files"
+              :href="data.value | toJpg" target="_blank" 
+              >
+              <font-awesome-icon icon="image"></font-awesome-icon>
+            </b-link>
+            </a>
+          </template>  
 
-          </b-table>            
-          <b-row>
-            <b-col cols="6">              
-              <b-button size='sm' variant='link'>
-                <a :href='"http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=" + sequenceId'>Download file list</a>
-              </b-button>
-              <font-awesome-icon icon="question-circle" id="downloadList"></font-awesome-icon>
+        </b-table>            
+        <b-row>
+          <b-col cols="6">              
+            <b-button size='sm' variant='link'>
+              <a :href='"http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=" + sequenceId'>Download file list</a>
+            </b-button>
+            <font-awesome-icon icon="question-circle" id="downloadList"></font-awesome-icon>
 
-            </b-col>
-            <b-popover target="downloadList" triggers="hover focus" delay="500">
-               <template slot="title">Download File List</template>
-               Clicking this link will download a text file that contains a list
-               of FITS files for this observation.
+          </b-col>
+          <b-popover target="downloadList" triggers="hover focus" delay="500">
+             <template slot="title">Download File List</template>
+             Clicking this link will download a text file that contains a list
+             of FITS files for this observation.
 
-               You can use a tool like <code>wget</code> or <code>curl</code> to download
-               the files:
-               <br/><br/>
-               <code>wget -i {{sequenceId}}.txt</code>
-            </b-popover>
-            <b-col cols="6">
-              <b-pagination 
-                :total-rows="images.length" 
-                :per-page="perPage" 
-                v-model="currentPage" 
-                class="float-right"
-                 />
-            </b-col>
-          </b-row>                  
-          </b-card-body>
-        </b-card>
-      </b-card-group>      
+             You can use a tool like <code>wget</code> or <code>curl</code> to download
+             the files:
+             <br/><br/>
+             <code>wget -i {{sequenceId}}.txt</code>
+          </b-popover>
+          <b-col cols="6">
+            <b-pagination 
+              :total-rows="images.length" 
+              :per-page="perPage" 
+              v-model="currentPage" 
+              class="float-right"
+               />
+          </b-col>
+        </b-row>                  
+        </b-card-body>
+      </b-card>
     </b-tab>
     <b-tab 
       title="timelapse"
@@ -123,7 +122,7 @@ export default {
       }
     })
       .catch(error => {
-        console.log(error)
+        this.$router.replace({ name: 'home' })
       })
       .finally(() => (this.loading = false))
   },
