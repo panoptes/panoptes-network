@@ -47,9 +47,15 @@ def get_observations_data(request):
     elif request.args and 'sequence_id' in request.args:
         sequence_id = request.args['sequence_id']
 
+    # Used for looking up existing file.
+    json_bucket_location = None
+
     if sequence_id:
         print("Looking up observations for sequence_id={}".format(sequence_id))
+        # Lookup information about each image from the database.
         images = get_images(sequence_id)
+
+        # Lookup information about the observation as a whole.
         sequence = get_observation_info(sequence_id)
         sequence_files = defaultdict(list)
         items = {
@@ -57,13 +63,14 @@ def get_observations_data(request):
             "sequence": sequence
         }
 
-        # Look for filename in first row
+        # Get the actual directory in the storage bucket.
         sequence_dir = ''
         if images[0]['file_path'] > '':
             try:
                 sequence_dir = os.path.join(*images[0]['file_path'].split('/')[4:8])
                 items['sequence_dir'] = sequence_dir
                 print("Seq dir: ", sequence_dir)
+                json_bucket_location = os.path.join(sequence_dir, 'observation_info.json')
             except IndexError:
                 print("No rows")
 
@@ -82,6 +89,16 @@ def get_observations_data(request):
     response_json = dict(items=items, total=len(items))
 
     body = flask.json.dumps(response_json, default=json_decoder)
+
+    # Store the json document for next time.
+    if json_bucket_location:
+        print(f'Uploading observation json to {json_bucket_location}')
+        try:
+            upload_json_string(body, json_bucket_location)
+            print(f'Upload complete')
+        except Exception as e:
+            print(f"Problem with upload {e}")
+
     headers = {
         'content-type': "application/json",
         'Access-Control-Allow-Origin': "*",
@@ -123,9 +140,9 @@ def get_sequences(params):
     rows = list()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(select_sql)
-                rows = cursor.fetchall()
-                cursor.close()
+            cursor.execute(select_sql)
+            rows = cursor.fetchall()
+            cursor.close()
     finally:
         pg_pool.putconn(conn)
 
@@ -234,3 +251,9 @@ def __connect(host):
     global pg_pool
     pg_config['host'] = host
     pg_pool = SimpleConnectionPool(1, 1, **pg_config)
+
+
+def upload_json_string(string_content, destination_blob_name):
+    """Uploads a json string to the the bucket."""
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_string(string_content, content_type='application/json')
