@@ -1,4 +1,4 @@
-astropy >= 3.0.0
 google-cloud-storage
 psycopg2
 PyYAML
+requests

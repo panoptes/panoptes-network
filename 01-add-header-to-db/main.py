@@ -1,11 +1,10 @@
 from os import getenv
 import re
+import requests
 from google.cloud import storage
 
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
-
-from astropy.wcs import WCS
 
 PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
 BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
@@ -25,6 +24,12 @@ pg_config = {
     'password': DB_PASSWORD,
     'dbname': DB_NAME
 }
+
+plate_solver_endpoint = getenv(
+    'HEADER_ENDPOINT',
+    'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-metadb'
+)
+
 
 # Connection pools reuse connections between invocations,
 # and handle dropped or expired connections automatically.
@@ -106,9 +111,14 @@ def header_to_db(request):
     print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
 
     # Pass the parsed header information
-    add_header_to_db(header)
-
-    return f'Header information added to meta database.'
+    try:
+        add_header_to_db(header)
+    except Exception as e:
+        print(f'Error adding headers to db: {e!r}')
+    else:
+        # Send to add-header-to-db
+        print("Forwarding to plate-solver: {}".format(header))
+        requests.post(plate_solver_endpoint, json={'lookup_file': lookup_file})
 
 
 def add_header_to_db(header):
