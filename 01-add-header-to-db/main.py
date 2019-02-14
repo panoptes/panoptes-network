@@ -178,23 +178,10 @@ def add_header_to_db(header):
             print("Inserting sequence: {}".format(seq_data))
 
             try:
-                bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
-                print(f'WCS info: {bl} {tl} {tr} {br}')
-                seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
-                    bl[0], bl[1],
-                    tr[0], tr[1]
-                )
                 meta_insert('sequences', cursor, **seq_data)
-                print("Sequence inserted w/ bounds: {}".format(seq_id))
             except Exception as e:
-                print("Can't get bounds: {}".format(e))
-                if 'coord_bounds' in seq_data:
-                    del seq_data['coord_bounds']
-                try:
-                    meta_insert('sequences', cursor, **seq_data)
-                except Exception as e:
-                    print("Can't insert sequence: {}".format(seq_id))
-                    raise e
+                print("Can't insert sequence: {}".format(seq_id))
+                raise e
 
             image_data = {
                 'id': img_id,
