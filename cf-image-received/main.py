@@ -60,7 +60,11 @@ def process_fits(file_path, file_id):
 
     # Send to add-header-to-db
     print("Forwarding to add-header-to-db: {}".format(header))
-    requests.post(add_header_endpoint, json={'header': header, 'lookup_file': file_path})
+    requests.post(add_header_endpoint, json={
+        'header': header,
+        'lookup_file': file_path,
+        'file_id': file_id,
+    })
 
 
 def process_cr2(file_path, file_id):
