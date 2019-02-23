@@ -5,5 +5,5 @@ meta:
     local_port: 5432
 tess:
     location: us-central1
-    database: tess-catalog            
+    database: tess-input-catalog            
     local_port: 5433
