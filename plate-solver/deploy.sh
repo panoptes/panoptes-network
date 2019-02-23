@@ -1,0 +1,1 @@
+gcloud container builds submit --config cloudbuild.yaml --substitutions=`cat config.txt`
