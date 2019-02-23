@@ -1,4 +1,4 @@
-FROM gcr.io/panoptes-survey/pocs-base
+FROM gcr.io/panoptes-survey/piaa
 COPY . /app
 WORKDIR /app
 RUN cd /app && pip3 install -r requirements.txt
