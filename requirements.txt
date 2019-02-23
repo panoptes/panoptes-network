@@ -1,2 +1,4 @@
 -r ./PONG/requirements.txt
 -r upload-listener/requirements.txt
+google-resumable-media==0.3.0
+psycopg2

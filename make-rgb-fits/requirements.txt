@@ -1,0 +1,7 @@
+# Function dependencies, for example:
+# package>=version
+rawpy
+imageio
+numpy
+astropy
+google-cloud-storage

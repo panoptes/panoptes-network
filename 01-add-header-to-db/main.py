@@ -60,28 +60,49 @@ def header_to_db(request):
         header = request_json['header']
 
     if not lookup_file and not header:
-        return f'No header or lookup_file, nothing to do!'
+        return 'No header or lookup_file, nothing to do!'
+
+    print(f"File: {lookup_file}")
+    print(f"Header: {header}")
 
     if lookup_file:
         print("Looking up header for file: ", lookup_file)
         storage_blob = bucket.get_blob(lookup_file)
-        file_headers = lookup_fits_header(storage_blob)
-        file_headers.update(header)
+        if storage_blob:
+            file_headers = lookup_fits_header(storage_blob)
+            file_headers.update(header)
 
-        file_headers['FILENAME'] = lookup_file
+            file_headers['FILENAME'] = storage_blob.public_url
 
-        print("Trying to match: ", lookup_file)
-        match = re.match(r'(PAN\d\d\d)/(.*?)/', lookup_file)
-        if match:
-            file_headers['PANID'] = match[1]
-            file_headers['FIELD'] = match[2]
+            print("Trying to match: ", lookup_file)
+            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
+            if match:
+                file_headers['PANID'] = match[1]
+                file_headers['FIELD'] = match[2]
+                file_headers['INSTRUME'] = match[3]
+                file_headers['SEQTIME'] = match[4]
+                file_headers['IMGTIME'] = match[5]
 
-        header = file_headers
+                file_headers['SEQID'] = '{}_{}_{}'.format(
+                    file_headers['PANID'],
+                    file_headers['INSTRUME'],
+                    file_headers['SEQTIME']
+                )
+
+                file_headers['IMAGEID'] = '{}_{}_{}'.format(
+                    file_headers['PANID'],
+                    file_headers['INSTRUME'],
+                    file_headers['IMGTIME']
+                )
+
+            header = file_headers
+        else:
+            return f"Nothing found in storage bucket for {lookup_file}"
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
-    seq_id = header['SEQID'].strip()
-    img_id = header['IMAGEID'].strip()
-    camera_id = header['INSTRUME'].strip()
+    seq_id = header['SEQID']
+    img_id = header['IMAGEID']
+    camera_id = header['INSTRUME']
     print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
 
     # Pass the parsed header information
@@ -157,23 +178,10 @@ def add_header_to_db(header):
             print("Inserting sequence: {}".format(seq_data))
 
             try:
-                bl, tl, tr, br = WCS(header).calc_footprint()  # Corners
-                print(f'WCS info: {bl} {tl} {tr} {br}')
-                seq_data['coord_bounds'] = '(({}, {}), ({}, {}))'.format(
-                    bl[0], bl[1],
-                    tr[0], tr[1]
-                )
                 meta_insert('sequences', cursor, **seq_data)
-                print("Sequence inserted w/ bounds: {}".format(seq_id))
             except Exception as e:
-                print("Can't get bounds: {}".format(e))
-                if 'coord_bounds' in seq_data:
-                    del seq_data['coord_bounds']
-                try:
-                    meta_insert('sequences', cursor, **seq_data)
-                except Exception as e:
-                    print("Can't insert sequence: {}".format(seq_id))
-                    raise e
+                print("Can't insert sequence: {}".format(seq_id))
+                raise e
 
             image_data = {
                 'id': img_id,
@@ -194,7 +202,7 @@ def add_header_to_db(header):
                 'cam_measrggb': header.get('MEASRGGB'),
                 'cam_red_balance': header.get('REDBAL'),
                 'cam_blue_balance': header.get('BLUEBAL'),
-                'file_path': header.get('FILENAME', '')
+                'file_path': header.get('FILENAME')
             }
 
             # Add plate-solved info.
