@@ -16,7 +16,7 @@ from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUBSUB_PATH = os.getenv('PUBSUB_PATH', 'projects/panoptes-survey/topics/new-observation')
+PUBSUB_PATH = os.getenv('PUBSUB_PATH', 'projects/panoptes-survey/subscriptions/plate-solver-sub')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
@@ -34,20 +34,30 @@ import logging
 
 
 def main():
-    logging.info(f"Staring pubsub listen on {subscription_path}")
-    subscriber.subscribe(subscription_path, callback=msg_callback)
+    logging.info(f"Starting pubsub listen on {subscription_path}")
 
-    # Keeps main thread from exiting.
-    while True:
-        time.sleep(10)
+    try:
+        subscriber.subscribe(subscription_path, callback=msg_callback)
+
+        # Keeps main thread from exiting.
+        logging.info(f"Subscriber started, entering listen loop")
+        while True:
+            time.sleep(10)
+    except Exception as e:
+        logging.warn(f'Problem starting subscriber: {e!r}')
 
 
 def msg_callback(message):
+    logging.info(f'Processing message: {message!r}')
     attributes = message.attributes
 
     event_type = attributes['eventType']
     object_id = attributes['objectId']
     overwrote_generation = attributes['overwroteGeneration']
+
+    logging.info(f'File: {object_id}')
+    logging.info(f'Event Type: {event_type}')
+    logging.info(f'Overwrote: {overwrote_generation}')
 
     if (event_type is 'OBJECT_FINALIZE' and overwrote_generation is None):
         # TODO: Add CR2 handling
