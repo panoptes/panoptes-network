@@ -3,5 +3,5 @@
 echo "Starting Cloud SQL proxy"
 python3 /var/panoptes/PIAA/scripts/connect_cloud_sql_proxy.py --config /var/panoptes/PIAA/conf.yaml --verbose &
 
-echo "Starting Flask solver"
-gunicorn -w4 -b 0.0.0.0:8000 wsgi:app
+echo "Starting PubSub listener"
+python3 pubsub-listener.py

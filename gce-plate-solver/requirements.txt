@@ -4,5 +4,6 @@ requests
 google-cloud-storage
 google-cloud-bigquery
 google-cloud-logging
+google-cloud-pubsub
 pandas
 astropy
