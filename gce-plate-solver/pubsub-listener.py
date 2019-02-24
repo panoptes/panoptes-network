@@ -4,7 +4,7 @@ import time
 from google.cloud import logging
 from google.cloud import storage
 from google.cloud import bigquery
-from google.cloud import pubsub_v1 as pubsub
+from google.cloud import pubsub
 
 import pandas as pd
 from astropy import units as u
@@ -14,17 +14,18 @@ from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import pipeline
 
-PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes')
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUBSUB_PATH = os.getenv('PUBSUB_PATH', 'projects/panoptes-survey/subscriptions/plate-solver-sub')
+SUB_NAME = os.getenv('SUB_TOPIC', 'plate-solver-sub')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
 storage_client = storage.Client(project=PROJECT_ID)
-subscriber = pubsub.SubscriberClient()
+subscriber_client = pubsub.SubscriberClient()
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
-subscription_path = subscriber.subscription_path(PROJECT_ID, PUBSUB_PATH)
+
+sub_name = f'projects/{PROJECT_ID}/subscriptions/{SUB_NAME}'
 
 db_cursor = None
 
@@ -34,10 +35,10 @@ import logging
 
 
 def main():
-    logging.info(f"Starting pubsub listen on {subscription_path}")
+    logging.info(f"Starting pubsub listen on {sub_name}")
 
     try:
-        subscriber.subscribe(subscription_path, callback=msg_callback)
+        future = subscriber_client.subscribe(sub_name, callback=msg_callback)
 
         # Keeps main thread from exiting.
         logging.info(f"Subscriber started, entering listen loop")
@@ -45,21 +46,23 @@ def main():
             time.sleep(10)
     except Exception as e:
         logging.warn(f'Problem starting subscriber: {e!r}')
+        future.cancel()
 
 
 def msg_callback(message):
-    logging.info(f'Processing message: {message!r}')
     attributes = message.attributes
 
     event_type = attributes['eventType']
     object_id = attributes['objectId']
     overwrote_generation = attributes['overwroteGeneration']
 
+    new_file = overwrote_generation == ""
+
     logging.info(f'File: {object_id}')
     logging.info(f'Event Type: {event_type}')
-    logging.info(f'Overwrote: {overwrote_generation}')
+    logging.info(f'New file?: {new_file}')
 
-    if (event_type is 'OBJECT_FINALIZE' and overwrote_generation is None):
+    if (event_type is 'OBJECT_FINALIZE' and new_file):
         # TODO: Add CR2 handling
         if object_id.endswith('.fz') or object_id.endswith('.fits'):
             logging.info(f'Solving {object_id}')
