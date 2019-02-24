@@ -65,6 +65,9 @@ def solve_file(object_id):
     print(f'Downloading {object_id}')
     fz_fn = download_blob(object_id, destination='/tmp', bucket=bucket)
 
+    # Check for existing WCS info
+    wcs_info = fits_utils.get_wcsinfo(fz_fn)
+
     # Unpack the FITS file
     fits_fn = fits_utils.fpack(fz_fn, unpack=True)
 
@@ -100,8 +103,8 @@ def solve_file(object_id):
     sources_table_ref = dataset_ref.table('sources')
     bq_client.load_table_from_dataframe(point_sources, sources_table_ref).result()
 
-    # Upload solved file
-    if solve_info is not None:
+    # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
+    if solve_info is not None and len(wcs_info) == 1:
         fz_fn = fits_utils.fpack(fits_fn)
         upload_blob(fz_fn, object_id, bucket=bucket)
 
