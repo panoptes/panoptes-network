@@ -56,13 +56,13 @@ def msg_callback(message):
     object_id = attributes['objectId']
     overwrote_generation = attributes['overwroteGeneration']
 
-    new_file = overwrote_generation == ""
+    new_file = event_type == 'OBJECT_FINALIZE' and overwrote_generation == ""
 
     logging.info(f'File: {object_id}')
     logging.info(f'Event Type: {event_type}')
     logging.info(f'New file?: {new_file}')
 
-    if (event_type is 'OBJECT_FINALIZE' and new_file):
+    if new_file:
         # TODO: Add CR2 handling
         if object_id.endswith('.fz') or object_id.endswith('.fits'):
             logging.info(f'Solving {object_id}')
