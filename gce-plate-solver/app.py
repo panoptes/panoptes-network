@@ -98,7 +98,7 @@ def solve_file():
         upload_blob(fz_fn, bucket_fits_fn, bucket=bucket)
 
     # Send the response
-    return jsonify({'status': 'sources_extracted', 'file': fits_fn, }), 201
+    return jsonify({'status': 'sources_extracted', 'filename': fits_fn, }), 201
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
