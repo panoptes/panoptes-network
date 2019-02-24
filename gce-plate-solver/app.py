@@ -116,4 +116,4 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
         destination))
 
 
-app.run(host='0.0.0.0', port=8080)
+app.run(host='0.0.0.0', port=8000)
