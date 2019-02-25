@@ -7,7 +7,8 @@ echo "Getting astrometry.net files"
 python3 $POCS/pocs/utils/data.py
 
 echo "Getting DB passwords from metadata server"
-curl "http://metadata.google.internal/computeMetadata/v1/project/attributes/pgpass" -H "Metadata-Flavor: Google" > $HOME/.pgpass
+curl --silent "http://metadata.google.internal/computeMetadata/v1/project/attributes/pgpass" -H "Metadata-Flavor: Google" > $HOME/.pgpass
+chmod 600 $HOME/.pgpass
 
 echo "Starting PubSub listener"
 python3 pubsub-listener.py
