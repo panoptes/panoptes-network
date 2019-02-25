@@ -125,11 +125,14 @@ def solve_file(object_id):
     point_sources['sequence'] = sequence_id
 
     # Send CSV to bucket
-    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, 'point-sources-filtered.csv.bz2')
+    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, 'point-sources-filtered.csv')
     local_csv = bucket_csv.replace('/', '_')
-    logging.info(f'Sending {len(point_sources)} to CSV file {bucket_csv}')
-    point_sources.to_csv(bucket_csv, compression='bz2')
-    upload_blob(local_csv, bucket_csv, bucket=bucket)
+    logging.info(f'Sending {len(point_sources)} sources to CSV file {bucket_csv}')
+    try:
+        point_sources.to_csv(bucket_csv)
+        upload_blob(local_csv, bucket_csv, bucket=bucket)
+    except Exception as e:
+        logging.warn(f'Problem creating CSV: {e!r}')
 
     # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
     if solve_info is not None and len(wcs_info) == 1:
