@@ -164,15 +164,15 @@ def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='
 
     blob.download_to_filename(destination)
 
-    logging.info('Blob {} downloaded to {}.'.format(
-        source_blob_name,
-        destination))
+    logging.info('Blob {} downloaded to {}.'.format(source_blob_name, destination))
 
     return destination
 
 
 def upload_blob(source_file_name, destination, bucket=None, bucket_name='panoptes-survey'):
     """Uploads a file to the bucket."""
+    logging.info('Uploading {} to {}.'.format(source_file_name, destination))
+
     if bucket is None:
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket_name)
@@ -183,9 +183,7 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     # Upload file to blob
     blob.upload_from_filename(source_file_name)
 
-    logging.info('File {} uploaded to {}.'.format(
-        source_file_name,
-        destination))
+    logging.info('File {} uploaded to {}.'.format(source_file_name, destination))
 
 
 if __name__ == '__main__':
