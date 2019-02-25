@@ -100,11 +100,8 @@ def solve_file(object_id):
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
 
         # Solve fits file
-        try:
-            logging.info(f'Plate-solving {fits_fn}')
-            solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
-        except Exception as e:
-            logging.warn(f'Solve error: {fits_fn} {e!r}')
+        logging.info(f'Plate-solving {fits_fn}')
+        solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
 
         if db_cursor is None:
             db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
