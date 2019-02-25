@@ -61,9 +61,7 @@ def msg_callback(message):
 
     new_file = event_type == 'OBJECT_FINALIZE' and overwrote_generation == ""
 
-    logging.info(f'File: {object_id}')
-    logging.info(f'Event Type: {event_type}')
-    logging.info(f'New file?: {new_file}')
+    logging.info(f'Event Type: {event_type} New file?: {new_file} File: {object_id}')
 
     if new_file:
         # TODO: Add CR2 handling
@@ -130,7 +128,7 @@ def solve_file(object_id):
     local_csv = bucket_csv.replace('/', '_')
     logging.info(f'Sending {len(point_sources)} sources to CSV file {bucket_csv}')
     try:
-        point_sources.to_csv(bucket_csv)
+        point_sources.to_csv(local_csv)
         upload_blob(local_csv, bucket_csv, bucket=bucket)
     except Exception as e:
         logging.warn(f'Problem creating CSV: {e!r}')
