@@ -1,5 +1,6 @@
 import os
 import time
+from contextlib import suppress
 
 from google.cloud import logging
 from google.cloud import storage
@@ -123,16 +124,22 @@ def solve_file(object_id):
     point_sources['file'] = file
     point_sources['sequence'] = sequence_id
 
-    # Send to bigquery
-    logging.info(f'Sending {len(point_sources)} sources to bigquery')
-    dataset_ref = bq_client.dataset('observations')
-    sources_table_ref = dataset_ref.table('sources')
-    bq_client.load_table_from_dataframe(point_sources, sources_table_ref).result()
+    # Send CSV to bucket
+    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, 'point-sources-filtered.csv.bz2')
+    local_csv = bucket_csv.replace('/', '_')
+    logging.info(f'Sending {len(point_sources)} to CSV file {bucket_csv}')
+    point_sources.to_csv(bucket_csv, compression='bz2')
+    upload_blob(local_csv, bucket_csv, bucket=bucket)
 
     # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
     if solve_info is not None and len(wcs_info) == 1:
         fz_fn = fits_utils.fpack(fits_fn)
         upload_blob(fz_fn, object_id, bucket=bucket)
+
+    # Remove files
+    for fn in [fits_fn, fz_fn, local_csv]:
+        with suppress(FileNotFoundError):
+            os.remove(fn)
 
     return {'status': 'sources_extracted', 'filename': fits_fn, }
 
