@@ -16,7 +16,7 @@ from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-SUB_NAME = os.getenv('SUB_TOPIC', 'plate-solver-sub')
+SUBSCRIPTION_PATH = os.getenv('SUB_TOPIC', 'plate-solver-sub')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
@@ -25,7 +25,7 @@ subscriber_client = pubsub.SubscriberClient()
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
-sub_name = f'projects/{PROJECT_ID}/subscriptions/{SUB_NAME}'
+subscription_path = f'projects/{PROJECT_ID}/subscriptions/{SUBSCRIPTION_PATH}'
 
 db_cursor = None
 
@@ -35,15 +35,17 @@ import logging
 
 
 def main():
-    logging.info(f"Starting pubsub listen on {sub_name}")
+    logging.info(f"Starting pubsub listen on {subscription_path}")
 
     try:
-        future = subscriber_client.subscribe(sub_name, callback=msg_callback)
+        flow_control = pubsub.types.FlowControl(max_messages=5)
+        future = subscriber_client.subscribe(
+            subscription_path, callback=msg_callback, flow_control=flow_control)
 
         # Keeps main thread from exiting.
         logging.info(f"Subscriber started, entering listen loop")
         while True:
-            time.sleep(10)
+            time.sleep(30)
     except Exception as e:
         logging.warn(f'Problem starting subscriber: {e!r}')
         future.cancel()
@@ -68,9 +70,14 @@ def msg_callback(message):
             logging.info(f'Solving {object_id}')
             status = solve_file(object_id)
             if status['status'] == 'sources_extracted':
+                logging.info(f'File solved, sending ack')
                 message.ack()
+        else:
+            logging.info('Not a FITS file')
+            message.ack()
     else:
         # If an overwrite then simply ack message
+        logging.info('Not a new file, acknowledging message')
         message.ack()
 
 
