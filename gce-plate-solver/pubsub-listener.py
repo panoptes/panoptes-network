@@ -83,67 +83,77 @@ def msg_callback(message):
 def solve_file(object_id):
     global db_cursor
 
-    unit_id, field, cam_id, seq_time, file = object_id.split('/')
-    image_time = file.split('.')[0]
-    sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
+    try:  # Wrap everything so we can do file cleanup
 
-    # Download file blob from bucket
-    logging.info(f'Downloading {object_id}')
-    fz_fn = download_blob(object_id, destination='/tmp', bucket=bucket)
+        unit_id, field, cam_id, seq_time, file = object_id.split('/')
+        image_time = file.split('.')[0]
+        sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
 
-    # Check for existing WCS info
-    wcs_info = fits_utils.get_wcsinfo(fz_fn)
+        # Download file blob from bucket
+        logging.info(f'Downloading {object_id}')
+        fz_fn = download_blob(object_id, destination='/tmp', bucket=bucket)
 
-    # Unpack the FITS file
-    fits_fn = fits_utils.fpack(fz_fn, unpack=True)
+        # Check for existing WCS info
+        wcs_info = fits_utils.get_wcsinfo(fz_fn)
 
-    # Solve fits file
-    logging.info(f'Plate-solving {fits_fn}')
-    solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
+        # Unpack the FITS file
+        fits_fn = fits_utils.fpack(fz_fn, unpack=True)
 
-    if db_cursor is None:
-        db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+        # Solve fits file
+        try:
+            logging.info(f'Plate-solving {fits_fn}')
+            solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
+        except Exception as e:
+            logging.warn(f'Solve error: {fits_fn} {e!r}')
 
-    # Lookup point sources
-    logging.info(f'Looking up sources for {fits_fn}')
-    point_sources = pipeline.lookup_point_sources(
-        fits_fn,
-        force_new=True,
-        cursor=db_cursor
-    )
+        if db_cursor is None:
+            db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
 
-    # Adjust some of the header items
-    header = fits_utils.getheader(fits_fn)
-    obstime = Time(pd.to_datetime(file.split('.')[0]))
-    exptime = header['EXPTIME'] * u.second
-    obstime += (exptime / 2)
-    point_sources['obstime'] = obstime.datetime
-    point_sources['exptime'] = exptime
-    point_sources['airmass'] = header['AIRMASS']
-    point_sources['file'] = file
-    point_sources['sequence'] = sequence_id
+        # Lookup point sources
+        logging.info(f'Looking up sources for {fits_fn}')
+        point_sources = pipeline.lookup_point_sources(
+            fits_fn,
+            force_new=True,
+            cursor=db_cursor
+        )
 
-    # Send CSV to bucket
-    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
-    local_csv = os.path.join('/tmp', bucket_csv.replace('/', '_'))
-    logging.info(f'Sending {len(point_sources)} sources to CSV file {local_csv}')
-    try:
-        point_sources.to_csv(local_csv)
-        upload_blob(local_csv, bucket_csv, bucket=bucket)
+        # Adjust some of the header items
+        header = fits_utils.getheader(fits_fn)
+        obstime = Time(pd.to_datetime(file.split('.')[0]))
+        exptime = header['EXPTIME'] * u.second
+        obstime += (exptime / 2)
+        point_sources['obstime'] = obstime.datetime
+        point_sources['exptime'] = exptime
+        point_sources['airmass'] = header['AIRMASS']
+        point_sources['file'] = file
+        point_sources['sequence'] = sequence_id
+
+        # Send CSV to bucket
+        bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
+        local_csv = os.path.join('/tmp', bucket_csv.replace('/', '_'))
+        logging.info(f'Sending {len(point_sources)} sources to CSV file {local_csv}')
+        try:
+            point_sources.to_csv(local_csv)
+            upload_blob(local_csv, bucket_csv, bucket=bucket)
+        except Exception as e:
+            logging.warn(f'Problem creating CSV: {e!r}')
+
+        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
+        if solve_info is not None and len(wcs_info) == 1:
+            fz_fn = fits_utils.fpack(fits_fn)
+            upload_blob(fz_fn, object_id, bucket=bucket)
+
+        status = 'sources_extracted'
     except Exception as e:
-        logging.warn(f'Problem creating CSV: {e!r}')
+        logging.warn(f'Error while solving field: {e!r}')
+        status = 'error'
+    finally:
+        # Remove files
+        for fn in [fits_fn, fz_fn, local_csv]:
+            with suppress(FileNotFoundError):
+                os.remove(fn)
 
-    # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-    if solve_info is not None and len(wcs_info) == 1:
-        fz_fn = fits_utils.fpack(fits_fn)
-        upload_blob(fz_fn, object_id, bucket=bucket)
-
-    # Remove files
-    for fn in [fits_fn, fz_fn, local_csv]:
-        with suppress(FileNotFoundError):
-            os.remove(fn)
-
-    return {'status': 'sources_extracted', 'filename': fits_fn, }
+    return {'status': status, 'filename': fits_fn, }
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
