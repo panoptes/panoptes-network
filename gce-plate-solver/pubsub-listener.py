@@ -125,8 +125,8 @@ def solve_file(object_id):
 
     # Send CSV to bucket
     bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
-    local_csv = bucket_csv.replace('/', '_')
-    logging.info(f'Sending {len(point_sources)} sources to CSV file {bucket_csv}')
+    local_csv = os.path.join('/tmp', bucket_csv.replace('/', '_'))
+    logging.info(f'Sending {len(point_sources)} sources to CSV file {local_csv}')
     try:
         point_sources.to_csv(local_csv)
         upload_blob(local_csv, bucket_csv, bucket=bucket)
