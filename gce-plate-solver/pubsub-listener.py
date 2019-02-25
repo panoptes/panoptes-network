@@ -86,6 +86,7 @@ def solve_file(object_id):
     global db_cursor
 
     unit_id, field, cam_id, seq_time, file = object_id.split('/')
+    image_time = file.split('.')[0]
     sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
 
     # Download file blob from bucket
@@ -125,7 +126,7 @@ def solve_file(object_id):
     point_sources['sequence'] = sequence_id
 
     # Send CSV to bucket
-    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, 'point-sources-filtered.csv')
+    bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
     local_csv = bucket_csv.replace('/', '_')
     logging.info(f'Sending {len(point_sources)} sources to CSV file {bucket_csv}')
     try:
