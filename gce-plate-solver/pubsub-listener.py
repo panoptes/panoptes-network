@@ -54,8 +54,6 @@ def main():
 
 
 def msg_callback(message):
-    catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
-    metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     attributes = message.attributes
 
@@ -71,6 +69,11 @@ def msg_callback(message):
         if new_file:
             # TODO: Add CR2 handling
             if object_id.endswith('.fz') or object_id.endswith('.fits'):
+
+                # Get DB cursors
+                catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+                metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
                 logging.info(f'Solving {object_id}')
                 status = solve_file(object_id, catalog_db_cursor, metadata_db_cursor)
                 # TODO(wtgee): Handle partial failures
