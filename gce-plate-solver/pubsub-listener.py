@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from contextlib import suppress
 
@@ -12,6 +13,7 @@ from astropy import units as u
 from astropy.time import Time
 from astropy.io import fits
 
+from pocs.utils import error
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import helpers
@@ -41,7 +43,7 @@ def main():
     logging.info(f"Starting pubsub listen on {subscription_path}")
 
     try:
-        flow_control = pubsub.types.FlowControl(max_messages=5)
+        flow_control = pubsub.types.FlowControl(max_messages=1)
         future = subscriber_client.subscribe(
             subscription_path, callback=msg_callback, flow_control=flow_control)
 
@@ -85,6 +87,9 @@ def msg_callback(message):
 def solve_file(object_id):
     global db_cursor
 
+    if db_cursor is None:
+        db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+
     try:  # Wrap everything so we can do file cleanup
 
         unit_id, field, cam_id, seq_time, file = object_id.split('/')
@@ -97,17 +102,46 @@ def solve_file(object_id):
         fz_fn = download_blob(object_id, destination='/tmp', bucket=bucket)
 
         # Check for existing WCS info
+        logging.info(f'Getting existing WCS for {fz_fn}')
         wcs_info = fits_utils.get_wcsinfo(fz_fn)
+        if len(wcs_info) > 1:
+            logging.info(f'Found existing WCS for {fz_fn}')
 
         # Unpack the FITS file
+        logging.info(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
 
         # Solve fits file
         logging.info(f'Plate-solving {fits_fn}')
-        solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
+        try:
+            solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
+        except (error.SolveError, error.Timeout):
+            status = 'unsolved'
+            logging.info(f'File not solved, skipping')
+            is_solved = False
+        else:
+            status = 'solved'
+            is_solved = True
 
-        if db_cursor is None:
-            db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+        # Adjust some of the header items
+        logging.debug('Adding header information to database')
+        header = fits_utils.getheader(fits_fn)
+        obstime = Time(pd.to_datetime(file.split('.')[0]))
+        exptime = header['EXPTIME'] * u.second
+        obstime += (exptime / 2)
+
+        header['PANID'] = unit_id
+        header['FIELD'] = field
+        header['INSTRUME'] = cam_id
+        header['SEQTIME'] = seq_time
+        header['IMGTIME'] = image_time
+        header['SEQID'] = sequence_id
+        header['IMAGEID'] = image_id
+        header['PSTATE'] = status
+        add_header_to_db(header, db_cursor)
+
+        if not is_solved:
+            return {'status': status, 'filename': fits_fn, }
 
         # Lookup point sources
         logging.info(f'Looking up sources for {fits_fn}')
@@ -116,22 +150,12 @@ def solve_file(object_id):
             force_new=True,
             cursor=db_cursor
         )
-
-        # Adjust some of the header items
-        header = fits_utils.getheader(fits_fn)
-        obstime = Time(pd.to_datetime(file.split('.')[0]))
-        exptime = header['EXPTIME'] * u.second
-        obstime += (exptime / 2)
         point_sources['obstime'] = obstime.datetime
         point_sources['exptime'] = exptime
         point_sources['airmass'] = header['AIRMASS']
         point_sources['file'] = file
         point_sources['sequence'] = sequence_id
         point_sources['image_id'] = image_id
-
-        logging.debug('Adding header information to database')
-        header = fits_utils.getheader(fits_fn)
-        add_header_to_db(header, db_cursor)
 
         # Get frame stamps
         logging.debug('Get stamps for frame')
@@ -165,6 +189,9 @@ def solve_file(object_id):
         for fn in [fits_fn, fz_fn, local_csv]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
+
+        # Update status
+        meta_insert('sequences', db_cursor, **{'piaa_state': status})
 
     return {'status': status, 'filename': fits_fn, }
 
@@ -202,7 +229,7 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
             })
 
     # Write out the full PSC
-    df0 = pd.DataFrame(stamps, index=target_table.index)
+    df0 = pd.DataFrame(stamps)
     return df0
 
 
@@ -262,6 +289,7 @@ def add_header_to_db(header, cursor):
         str: The image_id.
     """
     try:
+        logging.debug('Starting add_header')
         unit_id = int(header.get('PANID').replace('PAN', ''))
         seq_id = header.get('SEQID', '').strip()
         img_id = header.get('IMAGEID', '').strip()
@@ -274,12 +302,14 @@ def add_header_to_db(header, cursor):
             'lon': float(header.get('LONG-OBS')),
             'elevation': float(header.get('ELEV-OBS')),
         }
+        logging.debug('Starting unit data')
         meta_insert('units', cursor, **unit_data)
 
         camera_data = {
             'unit_id': unit_id,
             'id': camera_id,
         }
+        logging.debug('Starting cameras data')
         meta_insert('cameras', cursor, **camera_data)
 
         seq_data = {
@@ -295,6 +325,7 @@ def add_header_to_db(header, cursor):
         logging.debug("Inserting sequence: {}".format(seq_data))
 
         try:
+            logging.debug('Starting sequences data')
             meta_insert('sequences', cursor, **seq_data)
         except Exception as e:
             logging.debug("Can't insert sequence: {}".format(seq_id))
@@ -319,9 +350,14 @@ def add_header_to_db(header, cursor):
         except KeyError:
             pass
 
+        logging.debug('Starting images data')
         meta_insert('images', cursor, **image_data)
     except Exception as e:
-        logging.warn(e)
+        logging.warn(f'Error in add header: {e!r}')
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        logging.warn(exc_type, fname, exc_tb.tb_lineno)
+        raise e
     else:
         logging.debug("Header added for SEQ={} IMG={}".format(seq_id, img_id))
         return img_id
