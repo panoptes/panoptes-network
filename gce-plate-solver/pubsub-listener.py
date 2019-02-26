@@ -112,6 +112,8 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
         # Unpack the FITS file
         logging.info(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
+        if not os.path.exists(fits_fn):
+            raise Exception(f'Problem unpacking {fz_fn}')
 
         # Solve fits file
         logging.info(f'Plate-solving {fits_fn}')
@@ -165,7 +167,7 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
         # Get frame stamps
         logging.info('Get stamps for frame')
         stamps = get_stamps(point_sources, fits_fn, image_id)
-        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps.csv')
+        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps-{image_time}.csv')
         local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
         stamps.to_csv(local_stamps_fn)
         upload_blob(local_stamps_fn, stamps_fn, bucket=bucket)
