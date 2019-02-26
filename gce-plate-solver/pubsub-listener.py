@@ -13,7 +13,6 @@ from astropy import units as u
 from astropy.time import Time
 from astropy.io import fits
 
-from pocs.utils import error
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import helpers
@@ -31,8 +30,6 @@ subscriber_client = pubsub.SubscriberClient()
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
 subscription_path = f'projects/{PROJECT_ID}/subscriptions/{SUBSCRIPTION_PATH}'
-
-db_cursor = None
 
 logging_client.setup_logging()
 
@@ -52,11 +49,14 @@ def main():
         while True:
             time.sleep(30)
     except Exception as e:
-        logging.warn(f'Problem starting subscriber: {e!r}')
+        logging.info(f'Problem starting subscriber: {e!r}')
         future.cancel()
 
 
 def msg_callback(message):
+    catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+    metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
     attributes = message.attributes
 
     event_type = attributes['eventType']
@@ -67,28 +67,30 @@ def msg_callback(message):
 
     logging.info(f'Event Type: {event_type} New file?: {new_file} File: {object_id}')
 
-    if new_file:
-        # TODO: Add CR2 handling
-        if object_id.endswith('.fz') or object_id.endswith('.fits'):
-            logging.info(f'Solving {object_id}')
-            status = solve_file(object_id)
-            if status['status'] == 'sources_extracted':
-                logging.info(f'File solved, sending ack')
-                message.ack()
+    try:
+        if new_file:
+            # TODO: Add CR2 handling
+            if object_id.endswith('.fz') or object_id.endswith('.fits'):
+                logging.info(f'Solving {object_id}')
+                status = solve_file(object_id, catalog_db_cursor, metadata_db_cursor)
+                # TODO(wtgee): Handle partial failures
+                if status['status'] == 'sources_extracted':
+                    logging.info(f'File solved, sending ack')
+            else:
+                logging.info('Not a FITS file')
         else:
-            logging.info('Not a FITS file')
-            message.ack()
-    else:
-        # If an overwrite then simply ack message
-        logging.info('Not a new file, acknowledging message')
+            # If an overwrite then simply ack message
+            logging.info('Not a new file, acknowledging message')
+    finally:
         message.ack()
+        catalog_db_cursor.close()
+        metadata_db_cursor.close()
 
 
-def solve_file(object_id):
-    global db_cursor
+def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
 
-    if db_cursor is None:
-        db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+    if 'pointing' in object_id:
+        return {'status': 'skipped', 'filename': object_id, }
 
     try:  # Wrap everything so we can do file cleanup
 
@@ -114,17 +116,19 @@ def solve_file(object_id):
         # Solve fits file
         logging.info(f'Plate-solving {fits_fn}')
         try:
-            solve_info = fits_utils.get_solve_field(fits_fn, timeout=90)
-        except (error.SolveError, error.Timeout):
+            solve_info = fits_utils.get_solve_field(
+                fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
+        except Exception as e:
             status = 'unsolved'
-            logging.info(f'File not solved, skipping')
+            logging.info(f'File not solved, skipping: {fits_fn} {e!r}')
             is_solved = False
         else:
+            logging.info(f'Solved {fits_fn}')
             status = 'solved'
             is_solved = True
 
         # Adjust some of the header items
-        logging.debug('Adding header information to database')
+        logging.info('Adding header information to database')
         header = fits_utils.getheader(fits_fn)
         obstime = Time(pd.to_datetime(file.split('.')[0]))
         exptime = header['EXPTIME'] * u.second
@@ -138,7 +142,8 @@ def solve_file(object_id):
         header['SEQID'] = sequence_id
         header['IMAGEID'] = image_id
         header['PSTATE'] = status
-        add_header_to_db(header, db_cursor)
+        if not add_header_to_db(header, metadata_db_cursor):
+            logging.info('Problem adding headers to DB')
 
         if not is_solved:
             return {'status': status, 'filename': fits_fn, }
@@ -148,9 +153,9 @@ def solve_file(object_id):
         point_sources = pipeline.lookup_point_sources(
             fits_fn,
             force_new=True,
-            cursor=db_cursor
+            cursor=catalog_db_cursor
         )
-        point_sources['obstime'] = obstime.datetime
+        point_sources['obstime'] = str(obstime.datetime)
         point_sources['exptime'] = exptime
         point_sources['airmass'] = header['AIRMASS']
         point_sources['file'] = file
@@ -158,12 +163,12 @@ def solve_file(object_id):
         point_sources['image_id'] = image_id
 
         # Get frame stamps
-        logging.debug('Get stamps for frame')
+        logging.info('Get stamps for frame')
         stamps = get_stamps(point_sources, fits_fn, image_id)
         stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps.csv')
         local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
         stamps.to_csv(local_stamps_fn)
-        upload_blob(local_stamps_fn)
+        upload_blob(local_stamps_fn, stamps_fn, bucket=bucket)
 
         # Send CSV to bucket
         bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
@@ -173,7 +178,7 @@ def solve_file(object_id):
             point_sources.to_csv(local_csv)
             upload_blob(local_csv, bucket_csv, bucket=bucket)
         except Exception as e:
-            logging.warn(f'Problem creating CSV: {e!r}')
+            logging.info(f'Problem creating CSV: {e!r}')
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
         if solve_info is not None and len(wcs_info) == 1:
@@ -182,16 +187,13 @@ def solve_file(object_id):
 
         status = 'sources_extracted'
     except Exception as e:
-        logging.warn(f'Error while solving field: {e!r}')
+        logging.info(f'Error while solving field: {e!r}')
         status = 'error'
     finally:
         # Remove files
         for fn in [fits_fn, fz_fn, local_csv]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
-
-        # Update status
-        meta_insert('sequences', db_cursor, **{'piaa_state': status})
 
     return {'status': status, 'filename': fits_fn, }
 
@@ -289,7 +291,7 @@ def add_header_to_db(header, cursor):
         str: The image_id.
     """
     try:
-        logging.debug('Starting add_header')
+        logging.info('Starting add_header')
         unit_id = int(header.get('PANID').replace('PAN', ''))
         seq_id = header.get('SEQID', '').strip()
         img_id = header.get('IMAGEID', '').strip()
@@ -302,15 +304,17 @@ def add_header_to_db(header, cursor):
             'lon': float(header.get('LONG-OBS')),
             'elevation': float(header.get('ELEV-OBS')),
         }
-        logging.debug('Starting unit data')
-        meta_insert('units', cursor, **unit_data)
+        if not meta_insert('units', cursor, **unit_data):
+            logging.info('Problem inserting units info')
+            return False
 
         camera_data = {
             'unit_id': unit_id,
             'id': camera_id,
         }
-        logging.debug('Starting cameras data')
-        meta_insert('cameras', cursor, **camera_data)
+        if not meta_insert('cameras', cursor, **camera_data):
+            logging.info('Problem inserting cameras info')
+            return False
 
         seq_data = {
             'id': seq_id,
@@ -322,23 +326,23 @@ def add_header_to_db(header, cursor):
             'pocs_version': header.get('CREATOR', ''),
             'piaa_state': header.get('PSTATE', 'header_received'),
         }
-        logging.debug("Inserting sequence: {}".format(seq_data))
 
         try:
-            logging.debug('Starting sequences data')
-            meta_insert('sequences', cursor, **seq_data)
+            if not meta_insert('sequences', cursor, **seq_data):
+                logging.info('Problem inserting sequences info')
+                return False
         except Exception as e:
-            logging.debug("Can't insert sequence: {}".format(seq_id))
+            logging.info("Can't insert sequence: {}".format(seq_id))
             raise e
 
         image_data = {
             'id': img_id,
             'sequence_id': seq_id,
-            'obstime': header.get('DATE-OBS'),
+            'date_obs': header.get('DATE-OBS'),
             'ra_mnt': header.get('RA-MNT'),
             'ha_mnt': header.get('HA-MNT'),
             'dec_mnt': header.get('DEC-MNT'),
-            'exptime': header.get('EXPTIME'),
+            'exp_time': header.get('EXPTIME'),
             'camera_id': camera_id,
             'file_path': header.get('FILENAME')
         }
@@ -350,17 +354,20 @@ def add_header_to_db(header, cursor):
         except KeyError:
             pass
 
-        logging.debug('Starting images data')
-        meta_insert('images', cursor, **image_data)
+        if not meta_insert('images', cursor, **image_data):
+            logging.info('Problem inserting images info')
+            return False
     except Exception as e:
-        logging.warn(f'Error in add header: {e!r}')
+        logging.info(f'Error in add header: {e!r}')
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        logging.warn(exc_type, fname, exc_tb.tb_lineno)
+        logging.info(exc_type, fname, exc_tb.tb_lineno)
         raise e
     else:
-        logging.debug("Header added for SEQ={} IMG={}".format(seq_id, img_id))
+        logging.info("Header added for SEQ={} IMG={}".format(seq_id, img_id))
         return img_id
+    finally:
+        cursor.close()
 
 
 def meta_insert(table, cursor, **kwargs):
@@ -377,6 +384,10 @@ def meta_insert(table, cursor, **kwargs):
     Returns:
         tuple|None: Returns the inserted row or None.
     """
+
+    if cursor is None or cursor.closed:
+        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
     col_names = list()
     col_values = list()
     for name, value in kwargs.items():
@@ -407,9 +418,13 @@ def meta_insert(table, cursor, **kwargs):
     try:
         cursor.execute(insert_sql, col_values)
     except Exception as e:
-        logging.error("Error in insert: " + e)
-
-    return
+        logging.info(f"Error in insert (error): {e!r}")
+        logging.info(f"Error in insert (sql): {insert_sql}")
+        logging.info(f"Error in insert (kwargs): {kwargs!r}")
+        return False
+    else:
+        logging.info(f'Insert success: {table}')
+        return True
 
 
 if __name__ == '__main__':
