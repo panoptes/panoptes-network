@@ -406,16 +406,12 @@ def meta_insert(table, cursor, **kwargs):
             continue
         update_cols.append('{0} = EXCLUDED.{0}'.format(col))
 
-    insert_sql = '''INSERT INTO {} ({})
-                    VALUES ({})
-                    ON CONFLICT (id)
-                    DO UPDATE SET {}
-                    '''.format(
-        table,
-        col_names_str,
-        col_val_holders,
-        ', '.join(update_cols)
-    )
+    insert_sql = f"""
+                INSERT INTO {table} ({col_names_str})
+                VALUES ({col_val_holders})
+                ON CONFLICT (id)
+                DO UPDATE SET {', '.join(update_cols)}
+                """
 
     try:
         cursor.execute(insert_sql, col_values)
