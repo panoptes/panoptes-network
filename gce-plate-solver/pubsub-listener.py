@@ -129,8 +129,17 @@ def solve_file(object_id):
         point_sources['sequence'] = sequence_id
         point_sources['image_id'] = image_id
 
-        # Get PSC
-        get_stamps(point_sources, fits_fn)
+        logging.debug('Adding header information to database')
+        header = fits_utils.getheader(fits_fn)
+        add_header_to_db(header, db_cursor)
+
+        # Get frame stamps
+        logging.debug('Get stamps for frame')
+        stamps = get_stamps(point_sources, fits_fn, image_id)
+        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps.csv')
+        local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
+        stamps.to_csv(local_stamps_fn)
+        upload_blob(local_stamps_fn)
 
         # Send CSV to bucket
         bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
@@ -160,13 +169,14 @@ def solve_file(object_id):
     return {'status': status, 'filename': fits_fn, }
 
 
-def get_stamps(point_sources, fits_fn, stamp_size=10):
+def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
     # Create PICID stamps
     data = fits.getdata(fits_fn)
 
+    stamps = list()
+
     # Loop each source
     for picid, target_table in point_sources.groupby('picid'):
-        stamps = list()
 
         # Loop through each frame
         for idx, row in target_table.iterrows():
@@ -191,8 +201,9 @@ def get_stamps(point_sources, fits_fn, stamp_size=10):
                 'data': data[target_slice].flatten()
             })
 
-        # Write out the full PSC
-        df0 = pd.DataFrame(stamps, index=target_table.index)
+    # Write out the full PSC
+    df0 = pd.DataFrame(stamps, index=target_table.index)
+    return df0
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
@@ -232,6 +243,137 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     blob.upload_from_filename(source_file_name)
 
     logging.info('File {} uploaded to {}.'.format(source_file_name, destination))
+
+
+def add_header_to_db(header, cursor):
+    """Add FITS image info to metadb.
+
+    Note:
+        This function doesn't check header for proper entries and
+        assumes a large list of keywords. See source for details.
+
+    Args:
+        header (dict): FITS Header data from an observation.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+
+    Returns:
+        str: The image_id.
+    """
+    try:
+        unit_id = int(header.get('PANID').replace('PAN', ''))
+        seq_id = header.get('SEQID', '').strip()
+        img_id = header.get('IMAGEID', '').strip()
+        camera_id = header.get('INSTRUME', '').strip()
+
+        unit_data = {
+            'id': unit_id,
+            'name': header.get('OBSERVER', '').strip(),
+            'lat': float(header.get('LAT-OBS')),
+            'lon': float(header.get('LONG-OBS')),
+            'elevation': float(header.get('ELEV-OBS')),
+        }
+        meta_insert('units', cursor, **unit_data)
+
+        camera_data = {
+            'unit_id': unit_id,
+            'id': camera_id,
+        }
+        meta_insert('cameras', cursor, **camera_data)
+
+        seq_data = {
+            'id': seq_id,
+            'unit_id': unit_id,
+            'start_date': header.get('SEQID', None).split('_')[-1],
+            'exp_time': header.get('EXPTIME'),
+            'ra_rate': header.get('RA-RATE'),
+            'field': header.get('FIELD', ''),
+            'pocs_version': header.get('CREATOR', ''),
+            'piaa_state': header.get('PSTATE', 'header_received'),
+        }
+        logging.debug("Inserting sequence: {}".format(seq_data))
+
+        try:
+            meta_insert('sequences', cursor, **seq_data)
+        except Exception as e:
+            logging.debug("Can't insert sequence: {}".format(seq_id))
+            raise e
+
+        image_data = {
+            'id': img_id,
+            'sequence_id': seq_id,
+            'obstime': header.get('DATE-OBS'),
+            'ra_mnt': header.get('RA-MNT'),
+            'ha_mnt': header.get('HA-MNT'),
+            'dec_mnt': header.get('DEC-MNT'),
+            'exptime': header.get('EXPTIME'),
+            'camera_id': camera_id,
+            'file_path': header.get('FILENAME')
+        }
+
+        # Add plate-solved info.
+        try:
+            image_data['center_ra'] = header['CRVAL1']
+            image_data['center_dec'] = header['CRVAL2']
+        except KeyError:
+            pass
+
+        meta_insert('images', cursor, **image_data)
+    except Exception as e:
+        logging.warn(e)
+    else:
+        logging.debug("Header added for SEQ={} IMG={}".format(seq_id, img_id))
+        return img_id
+
+
+def meta_insert(table, cursor, **kwargs):
+    """Inserts arbitrary key/value pairs into a table.
+
+    Args:
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+        **kwargs: List of key/value pairs corresponding to columns in the
+            table.
+
+    Returns:
+        tuple|None: Returns the inserted row or None.
+    """
+    col_names = list()
+    col_values = list()
+    for name, value in kwargs.items():
+        col_names.append(name)
+        col_values.append(value)
+
+    col_names_str = ','.join(col_names)
+    col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
+
+    # Build update set
+    update_cols = list()
+    for col in col_names:
+        if col in ['id']:
+            continue
+        update_cols.append('{0} = EXCLUDED.{0}'.format(col))
+
+    insert_sql = '''INSERT INTO {} ({})
+                    VALUES ({})
+                    ON CONFLICT (id)
+                    DO UPDATE SET {}
+                    '''.format(
+        table,
+        col_names_str,
+        col_val_holders,
+        ', '.join(update_cols)
+    )
+
+    try:
+        cursor.execute(insert_sql, col_values)
+    except Exception as e:
+        logging.error("Error in insert: " + e)
+
+    return
 
 
 if __name__ == '__main__':
