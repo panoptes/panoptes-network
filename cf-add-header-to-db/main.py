@@ -156,11 +156,10 @@ def add_header_to_db(header):
                 'id': seq_id,
                 'unit_id': unit_id,
                 'start_date': header.get('SEQID', None).split('_')[-1],
-                'exp_time': header.get('EXPTIME'),
-                'ra_rate': header.get('RA-RATE'),
-                'field': header.get('FIELD', ''),
+                'exptime': header.get('EXPTIME'),
                 'pocs_version': header.get('CREATOR', ''),
                 'piaa_state': header.get('PSTATE', 'header_received'),
+                'field': header.get('FIELD', ''),
             }
             print("Inserting sequence: {}".format(seq_data))
 
@@ -173,12 +172,12 @@ def add_header_to_db(header):
             image_data = {
                 'id': img_id,
                 'sequence_id': seq_id,
+                'camera_id': camera_id,
                 'obstime': header.get('DATE-OBS'),
                 'ra_mnt': header.get('RA-MNT'),
                 'ha_mnt': header.get('HA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
                 'exptime': header.get('EXPTIME'),
-                'camera_id': camera_id,
                 'file_path': header.get('FILENAME'),
                 'headers': orjson.dumps(header)
             }

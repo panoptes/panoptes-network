@@ -20,7 +20,7 @@ from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-SUBSCRIPTION_PATH = os.getenv('SUB_TOPIC', 'plate-solver-sub')
+PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
@@ -29,7 +29,7 @@ subscriber_client = pubsub.SubscriberClient()
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
-subscription_path = f'projects/{PROJECT_ID}/subscriptions/{SUBSCRIPTION_PATH}'
+pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 
 logging_client.setup_logging()
 
@@ -37,12 +37,12 @@ import logging
 
 
 def main():
-    logging.info(f"Starting pubsub listen on {subscription_path}")
+    logging.info(f"Starting pubsub listen on {pubsub_path}")
 
     try:
         flow_control = pubsub.types.FlowControl(max_messages=1)
         future = subscriber_client.subscribe(
-            subscription_path, callback=msg_callback, flow_control=flow_control)
+            pubsub_path, callback=msg_callback, flow_control=flow_control)
 
         # Keeps main thread from exiting.
         logging.info(f"Subscriber started, entering listen loop")
