@@ -6,7 +6,7 @@ from google.cloud import storage
 
 from astropy.io import fits
 
-PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes')
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-pretty-pictures')
 client = storage.Client(project=PROJECT_ID)
