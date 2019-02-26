@@ -10,9 +10,11 @@ from google.cloud import pubsub
 import pandas as pd
 from astropy import units as u
 from astropy.time import Time
+from astropy.io import fits
 
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
+from piaa.utils import helpers
 from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
@@ -88,6 +90,7 @@ def solve_file(object_id):
         unit_id, field, cam_id, seq_time, file = object_id.split('/')
         image_time = file.split('.')[0]
         sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
+        image_id = f'{unit_id}_{cam_id}_{image_time}'
 
         # Download file blob from bucket
         logging.info(f'Downloading {object_id}')
@@ -124,6 +127,10 @@ def solve_file(object_id):
         point_sources['airmass'] = header['AIRMASS']
         point_sources['file'] = file
         point_sources['sequence'] = sequence_id
+        point_sources['image_id'] = image_id
+
+        # Get PSC
+        get_stamps(point_sources, fits_fn)
 
         # Send CSV to bucket
         bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
@@ -151,6 +158,41 @@ def solve_file(object_id):
                 os.remove(fn)
 
     return {'status': status, 'filename': fits_fn, }
+
+
+def get_stamps(point_sources, fits_fn, stamp_size=10):
+    # Create PICID stamps
+    data = fits.getdata(fits_fn)
+
+    # Loop each source
+    for picid, target_table in point_sources.groupby('picid'):
+        stamps = list()
+
+        # Loop through each frame
+        for idx, row in target_table.iterrows():
+            # Get the data for the entire frame
+
+            # Get the stamp for the target
+            target_slice = helpers.get_stamp_slice(
+                row.x, row.y,
+                stamp_size=(stamp_size, stamp_size),
+                ignore_superpixel=False,
+                verbose=False
+            )
+
+            # Get data
+            stamps.append({
+                'image_id': row.image_id,
+                'pic_id': picid,
+                'date_obs': row.obstime,
+                'ra': row.ra,
+                'dec': row.dec,
+                'original_position': [row.x, row.y],
+                'data': data[target_slice].flatten()
+            })
+
+        # Write out the full PSC
+        df0 = pd.DataFrame(stamps, index=target_table.index)
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):

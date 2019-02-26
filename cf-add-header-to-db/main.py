@@ -6,7 +6,7 @@ from google.cloud import storage
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
-PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
+PROJECT_ID = getenv('POSTGRES_USER', 'panoptes-survey')
 BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
