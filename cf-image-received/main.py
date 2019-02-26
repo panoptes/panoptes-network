@@ -1,5 +1,4 @@
 import os
-import re
 from os import getenv
 
 import requests
@@ -48,18 +47,6 @@ def ack_image_received(data, context):
 
 
 def process_fits(bucket_path, object_id):
-    """ Thin-wrapper around process_file that sets PIAA_STATE """
-    headers = {
-        'PSTATE': 'fits_received'
-    }
-    process_file(bucket_path, object_id, headers)
-
-
-def process_cr2(bucket_path, object_id):
-    pass
-
-
-def process_file(bucket_path, object_id, headers):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
     Args:
@@ -77,7 +64,7 @@ def process_file(bucket_path, object_id, headers):
     sequence_id = f'{unit_id}_{camera_id}_{seq_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
 
-    headers.update({
+    headers = {
         'PANID': unit_id,
         'FIELD': field,
         'INSTRUME': camera_id,
@@ -87,7 +74,8 @@ def process_file(bucket_path, object_id, headers):
         'IMAGEID': image_id,
         'FILENAME': bucket_path,
         'FILEID': object_id,
-    })
+        'PSTATE': 'fits_received'
+    }
 
     # Send to add-header-to-db
     print(f"Forwarding to add-header-to-db: {headers!r}")
@@ -96,3 +84,7 @@ def process_file(bucket_path, object_id, headers):
         'bucket_path': bucket_path,
         'object_id': object_id,
     })
+
+
+def process_cr2():
+    pass

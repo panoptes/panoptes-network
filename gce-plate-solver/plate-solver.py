@@ -45,7 +45,7 @@ def main():
             pubsub_path, callback=msg_callback, flow_control=flow_control)
 
         # Keeps main thread from exiting.
-        logging.info(f"Subscriber started, entering listen loop")
+        logging.info(f"Plate-solver subscriber started, entering listen loop")
         while True:
             time.sleep(30)
     except Exception as e:
@@ -55,35 +55,16 @@ def main():
 
 def msg_callback(message):
 
-    attributes = message.attributes
-
-    event_type = attributes['eventType']
-    object_id = attributes['objectId']
-    overwrote_generation = attributes['overwroteGeneration']
-
-    new_file = event_type == 'OBJECT_FINALIZE' and overwrote_generation == ""
-
-    logging.info(f'Event Type: {event_type} New file?: {new_file} File: {object_id}')
+    object_id = message.attributes['filename']
 
     try:
-        if new_file:
-            # TODO: Add CR2 handling
-            if object_id.endswith('.fz') or object_id.endswith('.fits'):
+        # Get DB cursors
+        catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
+        metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-                # Get DB cursors
-                catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
-                metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
-
-                logging.info(f'Solving {object_id}')
-                status = solve_file(object_id, catalog_db_cursor, metadata_db_cursor)
-                # TODO(wtgee): Handle partial failures
-                if status['status'] == 'sources_extracted':
-                    logging.info(f'File solved, sending ack')
-            else:
-                logging.info('Not a FITS file')
-        else:
-            # If an overwrite then simply ack message
-            logging.info('Not a new file, acknowledging message')
+        logging.info(f'Solving {object_id}')
+        status = solve_file(object_id, catalog_db_cursor, metadata_db_cursor)
+        # TODO(wtgee): Handle status
     finally:
         message.ack()
         catalog_db_cursor.close()

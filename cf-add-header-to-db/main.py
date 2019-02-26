@@ -3,14 +3,19 @@ import orjson
 import requests
 
 from google.cloud import storage
+from google.cloud import pubsub
 
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
 PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-client = storage.Client(project=PROJECT_ID)
-bucket = client.get_bucket(BUCKET_NAME)
+PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
+
+publisher = pubsub.PublisherClient()
+storage_client = storage.Client(project=PROJECT_ID)
+
+bucket = storage_client.get_bucket(BUCKET_NAME)
 
 CONNECTION_NAME = os.getenv(
     'INSTANCE_CONNECTION_NAME',
@@ -26,10 +31,7 @@ pg_config = {
     'dbname': DB_NAME
 }
 
-plate_solver_endpoint = os.getenv(
-    'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/solve'
-)
+pubsub_topic = f'projects/{PROJECT_ID}/topics/{PUB_TOPIC}'
 
 
 # Connection pools reuse connections between invocations,
@@ -93,9 +95,10 @@ def header_to_db(request):
     except Exception as e:
         print(f'Error adding headers to db: {e!r}')
     else:
-        # Send to add-header-to-db
+        # Send to plate-solver
         print("Forwarding to plate-solver: {}".format(header))
-        requests.post(plate_solver_endpoint, json={'filename': bucket_path})
+        data = {'filename': bucket_path}
+        publisher.publish(pubsub_topic, str(data).encode('utf-8'), filename=bucket_path)
 
 
 def add_header_to_db(header):
