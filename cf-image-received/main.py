@@ -55,11 +55,7 @@ def process_fits(file_path, file_id):
 
 
 def process_cr2(file_path, file_id):
-    """ Thin-wrapper around process_file that sets PIAA_STATE """
-    headers = {
-        'PIAA_STATE': 'cr2_received'
-    }
-    process_file(file_path, file_id, headers)
+    pass
 
 
 def process_file(file_path, file_id, headers):
