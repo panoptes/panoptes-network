@@ -1,23 +1,24 @@
-from os import getenv
-import re
+import os
+import orjson
 import requests
+
 from google.cloud import storage
 
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
-PROJECT_ID = getenv('POSTGRES_USER', 'panoptes-survey')
-BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
+PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 
-CONNECTION_NAME = getenv(
+CONNECTION_NAME = os.getenv(
     'INSTANCE_CONNECTION_NAME',
     'panoptes-survey:us-central1:panoptes-meta'
 )
-DB_USER = getenv('POSTGRES_USER', 'panoptes')
-DB_PASSWORD = getenv('POSTGRES_PASSWORD', None)
-DB_NAME = getenv('POSTGRES_DATABASE', 'metadata')
+DB_USER = os.getenv('POSTGRES_USER', 'panoptes')
+DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', None)
+DB_NAME = os.getenv('POSTGRES_DATABASE', 'metadata')
 
 pg_config = {
     'user': DB_USER,
@@ -25,7 +26,7 @@ pg_config = {
     'dbname': DB_NAME
 }
 
-plate_solver_endpoint = getenv(
+plate_solver_endpoint = os.getenv(
     'HEADER_ENDPOINT',
     'https://us-central1-panoptes-survey.cloudfunctions.net/solve'
 )
@@ -68,7 +69,7 @@ def header_to_db(request):
         return 'No headers or bucket_path, nothing to do!'
 
     print(f"File: {bucket_path}")
-    print(f"Header: {header}")
+    print(f"Header: {header!r}")
 
     if bucket_path:
         print("Looking up header for file: ", bucket_path)
@@ -76,39 +77,15 @@ def header_to_db(request):
         if storage_blob:
             file_headers = lookup_fits_header(storage_blob)
             file_headers.update(header)
-
             file_headers['FILENAME'] = storage_blob.public_url
-
-            print("Trying to match: ", bucket_path)
-            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', bucket_path)
-            if match:
-                file_headers['PANID'] = match[1]
-                file_headers['FIELD'] = match[2]
-                file_headers['INSTRUME'] = match[3]
-                file_headers['SEQTIME'] = match[4]
-                file_headers['IMGTIME'] = match[5]
-
-                file_headers['SEQID'] = '{}_{}_{}'.format(
-                    file_headers['PANID'],
-                    file_headers['INSTRUME'],
-                    file_headers['SEQTIME']
-                )
-
-                file_headers['IMAGEID'] = '{}_{}_{}'.format(
-                    file_headers['PANID'],
-                    file_headers['INSTRUME'],
-                    file_headers['IMGTIME']
-                )
 
             header = file_headers
         else:
             return f"Nothing found in storage bucket for {bucket_path}"
 
-    unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID']
     img_id = header['IMAGEID']
-    camera_id = header['INSTRUME']
-    print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
+    print(f'Adding headers: Seq: {seq_id} Img: {img_id}')
 
     # Pass the parsed header information
     try:
@@ -196,31 +173,15 @@ def add_header_to_db(header):
             image_data = {
                 'id': img_id,
                 'sequence_id': seq_id,
-                'date_obs': header.get('DATE-OBS'),
-                'moon_fraction': header.get('MOONFRAC'),
-                'moon_separation': header.get('MOONSEP'),
+                'obstime': header.get('DATE-OBS'),
                 'ra_mnt': header.get('RA-MNT'),
                 'ha_mnt': header.get('HA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
-                'airmass': header.get('AIRMASS'),
-                'exp_time': header.get('EXPTIME'),
-                'iso': header.get('ISO'),
+                'exptime': header.get('EXPTIME'),
                 'camera_id': camera_id,
-                'cam_temp': header.get('CAMTEMP').split(' ')[0],
-                'cam_colortmp': header.get('COLORTMP'),
-                'cam_circconf': header.get('CIRCCONF').split(' ')[0],
-                'cam_measrggb': header.get('MEASRGGB'),
-                'cam_red_balance': header.get('REDBAL'),
-                'cam_blue_balance': header.get('BLUEBAL'),
-                'file_path': header.get('FILENAME')
+                'file_path': header.get('FILENAME'),
+                'headers': orjson.dumps(header)
             }
-
-            # Add plate-solved info.
-            try:
-                image_data['center_ra'] = header['CRVAL1']
-                image_data['center_dec'] = header['CRVAL2']
-            except KeyError:
-                pass
 
             meta_insert('images', cursor, **image_data)
         except Exception as e:

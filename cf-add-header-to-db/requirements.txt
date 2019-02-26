@@ -1,4 +1,5 @@
 google-cloud-storage
+orjson
 psycopg2
 PyYAML
 requests
