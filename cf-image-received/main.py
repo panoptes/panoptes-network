@@ -31,9 +31,9 @@ def ack_image_received(data, context):
         None; the output is written to Stackdriver Logging
     """
 
-    print("Received: {}".format(data))
     file_path = data['name']
     file_id = data['id']  # Includes bucket & storage generation
+    print(f"Received: {file_id} at {file_path}")
 
     _, file_ext = os.path.splitext(file_path)
 
@@ -42,30 +42,48 @@ def ack_image_received(data, context):
         '.cr2': process_cr2,
     }
 
+    print(f"Processing {file_id}")
     process_lookup[file_ext](file_path, file_id)
 
 
 def process_fits(file_path, file_id):
-    # Scrub some fields
-    print("Processing {}".format(file_id))
+    """ Thin-wrapper around process_file that sets PIAA_STATE """
+    headers = {
+        'PIAA_STATE': 'fits_received'
+    }
+    process_file(file_path, file_id, headers)
+
+
+def process_cr2(file_path, file_id):
+    """ Thin-wrapper around process_file that sets PIAA_STATE """
+    headers = {
+        'PIAA_STATE': 'cr2_received'
+    }
+    process_file(file_path, file_id, headers)
+
+
+def process_file(file_path, file_id, headers):
+    """ Forward the headers to the -add-header-to-db Cloud Function.
+
+    Args:
+        file_path (str): The relative (to the bucket) path of the file in the storage bucket.
+        file_id (str): The full blob id for the file in the storage bucket, includes generation.
+        headers (dict): A dictionary of header values to be stored with header values from image.
+    """
+    # Get some of the fields from the path.
     unit_id, field, camera_id, seq_time, filename = file_path.split('/')
 
-    header = {
+    headers.update({
         'PANID': unit_id,
         'FIELD': field,
         'FILENAME': file_path,
         'FILEID': file_id,
-        'PSTATE': 'fits_received',
-    }
-
-    # Send to add-header-to-db
-    print("Forwarding to add-header-to-db: {}".format(header))
-    requests.post(add_header_endpoint, json={
-        'header': header,
-        'lookup_file': file_path,
-        'file_id': file_id,
     })
 
-
-def process_cr2(file_path, file_id):
-    pass
+    # Send to add-header-to-db
+    print(f"Forwarding to add-header-to-db: {headers!r}")
+    requests.post(add_header_endpoint, json={
+        'headers': headers,
+        'bucket_path': file_path,
+        'object_id': file_id,
+    })

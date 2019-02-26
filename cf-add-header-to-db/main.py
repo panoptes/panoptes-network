@@ -27,7 +27,7 @@ pg_config = {
 
 plate_solver_endpoint = getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-metadb'
+    'https://us-central1-panoptes-survey.cloudfunctions.net/solve'
 )
 
 
@@ -40,10 +40,10 @@ pg_pool = None
 def header_to_db(request):
     """Add a FITS header to the datbase.
 
-    This endpoint looks for two parameters, `headers` and `lookup_file`. If
-    `lookup_file` is present then the header information will be pull from the file
+    This endpoint looks for two parameters, `headers` and `bucket_path`. If
+    `bucket_path` is present then the header information will be pull from the file
     itself. Additionally, any `headers` will be used to update the header information
-    from the file. If no `lookup_file` is found then only the `headers` will be used.
+    from the file. If no `bucket_path` is found then only the `headers` will be used.
 
     Args:
         request (flask.Request): HTTP request object.
@@ -56,31 +56,31 @@ def header_to_db(request):
 
     header = dict()
 
-    if 'lookup_file' in request_json:
-        lookup_file = request_json['lookup_file']
-    elif 'lookup_file' in request.args:
-        lookup_file = request.args['lookup_file']
+    if 'bucket_path' in request_json:
+        bucket_path = request_json['bucket_path']
+    elif 'bucket_path' in request.args:
+        bucket_path = request.args['bucket_path']
 
-    if 'header' in request_json:
-        header = request_json['header']
+    if 'headers' in request_json:
+        header = request_json['headers']
 
-    if not lookup_file and not header:
-        return 'No header or lookup_file, nothing to do!'
+    if not bucket_path and not header:
+        return 'No headers or bucket_path, nothing to do!'
 
-    print(f"File: {lookup_file}")
+    print(f"File: {bucket_path}")
     print(f"Header: {header}")
 
-    if lookup_file:
-        print("Looking up header for file: ", lookup_file)
-        storage_blob = bucket.get_blob(lookup_file)
+    if bucket_path:
+        print("Looking up header for file: ", bucket_path)
+        storage_blob = bucket.get_blob(bucket_path)
         if storage_blob:
             file_headers = lookup_fits_header(storage_blob)
             file_headers.update(header)
 
             file_headers['FILENAME'] = storage_blob.public_url
 
-            print("Trying to match: ", lookup_file)
-            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
+            print("Trying to match: ", bucket_path)
+            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', bucket_path)
             if match:
                 file_headers['PANID'] = match[1]
                 file_headers['FIELD'] = match[2]
@@ -102,7 +102,7 @@ def header_to_db(request):
 
             header = file_headers
         else:
-            return f"Nothing found in storage bucket for {lookup_file}"
+            return f"Nothing found in storage bucket for {bucket_path}"
 
     unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID']
@@ -118,7 +118,7 @@ def header_to_db(request):
     else:
         # Send to add-header-to-db
         print("Forwarding to plate-solver: {}".format(header))
-        requests.post(plate_solver_endpoint, json={'lookup_file': lookup_file})
+        requests.post(plate_solver_endpoint, json={'filename': bucket_path})
 
 
 def add_header_to_db(header):
@@ -183,7 +183,7 @@ def add_header_to_db(header):
                 'ra_rate': header.get('RA-RATE'),
                 'field': header.get('FIELD', ''),
                 'pocs_version': header.get('CREATOR', ''),
-                'piaa_state': header.get('PSTATE', 'metadata_received'),
+                'piaa_state': header.get('PSTATE', 'header_received'),
             }
             print("Inserting sequence: {}".format(seq_data))
 
