@@ -80,7 +80,7 @@ def header_to_db(request):
             file_headers.update(header)
             file_headers['FILENAME'] = storage_blob.public_url
 
-            header = file_headers
+            header.update(file_headers)
         else:
             return f"Nothing found in storage bucket for {bucket_path}"
 
@@ -95,12 +95,12 @@ def header_to_db(request):
         print(f'Error adding headers to db: {e!r}')
     else:
         # Send to plate-solver
-        print("Forwarding to plate-solver: {}".format(header))
+        print("Forwarding to plate-solver: {}".format(bucket_path))
         data = {'sequence_id': seq_id,
                 'image_id': img_id,
                 'state': 'metadata_received',
                 'filename': bucket_path}
-        publisher.publish(pubsub_topic, 'cf-add-header-to-db finished', **data)
+        publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
 
 
 def add_header_to_db(header):
@@ -163,7 +163,7 @@ def add_header_to_db(header):
                 'start_date': header.get('SEQID', None).split('_')[-1],
                 'exptime': header.get('EXPTIME'),
                 'pocs_version': header.get('CREATOR', ''),
-                'state': 'receiving files',
+                'state': 'receiving_files',
                 'field': header.get('FIELD', ''),
             }
             print("Inserting sequence: {}".format(seq_data))
@@ -189,13 +189,12 @@ def add_header_to_db(header):
             }
 
             meta_insert('images', cursor, **image_data)
+            print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
         except Exception as e:
             print(e)
         finally:
             cursor.close()
             pg_pool.putconn(conn)
-
-    print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
 
     return
 

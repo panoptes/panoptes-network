@@ -20,18 +20,15 @@ from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
 PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
 storage_client = storage.Client(project=PROJECT_ID)
 subscriber_client = pubsub.SubscriberClient()
-publisher = pubsub.PublisherClient()
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
-pubsub_topic = f'projects/{PROJECT_ID}/topics/{PUB_TOPIC}'
 pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 
 logging_client.setup_logging()
@@ -194,7 +191,7 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                 'astro_coords': (row.ra, row.dec),
                 'pixel_coords': (row.x, row.y),
                 'data': data[target_slice].flatten(),
-                'info': row.drop(remove_columns).to_json(),
+                'info': row.drop(remove_columns, errors='ignore').to_json(),
             })
 
     # Write out the full PSC.
