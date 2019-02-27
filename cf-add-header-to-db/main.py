@@ -1,6 +1,5 @@
 import os
 import orjson
-import requests
 
 from google.cloud import storage
 from google.cloud import pubsub
