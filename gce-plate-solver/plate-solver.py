@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from contextlib import suppress
 
@@ -20,15 +19,18 @@ from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
+PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
 PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
 
 logging_client = logging.Client()
 bq_client = bigquery.Client()
 storage_client = storage.Client(project=PROJECT_ID)
 subscriber_client = pubsub.SubscriberClient()
+publisher = pubsub.PublisherClient()
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
+pubsub_topic = f'projects/{PROJECT_ID}/topics/{PUB_TOPIC}'
 pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 
 logging_client.setup_logging()
@@ -55,37 +57,42 @@ def main():
 
 def msg_callback(message):
 
-    object_id = message.attributes['filename']
+    attributes = message.attributes
+    bucket_path = attributes['filename']
 
     try:
         # Get DB cursors
         catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-        logging.info(f'Solving {object_id}')
-        status = solve_file(object_id, catalog_db_cursor, metadata_db_cursor)
+        logging.info(f'Solving {bucket_path}')
+        status = solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor)
         # TODO(wtgee): Handle status
     finally:
         message.ack()
         catalog_db_cursor.close()
         metadata_db_cursor.close()
 
+        attributes['state'] = status
 
-def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
+        publisher.publish(pubsub_topic, 'gce-plate-solver finished', **attributes)
 
-    if 'pointing' in object_id:
-        return {'status': 'skipped', 'filename': object_id, }
+
+def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
+
+    if 'pointing' in bucket_path:
+        return {'status': 'skipped', 'filename': bucket_path, }
 
     try:  # Wrap everything so we can do file cleanup
 
-        unit_id, field, cam_id, seq_time, file = object_id.split('/')
+        unit_id, field, cam_id, seq_time, file = bucket_path.split('/')
         image_time = file.split('.')[0]
         sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
         image_id = f'{unit_id}_{cam_id}_{image_time}'
 
         # Download file blob from bucket
-        logging.info(f'Downloading {object_id}')
-        fz_fn = download_blob(object_id, destination='/tmp', bucket=bucket)
+        logging.info(f'Downloading {bucket_path}')
+        fz_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
 
         # Check for existing WCS info
         logging.info(f'Getting existing WCS for {fz_fn}')
@@ -113,15 +120,8 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
             status = 'solved'
             is_solved = True
 
-        # Adjust some of the header items
-        logging.info('Adding header information to database')
-        header = fits_utils.getheader(fits_fn)
-        obstime = Time(pd.to_datetime(file.split('.')[0]))
-        exptime = header['EXPTIME'] * u.second
-        obstime += (exptime / 2)
-
         if not is_solved:
-            return {'status': status, 'filename': fits_fn, }
+            return status
 
         # Lookup point sources
         logging.info(f'Looking up sources for {fits_fn}')
@@ -130,22 +130,22 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
             force_new=True,
             cursor=catalog_db_cursor
         )
+        # Adjust some of the header items
+        logging.info('Adding header information to sources table')
+        header = fits_utils.getheader(fits_fn)
+        obstime = Time(pd.to_datetime(file.split('.')[0]))
+        exptime = header['EXPTIME'] * u.second
+        obstime += (exptime / 2)
+
         point_sources['obstime'] = str(obstime.datetime)
         point_sources['exptime'] = exptime
         point_sources['airmass'] = header['AIRMASS']
         point_sources['file'] = file
         point_sources['sequence'] = sequence_id
         point_sources['image_id'] = image_id
+        status = 'sources_detected'
 
-        # Get frame stamps
-        logging.info('Get stamps for frame')
-        stamps = get_stamps(point_sources, fits_fn, image_id)
-        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps-{image_time}.csv')
-        local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
-        stamps.to_csv(local_stamps_fn)
-        upload_blob(local_stamps_fn, stamps_fn, bucket=bucket)
-
-        # Send CSV to bucket
+        # Send source CSV to bucket
         bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
         local_csv = os.path.join('/tmp', bucket_csv.replace('/', '_'))
         logging.info(f'Sending {len(point_sources)} sources to CSV file {local_csv}')
@@ -155,22 +155,29 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
         except Exception as e:
             logging.info(f'Problem creating CSV: {e!r}')
 
+        # Get frame stamps
+        logging.info('Get stamps for frame')
+        stamps = get_stamps(point_sources, fits_fn, image_id)
+        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps-{image_time}.csv')
+        local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
+        stamps.to_csv(local_stamps_fn)
+        upload_blob(local_stamps_fn, stamps_fn, bucket=bucket)
+        status = 'sources_extracted'
+
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
         if solve_info is not None and len(wcs_info) == 1:
             fz_fn = fits_utils.fpack(fits_fn)
-            upload_blob(fz_fn, object_id, bucket=bucket)
+            upload_blob(fz_fn, bucket_path, bucket=bucket)
 
-        status = 'sources_extracted'
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
-        status = 'error'
     finally:
         # Remove files
         for fn in [fits_fn, fz_fn, local_csv]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
-    return {'status': status, 'filename': fits_fn, }
+    return status
 
 
 def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
