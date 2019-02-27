@@ -135,11 +135,11 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
         point_sources['file'] = file
         point_sources['sequence'] = sequence_id
         point_sources['image_id'] = image_id
+        logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
 
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
         # Get frame stamps
-        logging.info('Get stamps for frame')
         get_stamps(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
@@ -178,7 +178,10 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
 
     # Loop each source
     logging.info(f'Starting stamp collection for {fits_fn}')
-    for picid, target_table in point_sources.groupby('picid'):
+
+    picid_group = point_sources.groupby('picid')
+    logging.info(f'Getting {len(picid_group)} stamps')
+    for picid, target_table in picid_group:
 
         # Loop through each frame
         for idx, row in target_table.iterrows():
@@ -210,6 +213,9 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
 
     logging.info(f'Done collecting stamps, building dataframe.')
 
+    if cursor is None or cursor.closed:
+        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
     # Write out the full PSC.
     data_buf = io.StringIO()
     pd.DataFrame(stamps).set_index(['picid', 'image_id']).to_csv(data_buf, sep="\t", quotechar="'")
@@ -218,13 +224,16 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
     data_buf.seek(0)
 
     # Headers are in first line.
-    headers = data_buf.readline()
-
-    if cursor is None or cursor.closed:
-        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+    headers = ','.join(data_buf.readline().strip().split('\t'))
 
     logging.info(f'Copying stamps to db for {fits_fn}')
-    cursor.copy_from(data_buf, 'stamps', columns=headers.split('\t'))
+    logging.info(f'Using headers: {headers}')
+
+    copy_sql = f"""COPY stamps ({headers}) FROM STDIN"""
+    logging.info(f'COPY sql: {copy_sql}')
+
+    cursor.copy_expert(copy_sql, data_buf)
+
     logging.info(f'Copy complete {fits_fn}')
 
 
