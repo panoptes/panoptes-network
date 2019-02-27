@@ -9,7 +9,7 @@ add_header_endpoint = getenv(
 )
 
 
-def ack_image_received(data, context):
+def ack_image_received(request):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.
@@ -30,10 +30,13 @@ def ack_image_received(data, context):
     Returns:
         None; the output is written to Stackdriver Logging
     """
-
-    bucket_path = data['name']
-    object_id = data['id']  # Includes bucket & storage generation
-    print(f"Received: {object_id} at {bucket_path}")
+    request_json = request.get_json()
+    if request.args and 'bucket_path' in request.args:
+        bucket_path = request.args.get('bucket_path')
+    elif request_json and 'bucket_path' in request_json:
+        bucket_path = request_json['bucket_path']
+    else:
+        return f'No file requested'
 
     _, file_ext = os.path.splitext(bucket_path)
 
@@ -42,17 +45,15 @@ def ack_image_received(data, context):
         '.cr2': process_cr2,
     }
 
-    print(f"Processing {object_id}")
-    process_lookup[file_ext](bucket_path, object_id)
+    print(f"Processing {bucket_path}")
+    process_lookup[file_ext](bucket_path)
 
 
-def process_fits(bucket_path, object_id):
+def process_fits(bucket_path):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
     Args:
         bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
-        object_id (str): The full blob id for the file in the storage bucket, includes generation.
-        headers (dict): A dictionary of header values to be stored with header values from image.
     """
     # Get some of the fields from the path.
     unit_id, field, camera_id, seq_time, filename = bucket_path.split('/')
@@ -73,7 +74,6 @@ def process_fits(bucket_path, object_id):
         'SEQID': sequence_id,
         'IMAGEID': image_id,
         'FILENAME': bucket_path,
-        'FILEID': object_id,
         'PSTATE': 'fits_received'
     }
 
@@ -82,7 +82,6 @@ def process_fits(bucket_path, object_id):
     requests.post(add_header_endpoint, json={
         'headers': headers,
         'bucket_path': bucket_path,
-        'object_id': object_id,
     })
 
 
