@@ -202,13 +202,14 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                 'info': row.drop(remove_columns).to_json(),
             })
 
-    # Write out the full PSC
+    # Write out the full PSC.
     data_buf = io.StringIO()
     pd.DataFrame(stamps).set_index(['picid', 'image_id']).to_csv(data_buf, sep="\t", quotechar="'")
 
-    # Rewind to beginning
+    # Rewind to beginning.
     data_buf.seek(0)
 
+    # Headers are in first line.
     headers = data_buf.readline()
 
     if cursor is None or cursor.closed:

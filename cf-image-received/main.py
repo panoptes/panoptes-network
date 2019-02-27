@@ -9,7 +9,7 @@ add_header_endpoint = getenv(
 )
 
 
-def ack_image_received(request):
+def image_received(request):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.

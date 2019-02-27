@@ -1,8 +1,9 @@
 #!/bin/bash -e
 
+echo "Deploying cloud function: image-received"
+
 gcloud functions deploy \
-                 ack-image-received \
-                 --entry-point ack_image_received \
+                 image-received \
+                 --entry-point image_received \
                  --runtime python37 \
-                 --trigger-resource panoptes-survey \
-                 --trigger-event google.storage.object.finalize
+                 --trigger-http

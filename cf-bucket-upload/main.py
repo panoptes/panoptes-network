@@ -4,7 +4,7 @@ import requests
 
 image_received_endpoint = os.getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/bucket-upload'
+    'https://us-central1-panoptes-survey.cloudfunctions.net/image-received'
 )
 
 
