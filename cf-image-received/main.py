@@ -1,11 +1,11 @@
 import os
-from os import getenv
+from contextlib import suppress
 
 import requests
 
-add_header_endpoint = getenv(
+add_header_endpoint = os.getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-metadb'
+    'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-db'
 )
 
 
@@ -46,7 +46,9 @@ def image_received(request):
     }
 
     print(f"Processing {bucket_path}")
-    process_lookup[file_ext](bucket_path)
+
+    with suppress(KeyError):
+        process_lookup[file_ext](bucket_path)
 
 
 def process_fits(bucket_path):
