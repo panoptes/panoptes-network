@@ -1,5 +1,6 @@
 import os
 import time
+import io
 from contextlib import suppress
 
 from google.cloud import logging
@@ -145,23 +146,9 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
         point_sources['image_id'] = image_id
         status = 'sources_detected'
 
-        # Send source CSV to bucket
-        bucket_csv = os.path.join(unit_id, field, cam_id, seq_time, f'sources-{image_time}.csv')
-        local_csv = os.path.join('/tmp', bucket_csv.replace('/', '_'))
-        logging.info(f'Sending {len(point_sources)} sources to CSV file {local_csv}')
-        try:
-            point_sources.to_csv(local_csv)
-            upload_blob(local_csv, bucket_csv, bucket=bucket)
-        except Exception as e:
-            logging.info(f'Problem creating CSV: {e!r}')
-
         # Get frame stamps
         logging.info('Get stamps for frame')
-        stamps = get_stamps(point_sources, fits_fn, image_id)
-        stamps_fn = os.path.join(unit_id, field, cam_id, seq_time, f'stamps-{image_time}.csv')
-        local_stamps_fn = os.path.join('/tmp', stamps_fn.replace('/', '_'))
-        stamps.to_csv(local_stamps_fn)
-        upload_blob(local_stamps_fn, stamps_fn, bucket=bucket)
+        get_stamps(point_sources, fits_fn, image_id, cursor=metadata_db_cursor)
         status = 'sources_extracted'
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -173,18 +160,21 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
         logging.info(f'Error while solving field: {e!r}')
     finally:
         # Remove files
-        for fn in [fits_fn, fz_fn, local_csv]:
+        for fn in [fits_fn, fz_fn]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
     return status
 
 
-def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
+def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
     # Create PICID stamps
     data = fits.getdata(fits_fn)
 
     stamps = list()
+
+    remove_columns = ['picid', 'image_id', 'obstime', 'ra', 'dec',
+                      'x_image', 'y_image', 'sequence', 'file', 'tmag', 'vmag']
 
     # Loop each source
     for picid, target_table in point_sources.groupby('picid'):
@@ -203,19 +193,29 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
 
             # Get data
             stamps.append({
-                'image_id': row.image_id,
                 'picid': picid,
+                'image_id': row.image_id,
                 'obstime': row.obstime,
-                'ra': row.ra,
-                'dec': row.dec,
-                'x_pos': row.x,
-                'y_pos': row.y,
-                'data': data[target_slice].flatten()
+                'astro_coords': (row.ra, row.dec),
+                'pixel_coords': (row.x, row.y),
+                'data': data[target_slice].flatten(),
+                'info': row.drop(remove_columns).to_json(),
             })
 
     # Write out the full PSC
-    df0 = pd.DataFrame(stamps)
-    return df0
+    data_buf = io.StringIO()
+    pd.DataFrame(stamps).set_index(['picid', 'image_id']).to_csv(data_buf, sep="\t", quotechar="'")
+
+    # Rewind to beginning
+    data_buf.seek(0)
+
+    headers = data_buf.readline()
+
+    if cursor is None or cursor.closed:
+        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
+    logging.info(f'Copying stamps to db for {image_id}')
+    cursor.copy_from(data_buf, 'stamps', columns=headers.split('\t'))
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
