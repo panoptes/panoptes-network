@@ -1,5 +1,5 @@
 import os
-from Flask import jsonify
+from flask import jsonify
 from contextlib import suppress
 
 import requests

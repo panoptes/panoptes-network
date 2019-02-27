@@ -3,7 +3,7 @@ import rawpy
 from copy import copy
 from contextlib import suppress
 
-from Flask import jsonify
+from flask import jsonify
 from google.cloud import storage
 
 from astropy.io import fits

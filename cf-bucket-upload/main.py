@@ -1,6 +1,6 @@
 import os
 
-from Flask import jsonify
+from flask import jsonify
 import requests
 
 image_received_endpoint = os.getenv(

@@ -1,7 +1,7 @@
 import os
 import orjson
 
-from Flask import jsonify
+from flask import jsonify
 from google.cloud import storage
 from google.cloud import pubsub
 
