@@ -67,22 +67,14 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         logging.info(f'Solving {bucket_path}')
-        status = solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor)
-        # TODO(wtgee): Handle status
+        solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor)
     finally:
         message.ack()
         catalog_db_cursor.close()
         metadata_db_cursor.close()
 
-        attributes['state'] = status
-
-        publisher.publish(pubsub_topic, 'gce-plate-solver finished', **attributes)
-
 
 def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
-
-    if 'pointing' in bucket_path:
-        return {'status': 'skipped', 'filename': bucket_path, }
 
     try:  # Wrap everything so we can do file cleanup
 
@@ -90,6 +82,9 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
         image_time = file.split('.')[0]
         sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
         image_id = f'{unit_id}_{cam_id}_{image_time}'
+
+        if 'pointing' in bucket_path:
+            update_state('skipped', image_id=image_id, cursor=metadata_db_cursor)
 
         # Download file blob from bucket
         logging.info(f'Downloading {bucket_path}')
@@ -113,16 +108,15 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
             solve_info = fits_utils.get_solve_field(
                 fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
         except Exception as e:
-            status = 'unsolved'
             logging.info(f'File not solved, skipping: {fits_fn} {e!r}')
             is_solved = False
         else:
             logging.info(f'Solved {fits_fn}')
-            status = 'solved'
             is_solved = True
 
         if not is_solved:
-            return status
+            update_state('unsolved', image_id=image_id, cursor=metadata_db_cursor)
+            return
 
         # Lookup point sources
         logging.info(f'Looking up sources for {fits_fn}')
@@ -144,12 +138,13 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
         point_sources['file'] = file
         point_sources['sequence'] = sequence_id
         point_sources['image_id'] = image_id
-        status = 'sources_detected'
+
+        update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
         # Get frame stamps
         logging.info('Get stamps for frame')
         get_stamps(point_sources, fits_fn, image_id, cursor=metadata_db_cursor)
-        status = 'sources_extracted'
+        update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
         if solve_info is not None and len(wcs_info) == 1:
@@ -164,7 +159,7 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
-    return status
+    return
 
 
 def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
@@ -309,6 +304,47 @@ def meta_insert(table, cursor, **kwargs):
     else:
         logging.info(f'Insert success: {table}')
         return True
+
+
+def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
+    """Inserts arbitrary key/value pairs into a table.
+
+    Args:
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+        **kwargs: List of key/value pairs corresponding to columns in the
+            table.
+
+    Returns:
+        tuple|None: Returns the inserted row or None.
+    """
+
+    if cursor is None or cursor.closed:
+        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
+    if sequence_id is None and image_id is None:
+        raise ValueError('Need either a sequence_id or an image_id')
+
+    table = 'sequences'
+    if sequence_id is None:
+        table = 'images'
+
+    update_sql = f"""
+                UPDATE {table}
+                SET state=%s
+                WHERE id=%s
+                """
+    try:
+        cursor.execute(update_sql, [state, sequence_id])
+    except Exception as e:
+        logging.info(f"Error in insert (error): {e!r}")
+        logging.info(f"Error in insert (sql): {update_sql}")
+        logging.info(f"Error in insert (kwargs): {kwargs!r}")
+        return False
+
+    return True
 
 
 if __name__ == '__main__':
