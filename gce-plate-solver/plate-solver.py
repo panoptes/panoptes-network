@@ -140,7 +140,7 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
 
         # Get frame stamps
         logging.info('Get stamps for frame')
-        get_stamps(point_sources, fits_fn, image_id, cursor=metadata_db_cursor)
+        get_stamps(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -159,8 +159,16 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
     return
 
 
-def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
-    # Create PICID stamps
+def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
+    """Get postage stamps for each PICID in the given file.
+
+    Args:
+        point_sources (`pandas.DataFrame`): A DataFrame containing the results from `sextractor`.
+        fits_fn (str): The name of the FITS file to extract stamps from.
+        stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
+        cursor (`psycopg2.Cursor`, optional): The DB cursor for the metadata database.
+    """
+    # Get the data for the entire frame
     data = fits.getdata(fits_fn)
 
     stamps = list()
@@ -174,7 +182,6 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
 
         # Loop through each frame
         for idx, row in target_table.iterrows():
-            # Get the data for the entire frame
 
             # Get the stamp for the target
             target_slice = helpers.get_stamp_slice(
@@ -184,6 +191,12 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                 verbose=False
             )
 
+            # Add the target slice to metadata to preserve original location.
+            row['target_slice'] = target_slice
+
+            # Put the data into a string literal for insert.
+            data_array = '{' + ', '.join(data[target_slice].flatten().astype(str)) + '}'
+
             # Get data
             stamps.append({
                 'picid': picid,
@@ -191,8 +204,8 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                 'obstime': row.obstime,
                 'astro_coords': (row.ra, row.dec),
                 'pixel_coords': (row.x, row.y),
-                'data': data[target_slice].flatten(),
-                'info': row.drop(remove_columns, errors='ignore').to_json(),
+                'data': data_array,
+                'metadata': row.drop(remove_columns, errors='ignore').to_json(),
             })
 
     logging.info(f'Done collecting stamps, building dataframe.')
@@ -210,8 +223,9 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-    logging.info(f'Copying stamps to db for {image_id}')
+    logging.info(f'Copying stamps to db for {fits_fn}')
     cursor.copy_from(data_buf, 'stamps', columns=headers.split('\t'))
+    logging.info(f'Copy complete {fits_fn}')
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):

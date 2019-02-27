@@ -93,7 +93,8 @@ def header_to_db(request):
     try:
         add_header_to_db(header)
     except Exception as e:
-        print(f'Error adding headers to db: {e!r}')
+        success = False
+        response_msg = f'Error adding header: {e!r}'
     else:
         # Send to plate-solver
         print("Forwarding to plate-solver: {}".format(bucket_path))
@@ -102,8 +103,10 @@ def header_to_db(request):
                 'state': 'metadata_received',
                 'filename': bucket_path}
         publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
+        success = True
+        response_msg = f'Header added to DB for {bucket_path}'
 
-    return jsonify(success=True, msg=f'Header added to DB for {bucket_path}')
+    return jsonify(success=success, msg=response_msg)
 
 
 def add_header_to_db(header):
@@ -194,12 +197,13 @@ def add_header_to_db(header):
             meta_insert('images', cursor, **image_data)
             print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
         except Exception as e:
-            print(e)
+            update_state('image_metadata_failed', sequence_id=seq_id, image_id=img_id)
+            raise e
         finally:
             cursor.close()
             pg_pool.putconn(conn)
 
-    return
+    return True
 
 
 def meta_insert(table, cursor, **kwargs):
@@ -319,6 +323,44 @@ def lookup_fits_header(remote_path):
         i += 1
 
     return headers
+
+
+def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
+    """Inserts arbitrary key/value pairs into a table.
+
+    Args:
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+        **kwargs: List of key/value pairs corresponding to columns in the
+            table.
+
+    Returns:
+        tuple|None: Returns the inserted row or None.
+    """
+
+    if sequence_id is None and image_id is None:
+        raise ValueError('Need either a sequence_id or an image_id')
+
+    for table, id_col in zip(['sequences', 'images'], [sequence_id, image_id]):
+        if id_col is None:
+            continue
+
+        update_sql = f"""
+                    UPDATE {table}
+                    SET state=%s
+                    WHERE id=%s
+                    """
+        try:
+            cursor.execute(update_sql, [state, sequence_id])
+        except Exception as e:
+            print(f"Error in insert (error): {e!r}")
+            print(f"Error in insert (sql): {update_sql}")
+            print(f"Error in insert (kwargs): {kwargs!r}")
+            return False
+
+    return True
 
 
 def __connect(host):
