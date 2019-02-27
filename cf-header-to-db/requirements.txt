@@ -1,5 +1,6 @@
-google-cloud-storage
+Flask
 google-cloud-pubsub
+google-cloud-storage
 orjson
 psycopg2
 PyYAML

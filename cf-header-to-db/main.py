@@ -1,6 +1,7 @@
 import os
 import orjson
 
+from Flask import jsonify
 from google.cloud import storage
 from google.cloud import pubsub
 
@@ -101,6 +102,8 @@ def header_to_db(request):
                 'state': 'metadata_received',
                 'filename': bucket_path}
         publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
+
+    return jsonify(success=True, msg=f'Header added to DB for {bucket_path}')
 
 
 def add_header_to_db(header):

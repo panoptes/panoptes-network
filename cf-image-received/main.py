@@ -1,4 +1,5 @@
 import os
+from Flask import jsonify
 from contextlib import suppress
 
 import requests
@@ -41,6 +42,7 @@ def image_received(request):
     _, file_ext = os.path.splitext(bucket_path)
 
     process_lookup = {
+        '.fits': process_fits,
         '.fz': process_fits,
         '.cr2': process_cr2,
     }
@@ -49,6 +51,8 @@ def image_received(request):
 
     with suppress(KeyError):
         process_lookup[file_ext](bucket_path)
+
+    return jsonify(success=True, msg=f"Image processed: {bucket_path}")
 
 
 def process_fits(bucket_path):
@@ -88,4 +92,4 @@ def process_fits(bucket_path):
 
 
 def process_cr2():
-    pass
+    print('TODO: ADD CR2 PROCESSING')

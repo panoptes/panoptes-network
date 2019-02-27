@@ -2,6 +2,8 @@ import os
 import rawpy
 from copy import copy
 from contextlib import suppress
+
+from Flask import jsonify
 from google.cloud import storage
 
 from astropy.io import fits
@@ -103,7 +105,7 @@ def make_rgb_fits(request):
         print(f'Removing {tmp_fn}')
         os.remove(tmp_fn)
 
-    return 'Success!'
+    return jsonify(success=True, msg=f"RGB FITS files made for {raw_file}")
 
 
 def upload_blob(source_file_name, destination_blob_name):
