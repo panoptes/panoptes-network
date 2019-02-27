@@ -14,7 +14,7 @@ from the file. If no `lookup_file` is found then only the `headers` will be used
 > :memo: Todo: Document that explains overall structure.
 
 
-Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/header-to-metadb
+Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/header-to-db
 
 Payload: JSON message of the form: 
 	```json
@@ -30,12 +30,12 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `header-to-metadb`
+name of the function in `main.py` that we want called and `header-to-db`
 is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 header-to-metadb \
+                 header-to-db \
                  --entry-point header_to_db \
                  --runtime python37 \
                  --trigger-http
