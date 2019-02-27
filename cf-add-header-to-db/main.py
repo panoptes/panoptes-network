@@ -97,8 +97,11 @@ def header_to_db(request):
     else:
         # Send to plate-solver
         print("Forwarding to plate-solver: {}".format(header))
-        data = {'filename': bucket_path}
-        publisher.publish(pubsub_topic, str(data).encode('utf-8'), filename=bucket_path)
+        data = {'sequence_id': seq_id,
+                'image_id': img_id,
+                'state': 'metadata_received',
+                'filename': bucket_path}
+        publisher.publish(pubsub_topic, 'cf-add-header-to-db finished', **data)
 
 
 def add_header_to_db(header):
@@ -161,7 +164,7 @@ def add_header_to_db(header):
                 'start_date': header.get('SEQID', None).split('_')[-1],
                 'exptime': header.get('EXPTIME'),
                 'pocs_version': header.get('CREATOR', ''),
-                'piaa_state': header.get('PSTATE', 'header_received'),
+                'state': 'receiving files',
                 'field': header.get('FIELD', ''),
             }
             print("Inserting sequence: {}".format(seq_data))
@@ -182,7 +185,8 @@ def add_header_to_db(header):
                 'dec_mnt': header.get('DEC-MNT'),
                 'exptime': header.get('EXPTIME'),
                 'file_path': header.get('FILENAME'),
-                'headers': orjson.dumps(header)
+                'headers': orjson.dumps(header),
+                'state': 'metadata_received'
             }
 
             meta_insert('images', cursor, **image_data)

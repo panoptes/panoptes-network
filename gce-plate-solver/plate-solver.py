@@ -120,17 +120,6 @@ def solve_file(object_id, catalog_db_cursor, metadata_db_cursor):
         exptime = header['EXPTIME'] * u.second
         obstime += (exptime / 2)
 
-        header['PANID'] = unit_id
-        header['FIELD'] = field
-        header['INSTRUME'] = cam_id
-        header['SEQTIME'] = seq_time
-        header['IMGTIME'] = image_time
-        header['SEQID'] = sequence_id
-        header['IMAGEID'] = image_id
-        header['PSTATE'] = status
-        if not add_header_to_db(header, metadata_db_cursor):
-            logging.info('Problem adding headers to DB')
-
         if not is_solved:
             return {'status': status, 'filename': fits_fn, }
 
@@ -208,11 +197,12 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10):
             # Get data
             stamps.append({
                 'image_id': row.image_id,
-                'pic_id': picid,
-                'date_obs': row.obstime,
+                'picid': picid,
+                'obstime': row.obstime,
                 'ra': row.ra,
                 'dec': row.dec,
-                'original_position': [row.x, row.y],
+                'x_pos': row.x,
+                'y_pos': row.y,
                 'data': data[target_slice].flatten()
             })
 
@@ -258,102 +248,6 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     blob.upload_from_filename(source_file_name)
 
     logging.info('File {} uploaded to {}.'.format(source_file_name, destination))
-
-
-def add_header_to_db(header, cursor):
-    """Add FITS image info to metadb.
-
-    Note:
-        This function doesn't check header for proper entries and
-        assumes a large list of keywords. See source for details.
-
-    Args:
-        header (dict): FITS Header data from an observation.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-
-    Returns:
-        str: The image_id.
-    """
-    try:
-        logging.info('Starting add_header')
-        unit_id = int(header.get('PANID').replace('PAN', ''))
-        seq_id = header.get('SEQID', '').strip()
-        img_id = header.get('IMAGEID', '').strip()
-        camera_id = header.get('INSTRUME', '').strip()
-
-        unit_data = {
-            'id': unit_id,
-            'name': header.get('OBSERVER', '').strip(),
-            'lat': float(header.get('LAT-OBS')),
-            'lon': float(header.get('LONG-OBS')),
-            'elevation': float(header.get('ELEV-OBS')),
-        }
-        if not meta_insert('units', cursor, **unit_data):
-            logging.info('Problem inserting units info')
-            return False
-
-        camera_data = {
-            'unit_id': unit_id,
-            'id': camera_id,
-        }
-        if not meta_insert('cameras', cursor, **camera_data):
-            logging.info('Problem inserting cameras info')
-            return False
-
-        seq_data = {
-            'id': seq_id,
-            'unit_id': unit_id,
-            'start_date': header.get('SEQID', None).split('_')[-1],
-            'exp_time': header.get('EXPTIME'),
-            'ra_rate': header.get('RA-RATE'),
-            'field': header.get('FIELD', ''),
-            'pocs_version': header.get('CREATOR', ''),
-            'piaa_state': header.get('PSTATE', 'header_received'),
-        }
-
-        try:
-            if not meta_insert('sequences', cursor, **seq_data):
-                logging.info('Problem inserting sequences info')
-                return False
-        except Exception as e:
-            logging.info("Can't insert sequence: {}".format(seq_id))
-            raise e
-
-        image_data = {
-            'id': img_id,
-            'sequence_id': seq_id,
-            'date_obs': header.get('DATE-OBS'),
-            'ra_mnt': header.get('RA-MNT'),
-            'ha_mnt': header.get('HA-MNT'),
-            'dec_mnt': header.get('DEC-MNT'),
-            'exp_time': header.get('EXPTIME'),
-            'camera_id': camera_id,
-            'file_path': header.get('FILENAME')
-        }
-
-        # Add plate-solved info.
-        try:
-            image_data['center_ra'] = header['CRVAL1']
-            image_data['center_dec'] = header['CRVAL2']
-        except KeyError:
-            pass
-
-        if not meta_insert('images', cursor, **image_data):
-            logging.info('Problem inserting images info')
-            return False
-    except Exception as e:
-        logging.info(f'Error in add header: {e!r}')
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        logging.info(exc_type, fname, exc_tb.tb_lineno)
-        raise e
-    else:
-        logging.info("Header added for SEQ={} IMG={}".format(seq_id, img_id))
-        return img_id
-    finally:
-        cursor.close()
 
 
 def meta_insert(table, cursor, **kwargs):
