@@ -169,6 +169,7 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                       'x_image', 'y_image', 'sequence', 'file', 'tmag', 'vmag']
 
     # Loop each source
+    logging.info(f'Starting stamp collection for {fits_fn}')
     for picid, target_table in point_sources.groupby('picid'):
 
         # Loop through each frame
@@ -193,6 +194,8 @@ def get_stamps(point_sources, fits_fn, image_id, stamp_size=10, cursor=None):
                 'data': data[target_slice].flatten(),
                 'info': row.drop(remove_columns, errors='ignore').to_json(),
             })
+
+    logging.info(f'Done collecting stamps, building dataframe.')
 
     # Write out the full PSC.
     data_buf = io.StringIO()
