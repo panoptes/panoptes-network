@@ -206,26 +206,25 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
                 'picid': picid,
                 'image_id': row.image_id,
                 'obstime': row.obstime,
-                'astro_coords': (row.ra, row.dec),
-                'pixel_coords': (row.x, row.y),
+                'astro_coords': f'({row.ra}, {row.dec})',
+                'pixel_coords': f'({row.x}, {row.y})',
                 'data': data_array,
                 'metadata': row.drop(remove_columns, errors='ignore').to_json(),
-            }.values())
+            })
 
     logging.info(f'Done collecting stamps, building dataframe.')
 
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
+    # Add headers to DB
     headers = ['picid', 'image_id', 'obstime', 'astro_coords', 'pixel_coords', 'data', 'metadata']
+    insert_sql = f'INSERT INTO stamps ({",".join(headers)}) VALUES %s'
+    insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
-    insert_sql = f'INSERT INTO (stamps) ({",".join(headers)})'
-    insert_template = '%s, %s, %s, %s, %s, %s, %s'
-
-    logging.info(f'{insert_sql}')
-    logging.info(f'{insert_template}')
-    logging.info(f'Stamps {len(stamps)}')
+    logging.info(f'Inserting {len(stamps)} stamps for {fits_fn}')
     execute_values(cursor, insert_sql, stamps, insert_template)
+    cursor.connection.commit()
 
     logging.info(f'Copy complete {fits_fn}')
 
