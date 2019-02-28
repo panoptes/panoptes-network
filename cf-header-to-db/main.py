@@ -190,7 +190,7 @@ def add_header_to_db(header):
                 'dec_mnt': header.get('DEC-MNT'),
                 'exptime': header.get('EXPTIME'),
                 'file_path': header.get('FILENAME'),
-                'headers': orjson.dumps(header),
+                'headers': orjson.dumps(header).decode('utf-8'),
                 'state': 'metadata_received'
             }
 

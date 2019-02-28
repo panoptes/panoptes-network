@@ -1,12 +1,13 @@
 import os
 import time
-import io
 from contextlib import suppress
 
 from google.cloud import logging
 from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import pubsub
+
+from psycopg2.extras import execute_values
 
 import pandas as pd
 from astropy import units as u
@@ -209,30 +210,22 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
                 'pixel_coords': (row.x, row.y),
                 'data': data_array,
                 'metadata': row.drop(remove_columns, errors='ignore').to_json(),
-            })
+            }.values())
 
     logging.info(f'Done collecting stamps, building dataframe.')
 
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-    # Write out the full PSC.
-    data_buf = io.StringIO()
-    pd.DataFrame(stamps).set_index(['picid', 'image_id']).to_csv(data_buf, sep="\t", quotechar="'")
+    headers = ['picid', 'image_id', 'obstime', 'astro_coords', 'pixel_coords', 'data', 'metadata']
 
-    # Rewind to beginning.
-    data_buf.seek(0)
+    insert_sql = f'INSERT INTO (stamps) ({",".join(headers)})'
+    insert_template = '%s, %s, %s, %s, %s, %s, %s'
 
-    # Headers are in first line.
-    headers = ','.join(data_buf.readline().strip().split('\t'))
-
-    logging.info(f'Copying stamps to db for {fits_fn}')
-    logging.info(f'Using headers: {headers}')
-
-    copy_sql = f"""COPY stamps ({headers}) FROM STDIN"""
-    logging.info(f'COPY sql: {copy_sql}')
-
-    cursor.copy_expert(copy_sql, data_buf)
+    logging.info(f'{insert_sql}')
+    logging.info(f'{insert_template}')
+    logging.info(f'Stamps {len(stamps)}')
+    execute_values(cursor, insert_sql, stamps, insert_template)
 
     logging.info(f'Copy complete {fits_fn}')
 
