@@ -62,14 +62,13 @@ class WriteToCSV(apache_beam.DoFn):
         """
         Prepares each row to be written in the csv
         """
-        result = [
-            "{},{},{}".format(
-                element[0],
-                element[1]['pixels'][0],
-                element[1]['sums'][0]
-            )
-        ]
-        return result
+
+        picid, seq_img_id = element[0]
+        data = element[1]
+        sums = data['sums']
+
+        result = ','.join(picid, seq_img_id, *sums)
+        return [result]
 
 
 input_filename = 'gs://panoptes-test-bucket/PAN001_14d3bd_20190228T054237.csv'
@@ -109,17 +108,9 @@ with apache_beam.Pipeline(options=options) as p:
         )
     )
 
-    pixels = (
-        psc_collection |
-        "Calculating average" >> apache_beam.CombineValues(
-            apache_beam.combiners.MeanCombineFn()
-        )
-    )
-
     to_be_joined = (
         {
             'sums': stamp_sums,
-            'pixels': pixels,
         } |
         "Grouping together" >> apache_beam.CoGroupByKey() |
         "Formatting CSV" >> apache_beam.ParDo(WriteToCSV()) |
