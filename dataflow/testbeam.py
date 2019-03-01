@@ -4,13 +4,6 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.typehints import with_input_types
 from apache_beam.typehints import with_output_types
 from apache_beam.typehints import Any
-from apache_beam.typehints import Dict
-from apache_beam.typehints import KV
-from apache_beam.typehints import List
-from apache_beam.typehints import Tuple
-from apache_beam.typehints import TypeVariable
-from apache_beam.typehints import Union
-from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.io.textio import ReadFromText, WriteToText
@@ -40,7 +33,7 @@ class CollectPixelVals(apache_beam.DoFn):
         """
 
         result = [
-            ((element['picid'], element['picid']), element['pixel_val'])
+            ((element['picid'], element['seq_img_id']), element['pixel_val'])
         ]
         return result
 
@@ -51,16 +44,13 @@ class SumCombineFn(apache_beam.transforms.core.CombineFn):
     """CombineFn for computing PCollection size."""
 
     def create_accumulator(self):
-        return 0
+        return 0  # Sum
 
-    def add_input(self, accumulator, element):
-        return accumulator + element
-
-    def add_inputs(self, accumulator, elements):
-        return accumulator + elements.sum()
+    def add_input(self, current_sum, new_value):
+        return current_sum + new_value
 
     def merge_accumulators(self, accumulators):
-        return accumulators.sum()
+        return sum(accumulators)
 
     def extract_output(self, accumulator):
         return accumulator
