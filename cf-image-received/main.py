@@ -91,5 +91,5 @@ def process_fits(bucket_path):
     })
 
 
-def process_cr2():
+def process_cr2(bucket_path):
     print('TODO: ADD CR2 PROCESSING')
