@@ -57,7 +57,8 @@ def main():
 def msg_callback(message):
 
     attributes = message.attributes
-    bucket_path = attributes['filename']
+    bucket_path = attributes['bucket_path']
+    object_id = attributes['object_id']
 
     try:
         # Get DB cursors
@@ -65,14 +66,14 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         logging.info(f'Solving {bucket_path}')
-        solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor)
+        solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor)
     finally:
         message.ack()
         catalog_db_cursor.close()
         metadata_db_cursor.close()
 
 
-def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
+def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
     try:  # Wrap everything so we can do file cleanup
 
@@ -124,17 +125,7 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
             cursor=catalog_db_cursor
         )
         # Adjust some of the header items
-        logging.info('Adding header information to sources table')
-        header = fits_utils.getheader(fits_fn)
-        obstime = Time(pd.to_datetime(file.split('.')[0]))
-        exptime = header['EXPTIME'] * u.second
-        obstime += (exptime / 2)
-
-        point_sources['obstime'] = str(obstime.datetime)
-        point_sources['exptime'] = exptime
-        point_sources['airmass'] = header['AIRMASS']
-        point_sources['file'] = file
-        point_sources['sequence'] = sequence_id
+        point_sources['gcs_file'] = object_id
         point_sources['image_id'] = image_id
         logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
 
@@ -174,8 +165,7 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
 
     stamps = list()
 
-    remove_columns = ['picid', 'image_id', 'obstime', 'ra', 'dec',
-                      'x_image', 'y_image', 'sequence', 'file', 'tmag', 'vmag']
+    remove_columns = ['picid', 'image_id', 'ra', 'dec', 'x_image', 'y_image']
 
     # Loop each source
     logging.info(f'Starting stamp collection for {fits_fn}')
@@ -205,9 +195,7 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
             stamps.append({
                 'picid': picid,
                 'image_id': row.image_id,
-                'obstime': row.obstime,
                 'astro_coords': f'({row.ra}, {row.dec})',
-                'pixel_coords': f'({row.x}, {row.y})',
                 'data': data_array,
                 'metadata': row.drop(remove_columns, errors='ignore').to_json(),
             })
@@ -218,7 +206,7 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     # Add headers to DB
-    headers = ['picid', 'image_id', 'obstime', 'astro_coords', 'pixel_coords', 'data', 'metadata']
+    headers = ['picid', 'image_id', 'astro_coords', 'data', 'metadata']
     insert_sql = f'INSERT INTO stamps ({",".join(headers)}) VALUES %s'
     insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
