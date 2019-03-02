@@ -59,13 +59,9 @@ def header_to_db(request):
 
     header = dict()
 
-    if 'bucket_path' in request_json:
-        bucket_path = request_json['bucket_path']
-    elif 'bucket_path' in request.args:
-        bucket_path = request.args['bucket_path']
-
-    if 'headers' in request_json:
-        header = request_json['headers']
+    bucket_path = request_json.get('bucket_path')
+    object_id = request_json.get('object_id')
+    header = request_json.get('headers')
 
     if not bucket_path and not header:
         return 'No headers or bucket_path, nothing to do!'
@@ -101,7 +97,9 @@ def header_to_db(request):
         data = {'sequence_id': seq_id,
                 'image_id': img_id,
                 'state': 'metadata_received',
-                'filename': bucket_path}
+                'bucket_path': bucket_path,
+                'object_id': object_id
+                }
         publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
         success = True
         response_msg = f'Header added to DB for {bucket_path}'
