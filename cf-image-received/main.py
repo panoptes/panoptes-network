@@ -32,11 +32,11 @@ def image_received(request):
         None; the output is written to Stackdriver Logging
     """
     request_json = request.get_json()
-    if request.args and 'bucket_path' in request.args:
-        bucket_path = request.args.get('bucket_path')
-    elif request_json and 'bucket_path' in request_json:
-        bucket_path = request_json['bucket_path']
-    else:
+
+    bucket_path = request_json.get('bucket_path')
+    object_id = request_json.get('object_id')
+
+    if bucket_path is None:
         return f'No file requested'
 
     _, file_ext = os.path.splitext(bucket_path)
@@ -50,12 +50,12 @@ def image_received(request):
     print(f"Processing {bucket_path}")
 
     with suppress(KeyError):
-        process_lookup[file_ext](bucket_path)
+        process_lookup[file_ext](bucket_path, object_id)
 
     return jsonify(success=True, msg=f"Image processed: {bucket_path}")
 
 
-def process_fits(bucket_path):
+def process_fits(bucket_path, object_id):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
     Args:
@@ -80,6 +80,7 @@ def process_fits(bucket_path):
         'SEQID': sequence_id,
         'IMAGEID': image_id,
         'FILENAME': bucket_path,
+        'FILEID': object_id,
         'PSTATE': 'fits_received'
     }
 
@@ -88,8 +89,9 @@ def process_fits(bucket_path):
     requests.post(add_header_endpoint, json={
         'headers': headers,
         'bucket_path': bucket_path,
+        'object_id': object_id,
     })
 
 
-def process_cr2(bucket_path):
+def process_cr2(bucket_path, object_id):
     print('TODO: ADD CR2 PROCESSING')
