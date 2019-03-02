@@ -22,7 +22,8 @@ def bucket_upload(data, context):
     if file_ext in ALLOWED_EXTENSTIONS:
         print(f"Forwarding image file to cf-image-received")
         requests.post(image_received_endpoint, json={
-            'bucket_path': bucket_path
+            'bucket_path': bucket_path,
+            'object_id': object_id
         })
 
     return jsonify(success=True, msg="Received file: {object_id}")
