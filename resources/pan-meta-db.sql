@@ -50,25 +50,17 @@ CREATE INDEX IF NOT EXISTS images_file_path_idx on images (file_path);
 CREATE INDEX IF NOT EXISTS images_obstime_idx on images (obstime);
 CREATE INDEX IF NOT EXISTS images_sequence_id_idx on images (sequence_id);
 
-CREATE TABLE IF NOT EXISTS stamps (
+CREATE TABLE IF NOT EXISTS sources (
 	picid bigint NOT NULL,
 	image_id char(29) REFERENCES images (id) NOT NULL,
     astro_coords point,
     metadata jsonb,
 	PRIMARY KEY (picid, image_id)
 );
-CREATE INDEX IF NOT EXISTS stamps_picid_idx on stamps (picid);
-CREATE INDEX IF NOT EXISTS stamps_image_id_idx on stamps (image_id);
-CREATE INDEX IF NOT EXISTS stamps_astro_coords_idx on stamps USING SPGIST (astro_coords);
+CREATE INDEX IF NOT EXISTS sources_picid_idx on sources (picid);
+CREATE INDEX IF NOT EXISTS sources_image_id_idx on sources (image_id);
+CREATE INDEX IF NOT EXISTS sources_astro_coords_idx on sources USING SPGIST (astro_coords);
 
 CREATE EXTENSION IF NOT EXISTS intarray;
 
-DROP FUNCTION normalize_stamp(float[]);
-CREATE OR REPLACE FUNCTION normalize_stamp(d0 float[]) RETURNS SETOF float[] AS $$
-    SELECT array_agg(norms.norm) FROM
-    (
-        SELECT (
-                UNNEST(d0) / (SELECT stamp_sum FROM (SELECT SUM(d1) as stamp_sum FROM UNNEST(d0) as d1) as t0)
-                ) as norm
-    ) as norms
-$$ LANGUAGE SQL;
+DROP FUNCTION normalize_source(float[]);
