@@ -52,16 +52,12 @@ CREATE INDEX IF NOT EXISTS images_sequence_id_idx on images (sequence_id);
 
 CREATE TABLE IF NOT EXISTS stamps (
 	picid bigint NOT NULL,
-	sequence_id char(29) REFERENCES sequences (id) NOT NULL,
 	image_id char(29) REFERENCES images (id) NOT NULL,
-	obstime timestamp,
     astro_coords point,
-	data float ARRAY,
     metadata jsonb,
 	PRIMARY KEY (picid, image_id)
 );
 CREATE INDEX IF NOT EXISTS stamps_picid_idx on stamps (picid);
-CREATE INDEX IF NOT EXISTS stamps_sequences_id_idx on stamps (sequences_id);
 CREATE INDEX IF NOT EXISTS stamps_image_id_idx on stamps (image_id);
 CREATE INDEX IF NOT EXISTS stamps_astro_coords_idx on stamps USING SPGIST (astro_coords);
 
