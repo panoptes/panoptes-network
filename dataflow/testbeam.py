@@ -21,6 +21,7 @@ class Split(apache_beam.DoFn):
         return [{
             'picid': picid,
             'seq_img_id': seq_img_id,
+            'ord_idx': ord_idx,
             'pixel_val': float(pixel_val)
         }]
 
@@ -33,7 +34,7 @@ class CollectPixelVals(apache_beam.DoFn):
         """
 
         result = [
-            ((element['picid'], element['seq_img_id']), element['pixel_val'])
+            ((element['picid'], element['seq_img_id'], element['ord_idx']), element['pixel_val'])
         ]
         return result
 
@@ -55,6 +56,17 @@ class SumCombineFn(apache_beam.transforms.core.CombineFn):
     def extract_output(self, accumulator):
         return accumulator
 
+class GetNormal(apache_beam.DoFn):
+
+    def process(self, element):
+        """
+        Normalizes
+        """
+        idx = element[0]
+        stamps, sums = element[1]
+
+        result = stamps[0][0] / sums[0][0]
+        return [(idx), result]
 
 class WriteToCSV(apache_beam.DoFn):
 
@@ -63,11 +75,10 @@ class WriteToCSV(apache_beam.DoFn):
         Prepares each row to be written in the csv
         """
 
-        picid, seq_img_id = element[0]
+        idx = element[0]
         data = element[1]
-        sums = data['sums']
 
-        result = ','.join(picid, seq_img_id, *sums)
+        result = '{},{}'.format(idx, data)
         return [result]
 
 
@@ -90,13 +101,13 @@ options.view_as(StandardOptions).runner = runner
 with apache_beam.Pipeline(options=options) as p:
     stamps = (
         p |
-        "Reading CSV" >> ReadFromText(input_filename) |
-        "Parsing CSV" >> apache_beam.ParDo(Split())
+        "Reading CSV" >> ReadFromText(input_filename, skip_header_lines=1) |
+        "Parsing CSV" >> apache_beam.ParDo(Split()) |
+        "Getting stamps" >> apache_beam.ParDo(CollectPixelVals())
     )
 
     psc_collection = (
         stamps |
-        "Getting stamps" >> apache_beam.ParDo(CollectPixelVals()) |
         "Making PSCs" >> apache_beam.GroupByKey()
     )
 
@@ -108,11 +119,22 @@ with apache_beam.Pipeline(options=options) as p:
         )
     )
 
-    to_be_joined = (
-        {
-            'sums': stamp_sums,
-        } |
-        "Grouping together" >> apache_beam.CoGroupByKey() |
+    #normalized = (
+    #    {
+    #        'stamps': stamps,
+    #        'sums': stamp_sums,
+    #    } |
+    #    "Grouping together" >> apache_beam.CoGroupByKey() |
+    #    "NormalizingFlux" >> apache_beam.ParDo(GetNormal())
+    #    )
+#
+    #results = (
+    #    normalized |
+    #    "Getting normal PSC" >> apache_beam.GroupByKey()
+    #)
+
+    output = (
+        stamp_sums |
         "Formatting CSV" >> apache_beam.ParDo(WriteToCSV()) |
         "Writing CSV" >> WriteToText(output_filename)
     )
