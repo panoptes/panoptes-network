@@ -64,11 +64,3 @@ CREATE INDEX IF NOT EXISTS sources_astro_coords_idx on sources USING SPGIST (ast
 CREATE EXTENSION IF NOT EXISTS intarray;
 
 DROP FUNCTION normalize_source(float[]);
-CREATE OR REPLACE FUNCTION normalize_source(d0 float[]) RETURNS SETOF float[] AS $$
-    SELECT array_agg(norms.norm) FROM
-    (
-        SELECT (
-                UNNEST(d0) / (SELECT source_sum FROM (SELECT SUM(d1) as source_sum FROM UNNEST(d0) as d1) as t0)
-                ) as norm
-    ) as norms
-$$ LANGUAGE SQL;
