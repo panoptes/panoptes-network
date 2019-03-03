@@ -10,8 +10,6 @@ from google.cloud import pubsub
 from psycopg2.extras import execute_values
 
 import pandas as pd
-from astropy import units as u
-from astropy.time import Time
 from astropy.io import fits
 
 from pocs.utils.images import fits as fits_utils
@@ -20,20 +18,25 @@ from piaa.utils import helpers
 from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
+
+# Storage
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
-
-logging_client = logging.Client()
-bq_client = bigquery.Client()
 storage_client = storage.Client(project=PROJECT_ID)
-subscriber_client = pubsub.SubscriberClient()
-
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
+# Pubsub
+PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
+subscriber_client = pubsub.SubscriberClient()
 pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 
-logging_client.setup_logging()
+# BigQuery
+bq_client = bigquery.Client()
+bq_observations_dataset_ref = bq_client.dataset('observations')
+bq_stamps_table = bq_observations_dataset_ref.table('data')
 
+# Logging
+logging_client = logging.Client()
+logging_client.setup_logging()
 import logging
 
 
@@ -57,7 +60,8 @@ def main():
 def msg_callback(message):
 
     attributes = message.attributes
-    bucket_path = attributes['filename']
+    bucket_path = attributes['bucket_path']
+    object_id = attributes['object_id']
 
     try:
         # Get DB cursors
@@ -65,21 +69,20 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         logging.info(f'Solving {bucket_path}')
-        solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor)
+        solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor)
     finally:
         message.ack()
         catalog_db_cursor.close()
         metadata_db_cursor.close()
 
 
-def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
+def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
     try:  # Wrap everything so we can do file cleanup
 
         unit_id, field, cam_id, seq_time, file = bucket_path.split('/')
-        image_time = file.split('.')[0]
-        sequence_id = f'{unit_id}_{cam_id}_{seq_time}'
-        image_id = f'{unit_id}_{cam_id}_{image_time}'
+        img_time = file.split('.')[0]
+        image_id = f'{unit_id}_{cam_id}_{img_time}'
 
         if 'pointing' in bucket_path:
             update_state('skipped', image_id=image_id, cursor=metadata_db_cursor)
@@ -124,18 +127,10 @@ def solve_file(bucket_path, catalog_db_cursor, metadata_db_cursor):
             cursor=catalog_db_cursor
         )
         # Adjust some of the header items
-        logging.info('Adding header information to sources table')
-        header = fits_utils.getheader(fits_fn)
-        obstime = Time(pd.to_datetime(file.split('.')[0]))
-        exptime = header['EXPTIME'] * u.second
-        obstime += (exptime / 2)
-
-        point_sources['obstime'] = str(obstime.datetime)
-        point_sources['exptime'] = exptime
-        point_sources['airmass'] = header['AIRMASS']
-        point_sources['file'] = file
-        point_sources['sequence'] = sequence_id
+        point_sources['gcs_file'] = object_id
         point_sources['image_id'] = image_id
+        point_sources['seq_time'] = seq_time
+        point_sources['img_time'] = img_time
         logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
 
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
@@ -172,10 +167,11 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
     # Get the data for the entire frame
     data = fits.getdata(fits_fn)
 
+    stamp_metadata = list()
     stamps = list()
 
-    remove_columns = ['picid', 'image_id', 'obstime', 'ra', 'dec',
-                      'x_image', 'y_image', 'sequence', 'file', 'tmag', 'vmag']
+    remove_columns = ['picid', 'image_id', 'ra', 'dec',
+                      'x_image', 'y_image', 'seq_time', 'img_time']
 
     # Loop each source
     logging.info(f'Starting stamp collection for {fits_fn}')
@@ -199,34 +195,40 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
             row['target_slice'] = target_slice
 
             # Put the data into a string literal for insert.
-            data_array = '{' + ', '.join(data[target_slice].flatten().astype(str)) + '}'
+            stamp_data = [(picid, row.seq_time, row.img_time, i, val)
+                          for i, val in enumerate(data[target_slice].flatten())]
+            stamps.append(stamp_data)
 
             # Get data
-            stamps.append({
+            stamp_metadata.append({
                 'picid': picid,
                 'image_id': row.image_id,
-                'obstime': row.obstime,
                 'astro_coords': f'({row.ra}, {row.dec})',
-                'pixel_coords': f'({row.x}, {row.y})',
-                'data': data_array,
                 'metadata': row.drop(remove_columns, errors='ignore').to_json(),
             })
-
-    logging.info(f'Done collecting stamps, building dataframe.')
 
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     # Add headers to DB
-    headers = ['picid', 'image_id', 'obstime', 'astro_coords', 'pixel_coords', 'data', 'metadata']
+    headers = ['picid', 'image_id', 'astro_coords', 'data', 'metadata']
     insert_sql = f'INSERT INTO stamps ({",".join(headers)}) VALUES %s'
     insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
-    logging.info(f'Inserting {len(stamps)} stamps for {fits_fn}')
-    execute_values(cursor, insert_sql, stamps, insert_template)
+    logging.info(f'Inserting {len(stamp_metadata)} metadata for {fits_fn}')
+    execute_values(cursor, insert_sql, stamp_metadata, insert_template)
     cursor.connection.commit()
 
-    logging.info(f'Copy complete {fits_fn}')
+    logging.info(f'Copy of metadata complete {fits_fn}')
+
+    logging.info(f'Done inserting metadata, building dataframe for data.')
+    stamp_df = pd.DataFrame(stamps)
+
+    logging.info(f'Done building dataframe, sending to BigQuery')
+    job = bq_client.load_table_from_dataframe(stamp_df, bq_stamps_table).result()
+    job.result()  # Waits for table load to complete.
+    if job.state != 'DONE':
+        logging.info(f'Failed to send dataframe to BigQuery')
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
