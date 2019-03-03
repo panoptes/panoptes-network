@@ -84,8 +84,17 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         img_time = file.split('.')[0]
         image_id = f'{unit_id}_{cam_id}_{img_time}'
 
+        # Don't process pointing images.
         if 'pointing' in bucket_path:
+            logging.info(f'Skipping pointing file.')
             update_state('skipped', image_id=image_id, cursor=metadata_db_cursor)
+            return
+
+        # Don't process files that have been processed.
+        img_state = get_state('sources_detected', cursor=metadata_db_cursor)
+        if img_state == 'sources_extracted':
+            logging.info(f'Skipping already processed image.')
+            return
 
         # Download file blob from bucket
         logging.info(f'Downloading {bucket_path}')
@@ -362,6 +371,35 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         return False
 
     return True
+
+
+def get_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
+    """Gets the current `state` value for either a sequence or image.
+
+    Returns:
+        tuple|None: Returns the value of `state` or None.
+    """
+
+    if cursor is None or cursor.closed:
+        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+
+    if sequence_id is None and image_id is None:
+        raise ValueError('Need either a sequence_id or an image_id')
+
+    table = 'sequences'
+    if sequence_id is None:
+        table = 'images'
+
+    update_sql = f"SELECT state FROM {table} WHERE id=%s"
+    try:
+        cursor.execute(update_sql, [state, sequence_id])
+        row = cursor.fetchone()
+        return row['state']
+    except Exception as e:
+        logging.info(f"Error in insert (error): {e!r}")
+        logging.info(f"Error in insert (sql): {update_sql}")
+        logging.info(f"Error in insert (kwargs): {kwargs!r}")
+        return None
 
 
 if __name__ == '__main__':
