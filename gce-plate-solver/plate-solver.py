@@ -225,7 +225,10 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
     stamp_df = pd.DataFrame(stamps)
 
     logging.info(f'Done building dataframe, sending to BigQuery')
-    bq_client.load_table_from_dataframe(stamp_df, bq_stamps_table).result()
+    job = bq_client.load_table_from_dataframe(stamp_df, bq_stamps_table).result()
+    job.result()  # Waits for table load to complete.
+    if job.state != 'DONE':
+        logging.info(f'Failed to send dataframe to BigQuery')
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
