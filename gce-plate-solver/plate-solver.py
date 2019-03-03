@@ -32,7 +32,7 @@ pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 # BigQuery
 bq_client = bigquery.Client()
 bq_observations_dataset_ref = bq_client.dataset('observations')
-bq_stamps_table = bq_observations_dataset_ref.table('stamps')
+bq_stamps_table = bq_observations_dataset_ref.table('data')
 
 # Logging
 logging_client = logging.Client()
