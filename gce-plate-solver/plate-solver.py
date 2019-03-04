@@ -233,13 +233,14 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     logging.info(f'Done inserting metadata, building dataframe for data.')
     try:
         stamp_df = pd.DataFrame(
-            sources, columns=[
+            sources,
+            columns=[
                 'picid',
                 'sequence_time',
                 'image_time',
                 'pixel_index',
                 'pixel_value'
-            ])
+            ]).set_index(['picid', 'image_time'])
     except AssertionError:
         logging.info(f'Error writing dataframe to BigQuery, sending to bucket')
         logging.info(sources[0:2])
