@@ -2,22 +2,15 @@ import os
 import time
 from contextlib import suppress
 
-from dateutil.parser import parse as parse_date
-
 from google.cloud import logging
 from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import pubsub
 
-from psycopg2.extras import execute_values
-from psycopg2 import IntegrityError
-
-import pandas as pd
-from astropy.io import fits
+import requests
 
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
-from piaa.utils import helpers
 from piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
@@ -41,6 +34,11 @@ bq_sources_table = bq_observations_dataset_ref.table('data')
 logging_client = logging.Client()
 logging_client.setup_logging()
 import logging
+
+extract_sources_url = os.getenv(
+    'HEADER_ENDPOINT',
+    'https://us-central1-panoptes-survey.cloudfunctions.net/extract-sources'
+)
 
 
 def main():
@@ -131,6 +129,11 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             update_state('unsolved', image_id=image_id, cursor=metadata_db_cursor)
             return
 
+        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
+        if solve_info is not None and len(wcs_info) == 1:
+            fz_fn = fits_utils.fpack(fits_fn)
+            upload_blob(fz_fn, bucket_path, bucket=bucket)
+
         # Lookup point sources
         logging.info(f'Looking up sources for {fits_fn}')
         point_sources = pipeline.lookup_point_sources(
@@ -146,130 +149,33 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         point_sources['unit_id'] = unit_id
         point_sources['camera_id'] = cam_id
         logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
-
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
-        # Get frame sources
-        get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
-        update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
+        # Convert to CSV
+        sources_fn = f'{unit_id}-{cam_id}-{seq_time}-{img_time}.csv'
+        sources_path = os.path.join('/tmp', sources_fn)
+        sources_bucket_path = sources_fn.replace('-', '/')
+        point_sources.to_csv(sources_path)
 
-        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-        if solve_info is not None and len(wcs_info) == 1:
-            fz_fn = fits_utils.fpack(fits_fn)
-            upload_blob(fz_fn, bucket_path, bucket=bucket)
+        upload_blob(sources_path, sources_bucket_path,
+                    bucket_name='panoptes-detected-sources')
+
+        # Send a request to start extracting sources
+        logging.info(f'Sending a request to cf-extract-sources for detected sources.')
+        requests.post(extract_sources_url, json={
+            'sources_file': sources_bucket_path,
+        })
 
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
     finally:
         logging.info(f'Solve and extraction complete, cleaning up for {object_id}')
         # Remove files
-        for fn in [fits_fn, fz_fn]:
+        for fn in [fits_fn, fz_fn, sources_path]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
     return
-
-
-def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
-    """Get postage stamps for each PICID in the given file.
-
-    Args:
-        point_sources (`pandas.DataFrame`): A DataFrame containing the results from `sextractor`.
-        fits_fn (str): The name of the FITS file to extract stamps from.
-        stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
-        cursor (`psycopg2.Cursor`, optional): The DB cursor for the metadata database.
-    """
-    # Get the data for the entire frame
-    data = fits.getdata(fits_fn)
-
-    source_metadata = list()
-    sources = list()
-
-    remove_columns = ['picid', 'image_id', 'ra', 'dec',
-                      'x_image', 'y_image', 'seq_time', 'img_time']
-
-    # Loop each source
-    logging.info(f'Starting stamp collection for {fits_fn}')
-
-    logging.info(f'Getting point sources')
-    # Loop through each frame
-    for picid, row in point_sources.iterrows():
-        # Get the stamp for the target
-        target_slice = helpers.get_stamp_slice(
-            row.x, row.y,
-            stamp_size=(stamp_size, stamp_size),
-            ignore_superpixel=False,
-            verbose=False
-        )
-
-        # Add the target slice to metadata to preserve original location.
-        row['target_slice'] = target_slice
-
-        # Explicit type casting to match bigquery table schema.
-        source_data = [(
-            int(picid),
-            str(row.unit_id),
-            str(row.camera_id),
-            parse_date(row.seq_time),
-            parse_date(row.img_time),
-            int(row.x),
-            int(row.y),
-            int(i),
-            float(val)
-        )
-            for i, val
-            in enumerate(data[target_slice].flatten())
-        ]
-        sources.extend(source_data)
-
-        # Metadata for the detection, with most of row dumped into jsonb `metadata`.
-        source_metadata.append({
-            'picid': picid,
-            'image_id': row.image_id,
-            'astro_coords': f'({row.ra}, {row.dec})',
-            'metadata': row.drop(remove_columns, errors='ignore').to_json(),
-        })
-
-    if cursor is None or cursor.closed:
-        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
-
-    # Bulk insert the sources_metadata.
-    try:
-        headers = ['picid', 'image_id', 'astro_coords', 'metadata']
-        insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
-        insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
-
-        logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
-        execute_values(cursor, insert_sql, source_metadata, insert_template)
-        cursor.connection.commit()
-    except IntegrityError:
-        logging.info(f'Sources information already loaded into database')
-    finally:
-        logging.info(f'Copy of metadata complete {fits_fn}')
-
-    logging.info(f'Done inserting metadata, building dataframe for data.')
-    try:
-        stamp_df = pd.DataFrame(
-            sources,
-            columns=[
-                'picid',
-                'panid',
-                'camera_id',
-                'sequence_time',
-                'image_time',
-                'image_x',
-                'image_y',
-                'pixel_index',
-                'pixel_value'
-            ]).set_index(['picid', 'image_time'])
-    except AssertionError as e:
-        logging.info(f'Error writing dataframe to BigQuery: {e!r}')
-    else:
-        logging.info(f'Done building dataframe, sending to BigQuery')
-        job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table)
-        job.result()  # Waits for table load to complete.
-        if job.state != 'DONE':
-            logging.info(f'Failed to send dataframe to BigQuery')
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
