@@ -2,6 +2,8 @@ import os
 import time
 from contextlib import suppress
 
+from dateutil.parser import parse as parse_date
+
 from google.cloud import logging
 from google.cloud import storage
 from google.cloud import bigquery
@@ -200,12 +202,20 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         # Add the target slice to metadata to preserve original location.
         row['target_slice'] = target_slice
 
-        # Put the data into a string literal for insert.
-        source_data = [(picid, row.seq_time, row.img_time, i, val)
-                       for i, val in enumerate(data[target_slice].flatten())]
+        # Explicit type casting to match bigquery table schema.
+        source_data = [(
+            int(picid),
+            parse_date(row.seq_time),
+            parse_date(row.img_time),
+            int(i),
+            float(val)
+        )
+            for i, val
+            in enumerate(data[target_slice].flatten())
+        ]
         sources.extend(source_data)
 
-        # Get data
+        # Metadata for the detection, with most of row dumped into jsonb `metadata`.
         source_metadata.append({
             'picid': picid,
             'image_id': row.image_id,
@@ -216,13 +226,13 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-    # Add headers to DB
-    headers = ['picid', 'image_id', 'astro_coords', 'metadata']
-    insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
-    insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
-
-    logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
+    # Bulk insert the sources_metadata.
     try:
+        headers = ['picid', 'image_id', 'astro_coords', 'metadata']
+        insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
+        insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
+
+        logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
         execute_values(cursor, insert_sql, source_metadata, insert_template)
         cursor.connection.commit()
     except IntegrityError:
