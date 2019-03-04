@@ -32,7 +32,7 @@ pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
 # BigQuery
 bq_client = bigquery.Client()
 bq_observations_dataset_ref = bq_client.dataset('observations')
-bq_stamps_table = bq_observations_dataset_ref.table('data')
+bq_sources_table = bq_observations_dataset_ref.table('data')
 
 # Logging
 logging_client = logging.Client()
@@ -144,8 +144,8 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
-        # Get frame stamps
-        get_stamps(point_sources, fits_fn, cursor=metadata_db_cursor)
+        # Get frame sources
+        get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -164,7 +164,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
     return
 
 
-def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
+def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     """Get postage stamps for each PICID in the given file.
 
     Args:
@@ -176,8 +176,8 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
     # Get the data for the entire frame
     data = fits.getdata(fits_fn)
 
-    stamp_metadata = list()
-    stamps = list()
+    source_metadata = list()
+    sources = list()
 
     remove_columns = ['picid', 'image_id', 'ra', 'dec',
                       'x_image', 'y_image', 'seq_time', 'img_time']
@@ -186,7 +186,7 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
     logging.info(f'Starting stamp collection for {fits_fn}')
 
     picid_group = point_sources.groupby('picid')
-    logging.info(f'Getting {len(picid_group)} stamps')
+    logging.info(f'Getting {len(picid_group)} sources')
     for picid, target_table in picid_group:
 
         # Loop through each frame
@@ -204,12 +204,12 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
             row['target_slice'] = target_slice
 
             # Put the data into a string literal for insert.
-            stamp_data = [(picid, row.seq_time, row.img_time, i, val)
-                          for i, val in enumerate(data[target_slice].flatten())]
-            stamps.append(stamp_data)
+            source_data = [(picid, row.seq_time, row.img_time, i, val)
+                           for i, val in enumerate(data[target_slice].flatten())]
+            sources.append(source_data)
 
             # Get data
-            stamp_metadata.append({
+            source_metadata.append({
                 'picid': picid,
                 'image_id': row.image_id,
                 'astro_coords': f'({row.ra}, {row.dec})',
@@ -220,21 +220,21 @@ def get_stamps(point_sources, fits_fn, stamp_size=10, cursor=None):
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     # Add headers to DB
-    headers = ['picid', 'image_id', 'astro_coords', 'data', 'metadata']
-    insert_sql = f'INSERT INTO stamps ({",".join(headers)}) VALUES %s'
+    headers = ['picid', 'image_id', 'astro_coords', 'metadata']
+    insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
     insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
-    logging.info(f'Inserting {len(stamp_metadata)} metadata for {fits_fn}')
-    execute_values(cursor, insert_sql, stamp_metadata, insert_template)
+    logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
+    execute_values(cursor, insert_sql, source_metadata, insert_template)
     cursor.connection.commit()
 
     logging.info(f'Copy of metadata complete {fits_fn}')
 
     logging.info(f'Done inserting metadata, building dataframe for data.')
-    stamp_df = pd.DataFrame(stamps)
+    stamp_df = pd.DataFrame(sources)
 
     logging.info(f'Done building dataframe, sending to BigQuery')
-    job = bq_client.load_table_from_dataframe(stamp_df, bq_stamps_table).result()
+    job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table).result()
     job.result()  # Waits for table load to complete.
     if job.state != 'DONE':
         logging.info(f'Failed to send dataframe to BigQuery')
@@ -392,7 +392,7 @@ def get_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
 
     update_sql = f"SELECT state FROM {table} WHERE id=%s"
     try:
-        cursor.execute(update_sql, [state, sequence_id])
+        cursor.execute(update_sql, [sequence_id])
         row = cursor.fetchone()
         return row['state']
     except Exception as e:
