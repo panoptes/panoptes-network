@@ -355,8 +355,10 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         raise ValueError('Need either a sequence_id or an image_id to update state')
 
     table = 'sequences'
+    field = sequence_id
     if sequence_id is None:
         table = 'images'
+        field = image_id
 
     update_sql = f"""
                 UPDATE {table}
@@ -364,7 +366,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
                 WHERE id=%s
                 """
     try:
-        cursor.execute(update_sql, [state, sequence_id])
+        cursor.execute(update_sql, [state, field])
     except Exception as e:
         logging.info(f"Error in insert (error): {e!r}")
         logging.info(f"Error in insert (sql): {update_sql}")
