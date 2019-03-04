@@ -77,6 +77,10 @@ def header_to_db(request):
             file_headers.update(header)
             file_headers['FILENAME'] = storage_blob.public_url
 
+            if object_id is None:
+                object_id = storage_blob.id
+                file_headers['FILEID'] = object_id
+
             header.update(file_headers)
         else:
             return f"Nothing found in storage bucket for {bucket_path}"
