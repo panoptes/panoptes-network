@@ -91,7 +91,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             return
 
         # Don't process files that have been processed.
-        img_state = get_state('sources_detected', cursor=metadata_db_cursor)
+        img_state = get_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
         if img_state == 'sources_extracted':
             logging.info(f'Skipping already processed image.')
             return
@@ -351,7 +351,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     if sequence_id is None and image_id is None:
-        raise ValueError('Need either a sequence_id or an image_id')
+        raise ValueError('Need either a sequence_id or an image_id to update state')
 
     table = 'sequences'
     if sequence_id is None:
@@ -384,7 +384,7 @@ def get_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
     if sequence_id is None and image_id is None:
-        raise ValueError('Need either a sequence_id or an image_id')
+        raise ValueError('Need either a sequence_id or an image_id to get state')
 
     table = 'sequences'
     if sequence_id is None:
