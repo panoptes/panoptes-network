@@ -208,7 +208,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         # Explicit type casting to match bigquery table schema.
         source_data = [(
             int(picid),
-            int(row.unit_id),
+            str(row.unit_id),
             str(row.camera_id),
             parse_date(row.seq_time),
             parse_date(row.img_time),
