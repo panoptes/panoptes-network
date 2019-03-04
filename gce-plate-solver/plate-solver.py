@@ -231,7 +231,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     logging.info(f'Copy of metadata complete {fits_fn}')
 
     logging.info(f'Done inserting metadata, building dataframe for data.')
-    stamp_df = pd.DataFrame(sources)
+    stamp_df = pd.DataFrame(
+        sources, columns=['picid', 'sequence_time', 'image_time', 'pixel_index', 'pixel_value'])
 
     logging.info(f'Done building dataframe, sending to BigQuery')
     job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table).result()
