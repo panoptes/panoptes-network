@@ -8,6 +8,7 @@ from google.cloud import bigquery
 from google.cloud import pubsub
 
 from psycopg2.extras import execute_values
+from psycopg2 import IntegrityError
 
 import pandas as pd
 from astropy.io import fits
@@ -225,8 +226,11 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
     logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
-    execute_values(cursor, insert_sql, source_metadata, insert_template)
-    cursor.connection.commit()
+    try:
+        execute_values(cursor, insert_sql, source_metadata, insert_template)
+        cursor.connection.commit()
+    except IntegrityError:
+        logging.info(f'Sources information already loaded into database')
 
     logging.info(f'Copy of metadata complete {fits_fn}')
 
