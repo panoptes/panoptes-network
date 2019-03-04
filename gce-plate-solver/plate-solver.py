@@ -186,36 +186,32 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     # Loop each source
     logging.info(f'Starting stamp collection for {fits_fn}')
 
-    picid_group = point_sources.groupby('picid')
-    logging.info(f'Getting {len(picid_group)} sources')
-    for picid, target_table in picid_group:
+    logging.info(f'Getting point sources')
+    # Loop through each frame
+    for picid, row in point_sources.iterrows():
+        # Get the stamp for the target
+        target_slice = helpers.get_stamp_slice(
+            row.x, row.y,
+            stamp_size=(stamp_size, stamp_size),
+            ignore_superpixel=False,
+            verbose=False
+        )
 
-        # Loop through each frame
-        for idx, row in target_table.iterrows():
+        # Add the target slice to metadata to preserve original location.
+        row['target_slice'] = target_slice
 
-            # Get the stamp for the target
-            target_slice = helpers.get_stamp_slice(
-                row.x, row.y,
-                stamp_size=(stamp_size, stamp_size),
-                ignore_superpixel=False,
-                verbose=False
-            )
+        # Put the data into a string literal for insert.
+        source_data = [(picid, row.seq_time, row.img_time, i, val)
+                       for i, val in enumerate(data[target_slice].flatten())]
+        sources.append(source_data)
 
-            # Add the target slice to metadata to preserve original location.
-            row['target_slice'] = target_slice
-
-            # Put the data into a string literal for insert.
-            source_data = [(picid, row.seq_time, row.img_time, i, val)
-                           for i, val in enumerate(data[target_slice].flatten())]
-            sources.append(source_data)
-
-            # Get data
-            source_metadata.append({
-                'picid': picid,
-                'image_id': row.image_id,
-                'astro_coords': f'({row.ra}, {row.dec})',
-                'metadata': row.drop(remove_columns, errors='ignore').to_json(),
-            })
+        # Get data
+        source_metadata.append({
+            'picid': picid,
+            'image_id': row.image_id,
+            'astro_coords': f'({row.ra}, {row.dec})',
+            'metadata': row.drop(remove_columns, errors='ignore').to_json(),
+        })
 
     if cursor is None or cursor.closed:
         cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
@@ -231,18 +227,28 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         cursor.connection.commit()
     except IntegrityError:
         logging.info(f'Sources information already loaded into database')
-
-    logging.info(f'Copy of metadata complete {fits_fn}')
+    finally:
+        logging.info(f'Copy of metadata complete {fits_fn}')
 
     logging.info(f'Done inserting metadata, building dataframe for data.')
-    stamp_df = pd.DataFrame(
-        sources, columns=['picid', 'sequence_time', 'image_time', 'pixel_index', 'pixel_value'])
-
-    logging.info(f'Done building dataframe, sending to BigQuery')
-    job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table).result()
-    job.result()  # Waits for table load to complete.
-    if job.state != 'DONE':
-        logging.info(f'Failed to send dataframe to BigQuery')
+    try:
+        stamp_df = pd.DataFrame(
+            sources, columns=[
+                'picid',
+                'sequence_time',
+                'image_time',
+                'pixel_index',
+                'pixel_value'
+            ])
+    except AssertionError:
+        logging.info(f'Error writing dataframe to BigQuery, sending to bucket')
+        logging.info(sources[0:2])
+    else:
+        logging.info(f'Done building dataframe, sending to BigQuery')
+        job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table).result()
+        job.result()  # Waits for table load to complete.
+        if job.state != 'DONE':
+            logging.info(f'Failed to send dataframe to BigQuery')
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
