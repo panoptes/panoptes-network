@@ -262,12 +262,11 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 'pixel_index',
                 'pixel_value'
             ]).set_index(['picid', 'image_time'])
-    except AssertionError:
-        logging.info(f'Error writing dataframe to BigQuery, sending to bucket')
-        logging.info(sources[0:2])
+    except AssertionError as e:
+        logging.info(f'Error writing dataframe to BigQuery: {e!r}')
     else:
         logging.info(f'Done building dataframe, sending to BigQuery')
-        job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table).result()
+        job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table)
         job.result()  # Waits for table load to complete.
         if job.state != 'DONE':
             logging.info(f'Failed to send dataframe to BigQuery')
