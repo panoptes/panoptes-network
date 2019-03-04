@@ -97,8 +97,8 @@ def header_to_db(request):
         data = {'sequence_id': seq_id,
                 'image_id': img_id,
                 'state': 'metadata_received',
-                'bucket_path': bucket_path,
-                'object_id': object_id
+                'bucket_path': str(bucket_path),
+                'object_id': str(object_id)
                 }
         publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
         success = True
