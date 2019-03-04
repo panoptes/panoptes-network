@@ -143,6 +143,8 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         point_sources['image_id'] = image_id
         point_sources['seq_time'] = seq_time
         point_sources['img_time'] = img_time
+        point_sources['unit_id'] = unit_id
+        point_sources['camera_id'] = cam_id
         logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
 
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
@@ -159,6 +161,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
     finally:
+        logging.info(f'Solve and extraction complete, cleaning up for {object_id}')
         # Remove files
         for fn in [fits_fn, fz_fn]:
             with suppress(FileNotFoundError):
@@ -205,8 +208,12 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         # Explicit type casting to match bigquery table schema.
         source_data = [(
             int(picid),
+            int(row.unit_id),
+            str(row.camera_id),
             parse_date(row.seq_time),
             parse_date(row.img_time),
+            int(row.x),
+            int(row.y),
             int(i),
             float(val)
         )
@@ -246,8 +253,12 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             sources,
             columns=[
                 'picid',
+                'panid',
+                'camera_id',
                 'sequence_time',
                 'image_time',
+                'image_x',
+                'image_y',
                 'pixel_index',
                 'pixel_value'
             ]).set_index(['picid', 'image_time'])
