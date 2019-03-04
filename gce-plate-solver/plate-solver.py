@@ -334,11 +334,16 @@ def meta_insert(table, cursor, **kwargs):
 
     try:
         cursor.execute(insert_sql, col_values)
-    except Exception as e:
-        logging.info(f"Error in insert (error): {e!r}")
-        logging.info(f"Error in insert (sql): {insert_sql}")
-        logging.info(f"Error in insert (kwargs): {kwargs!r}")
-        return False
+    except Exception:
+        logging.info('Rolling back cursor and trying again')
+        try:
+            cursor.connection.rollback()
+            cursor.execute(insert_sql, col_values)
+        except Exception as e:
+            logging.info(f"Error in insert (error): {e!r}")
+            logging.info(f"Error in insert (sql): {insert_sql}")
+            logging.info(f"Error in insert (kwargs): {kwargs!r}")
+            return False
     else:
         logging.info(f'Insert success: {table}')
         return True
@@ -378,11 +383,15 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
                 """
     try:
         cursor.execute(update_sql, [state, field])
-    except Exception as e:
-        logging.info(f"Error in insert (error): {e!r}")
-        logging.info(f"Error in insert (sql): {update_sql}")
-        logging.info(f"Error in insert (kwargs): {kwargs!r}")
-        return False
+    except Exception:
+        try:
+            cursor.connection.rollback()
+            cursor.execute(update_sql, [state, field])
+        except Exception as e:
+            logging.info(f"Error in insert (error): {e!r}")
+            logging.info(f"Error in insert (sql): {update_sql}")
+            logging.info(f"Error in insert (kwargs): {kwargs!r}")
+            return False
 
     return True
 
