@@ -203,7 +203,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         # Put the data into a string literal for insert.
         source_data = [(picid, row.seq_time, row.img_time, i, val)
                        for i, val in enumerate(data[target_slice].flatten())]
-        sources.append(source_data)
+        sources.extend(source_data)
 
         # Get data
         source_metadata.append({
