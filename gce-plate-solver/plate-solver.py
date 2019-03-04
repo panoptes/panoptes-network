@@ -388,12 +388,14 @@ def get_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         raise ValueError('Need either a sequence_id or an image_id to get state')
 
     table = 'sequences'
+    field = sequence_id
     if sequence_id is None:
         table = 'images'
+        field = image_id
 
     update_sql = f"SELECT state FROM {table} WHERE id=%s"
     try:
-        cursor.execute(update_sql, [sequence_id])
+        cursor.execute(update_sql, [field])
         row = cursor.fetchone()
         return row['state']
     except Exception as e:
