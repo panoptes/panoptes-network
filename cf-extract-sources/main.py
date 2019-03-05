@@ -89,8 +89,15 @@ def extract_sources(request):
     conn = pg_pool.getconn()
     conn.set_isolation_level(0)
     with conn.cursor() as cursor:
-        image_id = get_sources(point_sources, cursor=cursor)
-        update_state('sources_extracted', image_id=image_id, cursor=cursor)
+        try:
+            image_id = get_sources(point_sources, cursor=cursor)
+            update_state('sources_extracted', image_id=image_id, cursor=cursor)
+        except Exception as e:
+            return jsonify(success=False,
+                           msg=f"Error in processing image: {csv_bucket_path} {e!r}")
+        finally:
+            cursor.close()
+            pg_pool.putconn(conn)
 
     return jsonify(success=True, msg=f"Image processed: {csv_bucket_path}")
 
