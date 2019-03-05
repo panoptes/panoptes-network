@@ -1,10 +1,5 @@
-astropy
 Flask
-google-cloud-bigquery[pandas,pyarrow]==1.7.0
-google-cloud-pubsub
 google-cloud-storage
-matplotlib
 numpy
 pandas
 psycopg2-binary
-requests
