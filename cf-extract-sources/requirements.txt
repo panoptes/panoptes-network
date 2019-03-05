@@ -1,3 +1,4 @@
+-e git://github.com/panoptes/POCS.git#egg=pocs
 -e git://github.com/panoptes/PIAA.git#egg=piaa
 astropy
 Flask
