@@ -9,8 +9,6 @@ from psycopg2 import IntegrityError
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
-from astropy.io import fits
-
 from google.cloud import storage
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
@@ -113,7 +111,6 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
     image_id = None
 
     source_metadata = list()
-    sources = list()
 
     remove_columns = ['picid', 'image_id', 'ra', 'dec',
                       'x_image', 'y_image', 'seq_time', 'img_time']
@@ -135,7 +132,7 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
         row['target_slice'] = target_slice
 
         # Metadata for the detection, with most of row dumped into jsonb `metadata`.
-        sources.append({
+        source_metadata.append({
             'picid': picid,
             'image_id': row.image_id,
             'astro_coords': f'({row.ra}, {row.dec})',
