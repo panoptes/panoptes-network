@@ -121,6 +121,8 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
 
         # Get the data if we don't have it.
         fits_bucket_name = row.gcs_file.replace('panoptes-survey/', '')
+        # Get all but the last (the generation id).
+        fits_bucket_name = os.path.join(*fits_bucket_name.split('/')[:-1])
         if data is None or fits_bucket_name != fits_fn:
             print(f'No data found, getting FITS file: {fits_bucket_name}')
             fits_fn = download_blob(fits_bucket_name, destination='/tmp')
