@@ -120,7 +120,7 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
         image_id = row.image_id
 
         # Get the data if we don't have it.
-        fits_bucket_name = row.gcs_file.replace('panoptes-survey', '')
+        fits_bucket_name = row.gcs_file.replace('panoptes-survey/', '')
         if data is None or fits_bucket_name != fits_fn:
             fits_fn = download_blob(fits_bucket_name, destination='/tmp')
             data = fits.getdata(fits_fn)
