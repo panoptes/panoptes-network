@@ -107,12 +107,9 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
 
     Args:
         point_sources (`pandas.DataFrame`): A DataFrame containing the results from `sextractor`.
-        fits_fn (str): The name of the FITS file to extract stamps from.
         stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
         cursor (`psycopg2.Cursor`, optional): The DB cursor for the metadata database.
     """
-    data = None
-    fits_fn = None
     image_id = None
 
     source_metadata = list()
@@ -126,16 +123,6 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
     for picid, row in point_sources.iterrows():
         image_id = row.image_id
 
-        # Get the data if we don't have it.
-        fits_bucket_name = row.gcs_file.replace('panoptes-survey/', '')
-        # Get all but the last (the generation id).
-        fits_bucket_name = os.path.join(*fits_bucket_name.split('/')[:-1])
-        if data is None or fits_bucket_name != fits_fn:
-            print(f'No data found, getting FITS file: {fits_bucket_name}')
-            fits_fn = download_blob(fits_bucket_name, destination='/tmp')
-            data = fits.getdata(fits_fn)
-            fits_bucket_name = fits_fn
-
         # Get the stamp for the target
         target_slice = get_stamp_slice(
             row.x, row.y,
@@ -146,23 +133,6 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
 
         # Add the target slice to metadata to preserve original location.
         row['target_slice'] = target_slice
-
-        # # Explicit type casting to match bigquery table schema.
-        # source_data = [(
-        #     int(picid),
-        #     str(row.unit_id),
-        #     str(row.camera_id),
-        #     parse_date(row.seq_time),
-        #     parse_date(row.img_time),
-        #     int(row.x),
-        #     int(row.y),
-        #     int(i),
-        #     float(val)
-        # )
-        #     for i, val
-        #     in enumerate(data[target_slice].flatten())
-        # ]
-        # sources.extend(source_data)
 
         # Metadata for the detection, with most of row dumped into jsonb `metadata`.
         sources.append({
@@ -178,37 +148,13 @@ def get_sources(point_sources, stamp_size=10, cursor=None):
         insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
         insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
-        print(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
+        print(f'Inserting {len(source_metadata)} metadata for {image_id}')
         execute_values(cursor, insert_sql, source_metadata, insert_template)
         cursor.connection.commit()
     except IntegrityError:
         print(f'Sources information already loaded into database')
     finally:
-        print(f'Copy of metadata complete {fits_fn}')
-
-    # print(f'Done inserting metadata, building dataframe for data.')
-    # try:
-    #     stamp_df = pd.DataFrame(
-    #         sources,
-    #         columns=[
-    #             'picid',
-    #             'panid',
-    #             'camera_id',
-    #             'sequence_time',
-    #             'image_time',
-    #             'image_x',
-    #             'image_y',
-    #             'pixel_index',
-    #             'pixel_value'
-    #         ]).set_index(['picid', 'image_time'])
-    # except AssertionError as e:
-    #     print(f'Error writing dataframe to BigQuery: {e!r}')
-    # else:
-    #     print(f'Done building dataframe, sending to BigQuery')
-    #     job = bq_client.load_table_from_dataframe(stamp_df, bq_sources_table)
-    #     job.result()  # Waits for table load to complete.
-    #     if job.state != 'DONE':
-    #         print(f'Failed to send dataframe to BigQuery')
+        print(f'Copy of metadata complete {image_id}')
 
     return image_id
 
