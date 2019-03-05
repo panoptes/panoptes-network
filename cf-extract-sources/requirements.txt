@@ -1,9 +1,6 @@
--e git://github.com/panoptes/POCS.git#egg=pocs
--e git://github.com/panoptes/PIAA.git#egg=piaa
 astropy
 Flask
 google-cloud-bigquery[pandas,pyarrow]==1.7.0
-google-cloud-logging
 google-cloud-pubsub
 google-cloud-storage
 matplotlib
