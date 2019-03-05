@@ -7,8 +7,6 @@ from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import pubsub
 
-import requests
-
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import pipeline
@@ -21,9 +19,13 @@ storage_client = storage.Client(project=PROJECT_ID)
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
 # Pubsub
-PUBSUB_PATH = os.getenv('SUB_TOPIC', 'gce-plate-solver')
+PUBSUB_TOPIC = os.getenv('PUB_TOPIC', 'sources-detected')
+publisher_client = pubsub.PublisherClient()
+topic_path = publisher_client.topic_path(PROJECT_ID, PUBSUB_TOPIC)
+
+PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-plate-solver')
 subscriber_client = pubsub.SubscriberClient()
-pubsub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_PATH}'
+pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
 
 # BigQuery
 bq_client = bigquery.Client()
@@ -42,12 +44,12 @@ extract_sources_url = os.getenv(
 
 
 def main():
-    logging.info(f"Starting pubsub listen on {pubsub_path}")
+    logging.info(f"Starting pubsub listen on {pubsub_sub_path}")
 
     try:
         flow_control = pubsub.types.FlowControl(max_messages=1)
         future = subscriber_client.subscribe(
-            pubsub_path, callback=msg_callback, flow_control=flow_control)
+            pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
 
         # Keeps main thread from exiting.
         logging.info(f"Plate-solver subscriber started, entering listen loop")
@@ -161,10 +163,8 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
                     bucket_name='panoptes-detected-sources')
 
         # Send a request to start extracting sources
-        logging.info(f'Sending a request to cf-extract-sources for detected sources.')
-        requests.post(extract_sources_url, json={
-            'sources_file': sources_bucket_path,
-        })
+        logging.info(f'Sending pubsub for detected sources.')
+        publisher_client.publish(topic_path, data=sources_bucket_path.encode('utf-8'))
 
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
