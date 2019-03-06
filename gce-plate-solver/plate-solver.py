@@ -97,7 +97,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             return
 
         # Don't process files that have been processed.
-        img_state = get_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
+        img_state = get_state(image_id=image_id, cursor=metadata_db_cursor)
         if img_state == 'sources_extracted':
             logging.info(f'Skipping already processed image.')
             return
@@ -158,6 +158,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
         logging.info(f'Looking up sources for {fz_fn}')
         get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
+        update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
@@ -405,7 +406,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
     return True
 
 
-def get_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
+def get_state(sequence_id=None, image_id=None, cursor=None, **kwargs):
     """Gets the current `state` value for either a sequence or image.
 
     Returns:
