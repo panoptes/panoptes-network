@@ -7,9 +7,12 @@ This function acknowledges a [PubSub](https://cloud.google.com/pubsub/) message
 that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/) 
 (see also the documentation about using [Storage Triggers](https://cloud.google.com/functions/docs/calling/storage)).
 
-Triggered when file is uploaded to bucket. Checks for FITS and if found will
-set a few header variables and then forward to endpoint for adding headers
-to the metadatabase.
+Triggered when file is uploaded to bucket. 
+
+FITS: Set header variables and then forward to endpoint for adding headers
+	to the metadatabase.
+CR2: Trigger the creation of the RGB fits images, pretty JPG/PNG images for viewing,
+	and timelapse videos.
 
 > :memo: Todo: Trigger plate-solving here.
 
@@ -31,15 +34,14 @@ is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 ack-fits-received \
-                 --entry-point ack_fits_received \
+                 ack-image-received \
+                 --entry-point ack_image_received \
                  --runtime python37 \
                  --trigger-resource panoptes-survey \
                  --trigger-event google.storage.object.finalize
 ```
 
-> :bulb: There is also a small convenience script called `deploy.sh` that
-does the same thing. 
+> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing. 
 ```bash
 ./deploy.sh
 ```

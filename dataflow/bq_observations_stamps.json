@@ -1,0 +1,22 @@
+[
+    {
+        "name": "picid",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "seq_img_id",
+        "type": "STRING",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "ord",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "val",
+        "type": "FLOAT",
+        "mode": "NULLABLE"
+    }
+]

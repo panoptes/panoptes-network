@@ -2,11 +2,13 @@ import os
 import rawpy
 from copy import copy
 from contextlib import suppress
+
+from flask import jsonify
 from google.cloud import storage
 
 from astropy.io import fits
 
-PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes')
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-pretty-pictures')
 client = storage.Client(project=PROJECT_ID)
@@ -103,7 +105,7 @@ def make_rgb_fits(request):
         print(f'Removing {tmp_fn}')
         os.remove(tmp_fn)
 
-    return 'Success!'
+    return jsonify(success=True, msg=f"RGB FITS files made for {raw_file}")
 
 
 def upload_blob(source_file_name, destination_blob_name):

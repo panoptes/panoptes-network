@@ -1,30 +1,38 @@
-from os import getenv
-import re
+import os
+import orjson
+
+from flask import jsonify
 from google.cloud import storage
+from google.cloud import pubsub
 
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
-from astropy.wcs import WCS
+PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
+PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
 
-PROJECT_ID = getenv('POSTGRES_USER', 'panoptes')
-BUCKET_NAME = getenv('BUCKET_NAME', 'panoptes-survey')
-client = storage.Client(project=PROJECT_ID)
-bucket = client.get_bucket(BUCKET_NAME)
+publisher = pubsub.PublisherClient()
+storage_client = storage.Client(project=PROJECT_ID)
 
-CONNECTION_NAME = getenv(
+bucket = storage_client.get_bucket(BUCKET_NAME)
+
+CONNECTION_NAME = os.getenv(
     'INSTANCE_CONNECTION_NAME',
     'panoptes-survey:us-central1:panoptes-meta'
 )
-DB_USER = getenv('POSTGRES_USER', 'panoptes')
-DB_PASSWORD = getenv('POSTGRES_PASSWORD', None)
-DB_NAME = getenv('POSTGRES_DATABASE', 'metadata')
+DB_USER = os.getenv('POSTGRES_USER', 'panoptes')
+DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', None)
+DB_NAME = os.getenv('POSTGRES_DATABASE', 'metadata')
 
 pg_config = {
     'user': DB_USER,
     'password': DB_PASSWORD,
     'dbname': DB_NAME
 }
+
+pubsub_topic = f'projects/{PROJECT_ID}/topics/{PUB_TOPIC}'
+
 
 # Connection pools reuse connections between invocations,
 # and handle dropped or expired connections automatically.
@@ -35,10 +43,10 @@ pg_pool = None
 def header_to_db(request):
     """Add a FITS header to the datbase.
 
-    This endpoint looks for two parameters, `headers` and `lookup_file`. If
-    `lookup_file` is present then the header information will be pull from the file
+    This endpoint looks for two parameters, `headers` and `bucket_path`. If
+    `bucket_path` is present then the header information will be pull from the file
     itself. Additionally, any `headers` will be used to update the header information
-    from the file. If no `lookup_file` is found then only the `headers` will be used.
+    from the file. If no `bucket_path` is found then only the `headers` will be used.
 
     Args:
         request (flask.Request): HTTP request object.
@@ -51,64 +59,56 @@ def header_to_db(request):
 
     header = dict()
 
-    if 'lookup_file' in request_json:
-        lookup_file = request_json['lookup_file']
-    elif 'lookup_file' in request.args:
-        lookup_file = request.args['lookup_file']
+    bucket_path = request_json.get('bucket_path')
+    object_id = request_json.get('object_id')
+    header = request_json.get('headers')
 
-    if 'header' in request_json:
-        header = request_json['header']
+    if not bucket_path and not header:
+        return 'No headers or bucket_path, nothing to do!'
 
-    if not lookup_file and not header:
-        return 'No header or lookup_file, nothing to do!'
+    print(f"File: {bucket_path}")
+    print(f"Header: {header!r}")
 
-    print(f"File: {lookup_file}")
-    print(f"Header: {header}")
-
-    if lookup_file:
-        print("Looking up header for file: ", lookup_file)
-        storage_blob = bucket.get_blob(lookup_file)
+    if bucket_path:
+        print("Looking up header for file: ", bucket_path)
+        storage_blob = bucket.get_blob(bucket_path)
         if storage_blob:
             file_headers = lookup_fits_header(storage_blob)
             file_headers.update(header)
-
             file_headers['FILENAME'] = storage_blob.public_url
 
-            print("Trying to match: ", lookup_file)
-            match = re.match(r'(PAN\d\d\d)/(.*?)/(.*?)/(.*?)/(.*?)\.', lookup_file)
-            if match:
-                file_headers['PANID'] = match[1]
-                file_headers['FIELD'] = match[2]
-                file_headers['INSTRUME'] = match[3]
-                file_headers['SEQTIME'] = match[4]
-                file_headers['IMGTIME'] = match[5]
+            if object_id is None:
+                object_id = storage_blob.id
+                file_headers['FILEID'] = object_id
 
-                file_headers['SEQID'] = '{}_{}_{}'.format(
-                    file_headers['PANID'],
-                    file_headers['INSTRUME'],
-                    file_headers['SEQTIME']
-                )
-
-                file_headers['IMAGEID'] = '{}_{}_{}'.format(
-                    file_headers['PANID'],
-                    file_headers['INSTRUME'],
-                    file_headers['IMGTIME']
-                )
-
-            header = file_headers
+            header.update(file_headers)
         else:
-            return f"Nothing found in storage bucket for {lookup_file}"
+            return f"Nothing found in storage bucket for {bucket_path}"
 
-    unit_id = int(header['PANID'].strip().replace('PAN', ''))
     seq_id = header['SEQID']
     img_id = header['IMAGEID']
-    camera_id = header['INSTRUME']
-    print(f'Adding headers: Unit: {unit_id} Seq: {seq_id} Cam: {camera_id} Img: {img_id}')
+    print(f'Adding headers: Seq: {seq_id} Img: {img_id}')
 
     # Pass the parsed header information
-    add_header_to_db(header)
+    try:
+        add_header_to_db(header)
+    except Exception as e:
+        success = False
+        response_msg = f'Error adding header: {e!r}'
+    else:
+        # Send to plate-solver
+        print("Forwarding to plate-solver: {}".format(bucket_path))
+        data = {'sequence_id': seq_id,
+                'image_id': img_id,
+                'state': 'metadata_received',
+                'bucket_path': str(bucket_path),
+                'object_id': str(object_id)
+                }
+        publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
+        success = True
+        response_msg = f'Header added to DB for {bucket_path}'
 
-    return f'Header information added to meta database.'
+    return jsonify(success=success, msg=response_msg)
 
 
 def add_header_to_db(header):
@@ -169,11 +169,10 @@ def add_header_to_db(header):
                 'id': seq_id,
                 'unit_id': unit_id,
                 'start_date': header.get('SEQID', None).split('_')[-1],
-                'exp_time': header.get('EXPTIME'),
-                'ra_rate': header.get('RA-RATE'),
-                'field': header.get('FIELD', ''),
+                'exptime': header.get('EXPTIME'),
                 'pocs_version': header.get('CREATOR', ''),
-                'piaa_state': header.get('PSTATE', 'metadata_received'),
+                'state': 'receiving_files',
+                'field': header.get('FIELD', ''),
             }
             print("Inserting sequence: {}".format(seq_data))
 
@@ -186,42 +185,27 @@ def add_header_to_db(header):
             image_data = {
                 'id': img_id,
                 'sequence_id': seq_id,
-                'date_obs': header.get('DATE-OBS'),
-                'moon_fraction': header.get('MOONFRAC'),
-                'moon_separation': header.get('MOONSEP'),
+                'camera_id': camera_id,
+                'obstime': header.get('DATE-OBS'),
                 'ra_mnt': header.get('RA-MNT'),
                 'ha_mnt': header.get('HA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
-                'airmass': header.get('AIRMASS'),
-                'exp_time': header.get('EXPTIME'),
-                'iso': header.get('ISO'),
-                'camera_id': camera_id,
-                'cam_temp': header.get('CAMTEMP').split(' ')[0],
-                'cam_colortmp': header.get('COLORTMP'),
-                'cam_circconf': header.get('CIRCCONF').split(' ')[0],
-                'cam_measrggb': header.get('MEASRGGB'),
-                'cam_red_balance': header.get('REDBAL'),
-                'cam_blue_balance': header.get('BLUEBAL'),
-                'file_path': header.get('FILENAME')
+                'exptime': header.get('EXPTIME'),
+                'file_path': header.get('FILENAME'),
+                'headers': orjson.dumps(header).decode('utf-8'),
+                'state': 'metadata_received'
             }
 
-            # Add plate-solved info.
-            try:
-                image_data['center_ra'] = header['CRVAL1']
-                image_data['center_dec'] = header['CRVAL2']
-            except KeyError:
-                pass
-
             meta_insert('images', cursor, **image_data)
+            print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
         except Exception as e:
-            print(e)
+            update_state('image_metadata_failed', sequence_id=seq_id, image_id=img_id)
+            raise e
         finally:
             cursor.close()
             pg_pool.putconn(conn)
 
-    print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
-
-    return
+    return True
 
 
 def meta_insert(table, cursor, **kwargs):
@@ -341,6 +325,44 @@ def lookup_fits_header(remote_path):
         i += 1
 
     return headers
+
+
+def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
+    """Inserts arbitrary key/value pairs into a table.
+
+    Args:
+        table (str): Table in which to insert.
+        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
+            is used.
+        logger (None, optional): A logger.
+        **kwargs: List of key/value pairs corresponding to columns in the
+            table.
+
+    Returns:
+        tuple|None: Returns the inserted row or None.
+    """
+
+    if sequence_id is None and image_id is None:
+        raise ValueError('Need either a sequence_id or an image_id')
+
+    for table, id_col in zip(['sequences', 'images'], [sequence_id, image_id]):
+        if id_col is None:
+            continue
+
+        update_sql = f"""
+                    UPDATE {table}
+                    SET state=%s
+                    WHERE id=%s
+                    """
+        try:
+            cursor.execute(update_sql, [state, sequence_id])
+        except Exception as e:
+            print(f"Error in insert (error): {e!r}")
+            print(f"Error in insert (sql): {update_sql}")
+            print(f"Error in insert (kwargs): {kwargs!r}")
+            return False
+
+    return True
 
 
 def __connect(host):

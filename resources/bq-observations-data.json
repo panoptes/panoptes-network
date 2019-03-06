@@ -1,0 +1,56 @@
+[
+ {
+   "description": "The PANOPTES Input Catalog ID.",
+   "name": "picid",
+   "type": "INTEGER",
+   "mode": "NULLABLE"
+ },
+ {
+   "description": "The PANOPTES Unit ID.",
+   "name": "panid",
+   "type": "STRING",
+   "mode": "NULLABLE"
+ }, 
+ {
+   "description": "The cameara id.",
+   "name": "camera_id",
+   "type": "STRING",
+   "mode": "NULLABLE"
+ },  
+ {
+   "description": "The start time of the observation sequence.",
+   "name": "sequence_time",
+   "type": "TIMESTAMP",
+   "mode": "NULLABLE"
+ },
+ {
+   "description": "The start time of the individual image.",
+   "name": "image_time",
+   "type": "TIMESTAMP",
+   "mode": "NULLABLE"
+ }, 
+ {
+   "description": "The x pixel position on the original image.",
+   "name": "image_x",
+   "type": "INTEGER",
+   "mode": "NULLABLE"
+ }, 
+ {
+   "description": "The y pixel position on the original image.",
+   "name": "image_y",
+   "type": "INTEGER",
+   "mode": "NULLABLE"
+ },  
+ {
+   "description": "The pixel index of the stamp for this source. The stamp is always a square and this index represents the flattened position.",
+   "name": "pixel_index",
+   "type": "INTEGER",
+   "mode": "NULLABLE"
+ }, 
+ {
+   "description": "The value of the pixel at the given position.",
+   "name": "pixel_value",
+   "type": "FLOAT",
+   "mode": "NULLABLE"
+ } 
+]
