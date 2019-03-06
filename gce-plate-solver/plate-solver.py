@@ -393,6 +393,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
                 """
     try:
         cursor.execute(update_sql, [state, field])
+        cursor.commit()
     except Exception:
         try:
             cursor.connection.rollback()
