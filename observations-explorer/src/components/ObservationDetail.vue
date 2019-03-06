@@ -147,10 +147,11 @@ export default {
       timelapseUrl: '',
       fields: [
         { label: 'Time', key: 'obstime', sortable: true },
-        { label: 'Exptime', key: 'exptime', sortable: true },
         { label: 'HA', key: 'ha_mnt', sortable: true },
         { label: 'RA', key: 'ra_mnt', sortable: true },
         { label: 'Dec', key: 'dec_mnt', sortable: true },
+        { label: 'Exptime', key: 'exptime', sortable: true },
+        { label: 'State', key: 'state', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
       ]
     }
