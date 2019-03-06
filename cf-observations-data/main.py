@@ -167,25 +167,10 @@ def get_images(sequence_id):
     conn.set_isolation_level(0)
 
     select_sql = """
-        SELECT
-            id,
-            sequence_id,
-            camera_id,
-            date_obs,
-            file_path,
-            airmass,
-            center_dec,
-            center_ra,
-            dec_mnt,
-            exp_time,
-            ha_mnt,
-            iso,
-            moon_fraction,
-            moon_separation,
-            ra_mnt
+        SELECT *
         FROM images t1
         WHERE sequence_id=%s
-        ORDER BY date_obs DESC
+        ORDER BY obstime DESC
         """
 
     rows = list()
