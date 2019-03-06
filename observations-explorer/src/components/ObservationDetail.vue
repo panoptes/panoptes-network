@@ -29,10 +29,7 @@
           >
           <template slot="obstime" slot-scope="data">
             {{ data.value | moment("HH:mm:ss") }}
-          </template>            
-          <template slot="center" slot-scope="data">
-            {{ data['item']['center_ra'] }}° / {{ data['item']['center_dec'] }}°
-          </template>                        
+          </template>                            
           <template slot="file_path" slot-scope="data">
             <b-link 
               v-if="jpg_files"
@@ -151,7 +148,9 @@ export default {
       fields: [
         { label: 'Time', key: 'obstime', sortable: true },
         { label: 'Exptime', key: 'exptime', sortable: true },
-        { label: 'Center', key: 'center', sortable: true },
+        { label: 'HA', key: 'ha_mnt', sortable: true },
+        { label: 'RA', key: 'ra_mnt', sortable: true },
+        { label: 'Dec', key: 'dec_mnt', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
       ]
     }
