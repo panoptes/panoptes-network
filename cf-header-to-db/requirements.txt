@@ -1,0 +1,7 @@
+Flask
+google-cloud-pubsub
+google-cloud-storage
+orjson
+psycopg2-binary
+PyYAML
+requests

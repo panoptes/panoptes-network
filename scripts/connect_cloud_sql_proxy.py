@@ -49,16 +49,17 @@ if __name__ == '__main__':
     # Get the command line option
     parser = argparse.ArgumentParser(description="Connect to a google CloudSQL via a local proxy")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('--from_config', default=True, action='store_true',
-                       help="Connect to all instances listed in the config file, default True.")
+    group.add_argument('--config', default='conf.yaml',
+                       help="Config file with instances information.")
     group.add_argument('--database', default=None,
                        help="Connect to a specific database, otherwise connect to all in config.")
-    parser.add_argument('--key_file', default=None, help="JSON service account key location.")
+    parser.add_argument('--key-file', default=None, help="JSON service account key location.")
+    parser.add_argument('--proxy-cmd', default=None, help="The Google Cloud SQL proxy script")
     parser.add_argument('--verbose', action='store_true', default=False,
                         help="Print results to stdout, default False.")
     args = parser.parse_args()
 
-    config = load_config()
+    config = load_config(args.config)
     try:
         network_config = config['panoptes_network']
         if args.verbose:
@@ -106,4 +107,4 @@ if __name__ == '__main__':
         print("Connecting to the following instances:")
         pprint(connect_instances)
 
-    main(connect_instances, key_file, verbose=args.verbose)
+    main(connect_instances, key_file, proxy_cmd=args.proxy_cmd, verbose=args.verbose)
