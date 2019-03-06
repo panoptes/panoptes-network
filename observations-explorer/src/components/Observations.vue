@@ -104,7 +104,7 @@ export default {
             enabled: true
           }    
         },
-        { label: 'Exp Time', field: 'exp_time', sortable: true, type: 'decimal' },
+        { label: 'Exp Time', field: 'exptime', sortable: true, type: 'decimal' },
         { label: 'Image Count', field: 'image_count', sortable: true, type: 'number' },
         // { label: 'Status', field: 'piaa_state', sortable: true }
       ]

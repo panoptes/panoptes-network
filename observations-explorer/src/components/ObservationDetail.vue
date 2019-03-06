@@ -153,7 +153,7 @@ export default {
         { label: 'Airmass', key: 'airmass', sortable: true },
         { label: 'MoonSep', key: 'moon_separation', sortable: true },
         { label: 'MoonFrac', key: 'moon_fraction', sortable: true },
-        { label: 'Exptime', key: 'exp_time', sortable: true },
+        { label: 'Exptime', key: 'exptime', sortable: true },
         { label: 'Center', key: 'center', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
       ]
