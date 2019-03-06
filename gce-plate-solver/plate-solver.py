@@ -7,9 +7,17 @@ from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import pubsub
 
+from dateutil.parser import parse as parse_date
+from psycopg2.extras import execute_values
+from psycopg2 import IntegrityError
+from astropy.io import fits
+
+import csv
+
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import pipeline
+from piaa.utils import helpers
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
@@ -36,11 +44,6 @@ bq_sources_table = bq_observations_dataset_ref.table('data')
 logging_client = logging.Client()
 logging_client.setup_logging()
 import logging
-
-extract_sources_url = os.getenv(
-    'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/extract-sources'
-)
 
 
 def main():
@@ -153,29 +156,109 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
-        # Convert to CSV
-        sources_fn = f'{unit_id}-{cam_id}-{seq_time}-{img_time}.csv'
-        sources_path = os.path.join('/tmp', sources_fn)
-        sources_bucket_path = sources_fn.replace('-', '/')
-        point_sources.to_csv(sources_path)
-
-        upload_blob(sources_path, sources_bucket_path,
-                    bucket_name='panoptes-detected-sources')
-
-        # Send a request to start extracting sources
-        logging.info(f'Sending pubsub for detected sources.')
-        publisher_client.publish(topic_path, data=sources_bucket_path.encode('utf-8'))
+        logging.info(f'Looking up sources for {fz_fn}')
+        get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
 
     except Exception as e:
         logging.info(f'Error while solving field: {e!r}')
     finally:
         logging.info(f'Solve and extraction complete, cleaning up for {object_id}')
         # Remove files
-        for fn in [fits_fn, fz_fn, sources_path]:
+        for fn in [fits_fn, fz_fn]:
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
     return
+
+
+def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
+    """Get postage stamps for each PICID in the given file.
+
+    Args:
+        point_sources (`pandas.DataFrame`): A DataFrame containing the results from `sextractor`.
+        fits_fn (str): The name of the FITS file to extract stamps from.
+        stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
+        cursor (`psycopg2.Cursor`, optional): The DB cursor for the metadata database.
+    """
+    data = fits.getdata(fits_fn)
+    image_id = None
+
+    source_metadata = list()
+
+    remove_columns = ['picid', 'image_id', 'ra', 'dec',
+                      'x_image', 'y_image', 'seq_time', 'img_time']
+
+    logging.info(f'Getting point sources')
+
+    row = point_sources.iloc[0]
+    sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
+    logging.info(f'Sources data will be extracted to {sources_csv_fn}')
+
+    logging.info(f'Starting source extraction for {fits_fn}')
+    with open(sources_csv_fn, 'w') as csv_file:
+        writer = csv.writer(csv_file, quoting=csv.QUOTE_MINIMAL)
+
+        for picid, row in point_sources.iterrows():
+            image_id = row.image_id
+
+            # Get the stamp for the target
+            target_slice = helpers.get_stamp_slice(
+                row.x, row.y,
+                stamp_size=(stamp_size, stamp_size),
+                ignore_superpixel=False,
+                verbose=False
+            )
+
+            # Add the target slice to metadata to preserve original location.
+            row['target_slice'] = target_slice
+
+            # Explicit type casting to match bigquery table schema.
+            for i, val in enumerate(data[target_slice].flatten()):
+                writer.writerow([
+                    int(picid),
+                    str(row.unit_id),
+                    str(row.camera_id),
+                    parse_date(row.seq_time),
+                    parse_date(row.img_time),
+                    int(row.x),
+                    int(row.y),
+                    int(i),
+                    float(val)
+                ])
+
+            # Metadata for the detection, with most of row dumped into jsonb `metadata`.
+            source_metadata.append({
+                'picid': picid,
+                'image_id': row.image_id,
+                'astro_coords': f'({row.ra}, {row.dec})',
+                'metadata': row.drop(remove_columns, errors='ignore').to_json(),
+            })
+
+    # Bulk insert the sources_metadata.
+    try:
+        headers = ['picid', 'image_id', 'astro_coords', 'metadata']
+        insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
+        insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
+
+        logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
+        execute_values(cursor, insert_sql, source_metadata, insert_template)
+        cursor.connection.commit()
+    except IntegrityError:
+        logging.info(f'Sources information already loaded into database')
+    finally:
+        logging.info(f'Copy of metadata complete {fits_fn}')
+
+    try:
+        upload_blob(sources_csv_fn, destination=sources_csv_fn.replace('-', '/'),
+                    bucket_name='panoptes-detected-sources')
+    except Exception as e:
+        logging.info(f'Uploading of sources failed for {fits_fn}')
+    finally:
+        with suppress(FileNotFoundError):
+            logging.info(f'Cleaning up {sources_csv_fn}')
+            os.remove(sources_csv_fn)
+
+    return image_id
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
