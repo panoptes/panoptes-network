@@ -2,7 +2,6 @@ import os
 import time
 from contextlib import suppress
 
-from google.cloud import logging
 from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import pubsub
@@ -40,14 +39,9 @@ bq_client = bigquery.Client()
 bq_observations_dataset_ref = bq_client.dataset('observations')
 bq_sources_table = bq_observations_dataset_ref.table('data')
 
-# Logging
-logging_client = logging.Client()
-logging_client.setup_logging()
-import logging
-
 
 def main():
-    logging.info(f"Starting pubsub listen on {pubsub_sub_path}")
+    print(f"Starting pubsub listen on {pubsub_sub_path}")
 
     try:
         flow_control = pubsub.types.FlowControl(max_messages=1)
@@ -55,11 +49,11 @@ def main():
             pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
 
         # Keeps main thread from exiting.
-        logging.info(f"Plate-solver subscriber started, entering listen loop")
+        print(f"Plate-solver subscriber started, entering listen loop")
         while True:
             time.sleep(30)
     except Exception as e:
-        logging.info(f'Problem starting subscriber: {e!r}')
+        print(f'Problem starting subscriber: {e!r}')
         future.cancel()
 
 
@@ -74,7 +68,7 @@ def msg_callback(message):
         catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
-        logging.info(f'Solving {bucket_path}')
+        print(f'Solving {bucket_path}')
         solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor)
     finally:
         message.ack()
@@ -92,42 +86,42 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
         # Don't process pointing images.
         if 'pointing' in bucket_path:
-            logging.info(f'Skipping pointing file.')
+            print(f'Skipping pointing file.')
             update_state('skipped', image_id=image_id, cursor=metadata_db_cursor)
             return
 
         # Don't process files that have been processed.
         img_state = get_state(image_id=image_id, cursor=metadata_db_cursor)
         if img_state == 'sources_extracted':
-            logging.info(f'Skipping already processed image.')
+            print(f'Skipping already processed image.')
             return
 
         # Download file blob from bucket
-        logging.info(f'Downloading {bucket_path}')
+        print(f'Downloading {bucket_path}')
         fz_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
 
         # Check for existing WCS info
-        logging.info(f'Getting existing WCS for {fz_fn}')
+        print(f'Getting existing WCS for {fz_fn}')
         wcs_info = fits_utils.get_wcsinfo(fz_fn)
         if len(wcs_info) > 1:
-            logging.info(f'Found existing WCS for {fz_fn}')
+            print(f'Found existing WCS for {fz_fn}')
 
         # Unpack the FITS file
-        logging.info(f'Unpacking {fz_fn}')
+        print(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
         if not os.path.exists(fits_fn):
             raise Exception(f'Problem unpacking {fz_fn}')
 
         # Solve fits file
-        logging.info(f'Plate-solving {fits_fn}')
+        print(f'Plate-solving {fits_fn}')
         try:
             solve_info = fits_utils.get_solve_field(
                 fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
         except Exception as e:
-            logging.info(f'File not solved, skipping: {fits_fn} {e!r}')
+            print(f'File not solved, skipping: {fits_fn} {e!r}')
             is_solved = False
         else:
-            logging.info(f'Solved {fits_fn}')
+            print(f'Solved {fits_fn}')
             is_solved = True
 
         if not is_solved:
@@ -140,7 +134,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             upload_blob(fz_fn, bucket_path, bucket=bucket)
 
         # Lookup point sources
-        logging.info(f'Looking up sources for {fits_fn}')
+        print(f'Looking up sources for {fits_fn}')
         point_sources = pipeline.lookup_point_sources(
             fits_fn,
             force_new=True,
@@ -153,17 +147,17 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         point_sources['img_time'] = img_time
         point_sources['unit_id'] = unit_id
         point_sources['camera_id'] = cam_id
-        logging.info(f'Sources detected: {len(point_sources)} {fz_fn}')
+        print(f'Sources detected: {len(point_sources)} {fz_fn}')
         update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
 
-        logging.info(f'Looking up sources for {fz_fn}')
+        print(f'Looking up sources for {fz_fn}')
         get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
 
     except Exception as e:
-        logging.info(f'Error while solving field: {e!r}')
+        print(f'Error while solving field: {e!r}')
     finally:
-        logging.info(f'Solve and extraction complete, cleaning up for {object_id}')
+        print(f'Solve and extraction complete, cleaning up for {object_id}')
         # Remove files
         for fn in [fits_fn, fz_fn]:
             with suppress(FileNotFoundError):
@@ -189,13 +183,13 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     remove_columns = ['picid', 'image_id', 'ra', 'dec',
                       'x_image', 'y_image', 'seq_time', 'img_time']
 
-    logging.info(f'Getting point sources')
+    print(f'Getting point sources')
 
     row = point_sources.iloc[0]
     sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
-    logging.info(f'Sources data will be extracted to {sources_csv_fn}')
+    print(f'Sources data will be extracted to {sources_csv_fn}')
 
-    logging.info(f'Starting source extraction for {fits_fn}')
+    print(f'Starting source extraction for {fits_fn}')
     with open(sources_csv_fn, 'w') as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_MINIMAL)
 
@@ -241,22 +235,22 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
         insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
 
-        logging.info(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
+        print(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
         execute_values(cursor, insert_sql, source_metadata, insert_template)
         cursor.connection.commit()
     except IntegrityError:
-        logging.info(f'Sources information already loaded into database')
+        print(f'Sources information already loaded into database')
     finally:
-        logging.info(f'Copy of metadata complete {fits_fn}')
+        print(f'Copy of metadata complete {fits_fn}')
 
     try:
         upload_blob(sources_csv_fn, destination=sources_csv_fn.replace('-', '/'),
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
-        logging.info(f'Uploading of sources failed for {fits_fn}')
+        print(f'Uploading of sources failed for {fits_fn}')
     finally:
         with suppress(FileNotFoundError):
-            logging.info(f'Cleaning up {sources_csv_fn}')
+            print(f'Cleaning up {sources_csv_fn}')
             os.remove(sources_csv_fn)
 
     return image_id
@@ -279,14 +273,14 @@ def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='
 
     blob.download_to_filename(destination)
 
-    logging.info('Blob {} downloaded to {}.'.format(source_blob_name, destination))
+    print('Blob {} downloaded to {}.'.format(source_blob_name, destination))
 
     return destination
 
 
 def upload_blob(source_file_name, destination, bucket=None, bucket_name='panoptes-survey'):
     """Uploads a file to the bucket."""
-    logging.info('Uploading {} to {}.'.format(source_file_name, destination))
+    print('Uploading {} to {}.'.format(source_file_name, destination))
 
     if bucket is None:
         storage_client = storage.Client()
@@ -298,7 +292,7 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     # Upload file to blob
     blob.upload_from_filename(source_file_name)
 
-    logging.info('File {} uploaded to {}.'.format(source_file_name, destination))
+    print('File {} uploaded to {}.'.format(source_file_name, destination))
 
 
 def meta_insert(table, cursor, **kwargs):
@@ -345,17 +339,17 @@ def meta_insert(table, cursor, **kwargs):
     try:
         cursor.execute(insert_sql, col_values)
     except Exception:
-        logging.info('Rolling back cursor and trying again')
+        print('Rolling back cursor and trying again')
         try:
             cursor.connection.rollback()
             cursor.execute(insert_sql, col_values)
         except Exception as e:
-            logging.info(f"Error in insert (error): {e!r}")
-            logging.info(f"Error in insert (sql): {insert_sql}")
-            logging.info(f"Error in insert (kwargs): {kwargs!r}")
+            print(f"Error in insert (error): {e!r}")
+            print(f"Error in insert (sql): {insert_sql}")
+            print(f"Error in insert (kwargs): {kwargs!r}")
             return False
     else:
-        logging.info(f'Insert success: {table}')
+        print(f'Insert success: {table}')
         return True
 
 
@@ -394,14 +388,15 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
     try:
         cursor.execute(update_sql, [state, field])
         cursor.commit()
+        print(f'{field} set to state {state}')
     except Exception:
         try:
             cursor.connection.rollback()
             cursor.execute(update_sql, [state, field])
         except Exception as e:
-            logging.info(f"Error in insert (error): {e!r}")
-            logging.info(f"Error in insert (sql): {update_sql}")
-            logging.info(f"Error in insert (kwargs): {kwargs!r}")
+            print(f"Error in insert (error): {e!r}")
+            print(f"Error in insert (sql): {update_sql}")
+            print(f"Error in insert (kwargs): {kwargs!r}")
             return False
 
     return True
@@ -432,9 +427,9 @@ def get_state(sequence_id=None, image_id=None, cursor=None, **kwargs):
         row = cursor.fetchone()
         return row['state']
     except Exception as e:
-        logging.info(f"Error in insert (error): {e!r}")
-        logging.info(f"Error in insert (sql): {update_sql}")
-        logging.info(f"Error in insert (kwargs): {kwargs!r}")
+        print(f"Error in insert (error): {e!r}")
+        print(f"Error in insert (sql): {update_sql}")
+        print(f"Error in insert (kwargs): {kwargs!r}")
         return None
 
 
