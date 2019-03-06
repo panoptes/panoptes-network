@@ -11,7 +11,7 @@
     <dd class="col-sm-9">{{ sequence.start_date | moment("YYYY-MM-DD HH:mm:ss") }}</dd>
 
     <dt class="col-sm-3">Exptime</dt>
-    <dd class="col-sm-9">{{ sequence.exp_time }}</dd>
+    <dd class="col-sm-9">{{ sequence.exptime }}</dd>
 
     <dt class="col-sm-3">POCS Version</dt>
     <dd class="col-sm-9">{{ sequence.pocs_version }}</dd>    
