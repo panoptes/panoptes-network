@@ -18,7 +18,7 @@
             :fields="fields"
             :per-page="perPage"
             :current-page="currentPage"
-            sort-by="date_obs"
+            sort-by="obstime"
             :sort-desc=false
             caption-top
             bordered
@@ -27,7 +27,7 @@
             hoverable
             small
           >
-          <template slot="date_obs" slot-scope="data">
+          <template slot="obstime" slot-scope="data">
             {{ data.value | moment("HH:mm:ss") }}
           </template>            
           <template slot="center" slot-scope="data">
@@ -149,10 +149,7 @@ export default {
       thumbUrl: '',
       timelapseUrl: '',
       fields: [
-        { label: 'Time', key: 'date_obs', sortable: true },
-        { label: 'Airmass', key: 'airmass', sortable: true },
-        { label: 'MoonSep', key: 'moon_separation', sortable: true },
-        { label: 'MoonFrac', key: 'moon_fraction', sortable: true },
+        { label: 'Time', key: 'obstime', sortable: true },
         { label: 'Exptime', key: 'exptime', sortable: true },
         { label: 'Center', key: 'center', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }

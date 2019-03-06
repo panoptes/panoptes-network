@@ -12,7 +12,7 @@
   </figure>
   <div class="media-content">
     <div class="content">
-        <strong> {{ image.date_obs }} </strong>
+        <strong> {{ image.obstime }} </strong>
       <ul>
         <li v-for="(value, key) in image">
           {{ key }}: {{ value }}
