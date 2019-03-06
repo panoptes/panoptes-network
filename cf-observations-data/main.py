@@ -111,7 +111,7 @@ def get_sequences(params):
     global pg_pool
 
     num_days = params.get('num_days', 21)
-    image_count = params.get('image_count', 5)
+    min_image_count = params.get('min_image_count', 5)
 
     # Initialize the pool lazily, in case SQL access isn't needed for this
     # GCF instance. Doing so minimizes the number of active SQL connections,
@@ -133,7 +133,7 @@ def get_sequences(params):
         WHERE t1.id=t2.sequence_id
             AND t1.start_date > CURRENT_DATE - interval '{num_days} days'
         GROUP BY t1.id
-        HAVING count(t2.id) >= {image_count}
+        HAVING count(t2.id) >= {min_image_count}
         ORDER BY t1.start_date DESC
         """
 
