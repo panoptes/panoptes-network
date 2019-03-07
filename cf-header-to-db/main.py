@@ -345,17 +345,29 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
     if sequence_id is None and image_id is None:
         raise ValueError('Need either a sequence_id or an image_id')
 
-    for table, id_col in zip(['sequences', 'images'], [sequence_id, image_id]):
-        if id_col is None:
-            continue
+    table = 'sequences'
+    field = sequence_id
+    if sequence_id is None:
+        table = 'images'
+        field = image_id
 
-        update_sql = f"""
-                    UPDATE {table}
-                    SET state=%s
-                    WHERE id=%s
-                    """
+    update_sql = f"""
+                UPDATE {table}
+                SET state=%s
+                WHERE id=%s
+                """
+
+    try:
+        cursor.execute(update_sql, [state, sequence_id])
+        cursor.connection.commit()
+        print(f'{field} set to state {state}')
+    except Exception:
         try:
+            print('Updating of state ({field}={state}) failed, rolling back and trying again')
+            cursor.connection.rollback()
             cursor.execute(update_sql, [state, sequence_id])
+            cursor.connection.commit()
+            print(f'{field} set to state {state}')
         except Exception as e:
             print(f"Error in insert (error): {e!r}")
             print(f"Error in insert (sql): {update_sql}")
