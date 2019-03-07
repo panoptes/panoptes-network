@@ -197,7 +197,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         # Write out headers.
         csv_headers = ['picid', 'unit_id', 'camera_id', 'sequence_time', 'image_time']
         # Add column headers for flattened stamp.
-        csv_headers.extend([f'pixel_{i:02d}' for i in range(len(stamp_size**2))])
+        csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
 
         for picid, row in point_sources.iterrows():
