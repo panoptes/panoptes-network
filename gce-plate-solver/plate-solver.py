@@ -217,15 +217,17 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             # Explicit type casting to match bigquery table schema.
             stamp = data[target_slice].flatten().tolist()
 
-            # Write out stamp data
-            writer.writerow([
+            row_values = [
                 int(picid),
                 str(row.unit_id),
                 str(row.camera_id),
                 parse_date(row.seq_time),
                 parse_date(row.img_time),
-                stamp
-            ])
+            ]
+            row_values.extend(stamp)
+
+            # Write out stamp data
+            writer.writerow(row_values)
 
             # Metadata for the detection, with most of row dumped into jsonb `metadata`.
             source_metadata.append({
