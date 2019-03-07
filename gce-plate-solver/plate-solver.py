@@ -194,6 +194,12 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     with open(sources_csv_fn, 'w') as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_MINIMAL)
 
+        # Write out headers.
+        csv_headers = ['picid', 'unit_id', 'camera_id', 'sequence_time', 'image_time']
+        # Add column headers for flattened stamp.
+        csv.extend([f'pixel_{i:02d}' for i in range(len(stamp_size**2))])
+        writer.writerow(csv_headers)
+
         for picid, row in point_sources.iterrows():
             image_id = row.image_id
 
@@ -209,18 +215,17 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             row['target_slice'] = target_slice
 
             # Explicit type casting to match bigquery table schema.
-            for i, val in enumerate(data[target_slice].flatten()):
-                writer.writerow([
-                    int(picid),
-                    str(row.unit_id),
-                    str(row.camera_id),
-                    parse_date(row.seq_time),
-                    parse_date(row.img_time),
-                    int(row.x),
-                    int(row.y),
-                    int(i),
-                    float(val)
-                ])
+            stamp = data[target_slice].flatten().tolist()
+
+            # Write out stamp data
+            writer.writerow([
+                int(picid),
+                str(row.unit_id),
+                str(row.camera_id),
+                parse_date(row.seq_time),
+                parse_date(row.img_time),
+                stamp
+            ])
 
             # Metadata for the detection, with most of row dumped into jsonb `metadata`.
             source_metadata.append({
