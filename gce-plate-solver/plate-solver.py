@@ -339,11 +339,13 @@ def meta_insert(table, cursor, **kwargs):
 
     try:
         cursor.execute(insert_sql, col_values)
+        cursor.connection.commit()
     except Exception:
         print('Rolling back cursor and trying again')
         try:
             cursor.connection.rollback()
             cursor.execute(insert_sql, col_values)
+            cursor.connection.commit()
         except Exception as e:
             print(f"Error in insert (error): {e!r}")
             print(f"Error in insert (sql): {insert_sql}")
@@ -388,14 +390,14 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
                 """
     try:
         cursor.execute(update_sql, [state, field])
-        cursor.commit()
+        cursor.connection.commit()
         print(f'{field} set to state {state}')
     except Exception:
         try:
             print('Updating of state ({field}={state}) failed, rolling back and trying again')
             cursor.connection.rollback()
             cursor.execute(update_sql, [state, field])
-            cursor.commit()
+            cursor.connection.commit()
             print(f'{field} set to state {state}')
         except Exception as e:
             print(f"Error in insert (error): {e!r}")
