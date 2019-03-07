@@ -71,6 +71,7 @@ def msg_callback(message):
         print(f'Solving {bucket_path}')
         solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor)
     finally:
+        print(f'Finished processing {object_id}.')
         message.ack()
         catalog_db_cursor.close()
         metadata_db_cursor.close()
@@ -391,8 +392,11 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         print(f'{field} set to state {state}')
     except Exception:
         try:
+            print('Updating of state ({field}={state}) failed, rolling back and trying again')
             cursor.connection.rollback()
             cursor.execute(update_sql, [state, field])
+            cursor.commit()
+            print(f'{field} set to state {state}')
         except Exception as e:
             print(f"Error in insert (error): {e!r}")
             print(f"Error in insert (sql): {update_sql}")
