@@ -119,7 +119,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             print(f'Plate-solving {fits_fn}')
             try:
                 solve_info = fits_utils.get_solve_field(
-                    fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
+                    fits_fn, skip_solved=False, overwrite=True, timeout=90)
                 print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
