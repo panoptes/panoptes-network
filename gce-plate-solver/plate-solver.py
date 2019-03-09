@@ -103,38 +103,35 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         print(f'Downloading {bucket_path}')
         fz_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
 
-        # Check for existing WCS info
-        print(f'Getting existing WCS for {fz_fn}')
-        wcs_info = fits_utils.get_wcsinfo(fz_fn)
-        if len(wcs_info) > 1:
-            print(f'Found existing WCS for {fz_fn}')
-
         # Unpack the FITS file
         print(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
         if not os.path.exists(fits_fn):
             raise Exception(f'Problem unpacking {fz_fn}')
 
-        # Solve fits file
-        print(f'Plate-solving {fits_fn}')
-        try:
-            solve_info = fits_utils.get_solve_field(
-                fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
-        except Exception as e:
-            print(f'File not solved, skipping: {fits_fn} {e!r}')
-            is_solved = False
+        # Check for existing WCS info
+        print(f'Getting existing WCS for {fits_fn}')
+        wcs_info = fits_utils.get_wcsinfo(fits_fn)
+        already_solved = len(wcs_info) > 1
+
+        if not already_solved:
+            # Solve fits file
+            print(f'Plate-solving {fits_fn}')
+            try:
+                solve_info = fits_utils.get_solve_field(
+                    fits_fn, skip_solved=False, overwrite=True, timeout=90, verbose=True)
+                print(f'Solved {fits_fn}')
+            except Exception as e:
+                print(f'File not solved, skipping: {fits_fn} {e!r}')
+                update_state('unsolved', image_id=image_id, cursor=metadata_db_cursor)
+
+            # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
+            if solve_info is not None and len(wcs_info) == 1:
+                fz_fn = fits_utils.fpack(fits_fn)
+                upload_blob(fz_fn, bucket_path, bucket=bucket)
+
         else:
-            print(f'Solved {fits_fn}')
-            is_solved = True
-
-        if not is_solved:
-            update_state('unsolved', image_id=image_id, cursor=metadata_db_cursor)
-            return
-
-        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-        if solve_info is not None and len(wcs_info) == 1:
-            fz_fn = fits_utils.fpack(fits_fn)
-            upload_blob(fz_fn, bucket_path, bucket=bucket)
+            print(f'Found existing WCS for {fz_fn}')
 
         # Lookup point sources
         print(f'Looking up sources for {fits_fn}')
@@ -143,6 +140,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             force_new=True,
             cursor=catalog_db_cursor
         )
+
         # Adjust some of the header items
         point_sources['gcs_file'] = object_id
         point_sources['image_id'] = image_id
@@ -159,6 +157,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
+        return False
     finally:
         print(f'Solve and extraction complete, cleaning up for {object_id}')
         # Remove files
@@ -166,7 +165,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
-    return
+    return True
 
 
 def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
