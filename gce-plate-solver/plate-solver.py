@@ -123,7 +123,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
                 print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
-                update_state('unsolved', image_id=image_id, cursor=metadata_db_cursor)
+                update_state('error_solving', image_id=image_id, cursor=metadata_db_cursor)
 
             # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
             if solve_info is not None and len(wcs_info) == 1:
@@ -134,22 +134,26 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             print(f'Found existing WCS for {fz_fn}')
 
         # Lookup point sources
-        print(f'Looking up sources for {fits_fn}')
-        point_sources = pipeline.lookup_point_sources(
-            fits_fn,
-            force_new=True,
-            cursor=catalog_db_cursor
-        )
+        try:
+            print(f'Looking up sources for {fits_fn}')
+            point_sources = pipeline.lookup_point_sources(
+                fits_fn,
+                force_new=True,
+                cursor=catalog_db_cursor
+            )
 
-        # Adjust some of the header items
-        point_sources['gcs_file'] = object_id
-        point_sources['image_id'] = image_id
-        point_sources['seq_time'] = seq_time
-        point_sources['img_time'] = img_time
-        point_sources['unit_id'] = unit_id
-        point_sources['camera_id'] = cam_id
-        print(f'Sources detected: {len(point_sources)} {fz_fn}')
-        update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
+            # Adjust some of the header items
+            point_sources['gcs_file'] = object_id
+            point_sources['image_id'] = image_id
+            point_sources['seq_time'] = seq_time
+            point_sources['img_time'] = img_time
+            point_sources['unit_id'] = unit_id
+            point_sources['camera_id'] = cam_id
+            print(f'Sources detected: {len(point_sources)} {fz_fn}')
+            update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
+        except Exception as e:
+            update_state('error_sources_detection', image_id=image_id, cursor=metadata_db_cursor)
+            raise e
 
         print(f'Looking up sources for {fz_fn}')
         get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
@@ -250,6 +254,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     except IntegrityError:
         print(f'Sources information already loaded into database')
     finally:
+        update_state('metadata_inserted', image_id=image_id, cursor=cursor)
         print(f'Copy of metadata complete {fits_fn}')
 
     try:
@@ -257,6 +262,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {fits_fn}')
+        update_state('error_uploading_sources', image_id=image_id, cursor=cursor)
     finally:
         with suppress(FileNotFoundError):
             print(f'Cleaning up {sources_csv_fn}')
