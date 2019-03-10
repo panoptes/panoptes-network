@@ -107,6 +107,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         print(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
         if not os.path.exists(fits_fn):
+            update_state('error_unpacking', image_id=image_id, cursor=metadata_db_cursor)
             raise Exception(f'Problem unpacking {fz_fn}')
 
         # Check for existing WCS info
