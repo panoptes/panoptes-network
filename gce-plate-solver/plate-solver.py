@@ -63,9 +63,6 @@ def msg_callback(message):
     bucket_path = attributes['bucket_path']
     object_id = attributes['object_id']
 
-    # Acknowledge message
-    message.ack()
-
     try:
         # Get DB cursors
         catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
@@ -77,6 +74,8 @@ def msg_callback(message):
         print(f'Finished processing {object_id}.')
         catalog_db_cursor.close()
         metadata_db_cursor.close()
+        # Acknowledge message
+        message.ack()
 
 
 def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
