@@ -6,5 +6,5 @@ gcloud functions deploy make-observation-psc \
 	--entry-point make_observation_psc \
 	--runtime python37 \
 	--timeout 120s \
-	--memory 1024MB \
+	--memory 2048MB \
 	--trigger-http
