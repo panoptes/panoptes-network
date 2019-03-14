@@ -66,8 +66,12 @@ def make_observation_psc(request):
             print(f'Making DataFrame for {tmp_fn}')
             df0 = pd.read_csv(tmp_fn)
 
+            # Make a datetime index
+            df0.index = pd.to_datetime(df0.image_time)
+            df0.drop(columns=['image_time'])
+
             # Cleanup columns
-            df0.drop(columns=['unit_id', 'camera_id', 'sequence_time'], inplace=True)
+            df0.drop(columns=['unit_id', 'camera_id', 'sequence_time', 'image_time'], inplace=True)
             df_list[tmp_fn] = df0
 
         if len(df_list) <= min_num_frames:
@@ -81,10 +85,6 @@ def make_observation_psc(request):
 
         # Only keep the keys (filenames)
         df_list = list(df_list.keys())
-
-        # Make a datetime index
-        psc_df.index = pd.to_datetime(psc_df.image_time)
-        psc_df.drop(columns=['image_time'])
 
         # Make the PICID (as str) an index
         psc_df.picid = psc_df.picid.astype(str)
