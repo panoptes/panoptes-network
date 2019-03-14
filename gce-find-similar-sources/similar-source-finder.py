@@ -49,24 +49,24 @@ def msg_callback(message):
         sequence_id = sequence_id[:-1]
 
     # The PSC file to download from the bucket.
-    bucket_path = f'{sequence_id}.csv'
+    psc_fn = f'{sequence_id}.csv'
 
     # The output file that will contain the similar source list.
-    sources_bucket_path = f'{sequence_id}-similar-sources.csv'
+    similar_sources_fn = f'{sequence_id}-similar-sources.csv'
 
     # The local path to the similar source list.
-    local_sources_fn = os.path.join('/tmp', sources_bucket_path.replace('/', '_'))
+    local_similar_sources_path = os.path.join('/tmp', similar_sources_fn.replace('/', '_'))
 
     try:
-        print(f'Fetching {bucket_path}')
-        local_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
+        print(f'Fetching {psc_fn}')
+        local_fn = download_blob(psc_fn, destination='/tmp', bucket=bucket)
 
         similar_sources = find_similar_sources(local_fn)
 
-        print(f'Making {local_sources_fn}')
-        similar_sources.to_csv(local_sources_fn)
+        print(f'Making {local_similar_sources_path}')
+        similar_sources.to_csv(local_similar_sources_path)
 
-        upload_blob(local_sources_fn, sources_bucket_path, bucket=bucket)
+        upload_blob(local_similar_sources_path, similar_sources_fn, bucket=bucket)
     finally:
         print(f'Finished processing {sequence_id}.')
         message.ack()
