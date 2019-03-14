@@ -27,7 +27,7 @@ def make_observation_psc(request):
         rawpy params: https://letmaik.github.io/rawpy/api/rawpy.Params.html
         rawpy enums: https://letmaik.github.io/rawpy/api/enums.html
 
-    Args:s
+    Args:
         request (flask.Request): HTTP request object.
     Returns:
         The response text or any set of values that can be turned into a
