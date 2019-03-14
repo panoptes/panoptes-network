@@ -58,15 +58,16 @@ def make_observation_psc(request):
     df_list = dict()
     try:
         for blob in csv_blobs:
-            print(f'Getting blob {blob}')
             print(f'Getting blob name {blob.name}')
             tmp_fn = os.path.join(TMP_DIR, blob.name.replace('/', '_'))
             print(f'Downloading to {tmp_fn}')
             blob.download_to_filename(tmp_fn)
 
             print(f'Making DataFrame for {tmp_fn}')
-            df0 = pd.read_csv(tmp_fn, parse_dates=True)
+            df0 = pd.read_csv(tmp_fn)
 
+            # Cleanup columns
+            df0.drop(columns=['unit_id', 'camera_id', 'sequence_time', 'image_time'], inplace=True)
             df_list[tmp_fn] = df0
 
         if len(df_list) <= min_num_frames:
@@ -78,15 +79,14 @@ def make_observation_psc(request):
         print(f'Making PSC DataFrame for {sequence_id}')
         psc_df = pd.concat(list(df_list.values()), sort=False)
 
+        # Only keep the keys (filenames)
+        df_list = list(df_list.keys())
+
         # Make a datetime index
         psc_df.index = pd.to_datetime(psc_df.image_time)
         # Make the PICID (as str) an index
         psc_df.picid = psc_df.picid.astype(str)
         psc_df.set_index(['picid'], inplace=True, append=True)
-
-        # Cleanup columns
-        psc_df.drop(columns=['unit_id', 'camera_id',
-                             'sequence_time', 'image_time'], inplace=True)
         psc_df.sort_index(inplace=True)
 
         # Report
@@ -137,7 +137,7 @@ def make_observation_psc(request):
 
     finally:
         print(f'Removing all downloaded files for {sequence_id}')
-        for tmp_fn in df_list.keys():
+        for tmp_fn in df_list:
             with suppress(FileNotFoundError):
                 os.remove(tmp_fn)
 
