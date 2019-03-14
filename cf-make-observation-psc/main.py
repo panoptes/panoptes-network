@@ -42,7 +42,7 @@ def make_observation_psc(request):
     else:
         return f'No observation (sequence_id) requested'
 
-    min_num_frames = request_json.get('min_num_frames', 30)
+    min_num_frames = request_json.get('min_num_frames', 10)
     frame_threshold = request_json.get('frame_threshold', .98)
 
     print(f'Sequence ID: {sequence_id}')
