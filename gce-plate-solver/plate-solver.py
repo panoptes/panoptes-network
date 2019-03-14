@@ -25,11 +25,6 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 storage_client = storage.Client(project=PROJECT_ID)
 bucket = storage_client.get_bucket(BUCKET_NAME)
 
-# Pubsub
-PUBSUB_TOPIC = os.getenv('PUB_TOPIC', 'sources-detected')
-publisher_client = pubsub.PublisherClient()
-topic_path = publisher_client.topic_path(PROJECT_ID, PUBSUB_TOPIC)
-
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-plate-solver')
 subscriber_client = pubsub.SubscriberClient()
 pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
