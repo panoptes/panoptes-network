@@ -41,8 +41,21 @@ def msg_callback(message):
     attributes = message.attributes
     sequence_id = attributes['sequence_id']
 
+    # Put sequence_id into path form.
+    sequence_id = sequence_id.replace('_', '/')
+
+    # Strip trailing slash
+    if sequence_id.endswith('/'):
+        sequence_id = sequence_id[:-1]
+
+    # The PSC file to download from the bucket.
     bucket_path = f'{sequence_id}.csv'
+
+    # The output file that will contain the similar source list.
     sources_bucket_path = f'{sequence_id}-similar-sources.csv'
+
+    # The local path to the similar source list.
+    local_sources_fn = os.path.join('/tmp', sources_bucket_path.replace('/', '_'))
 
     try:
         print(f'Fetching {bucket_path}')
@@ -50,8 +63,6 @@ def msg_callback(message):
 
         similar_sources = find_similar_sources(local_fn)
 
-        local_sources_fn = f'{sequence_id}-similar-sources.csv'.replace('/', '_')
-        local_sources_fn = os.path.join('/tmp', local_sources_fn)
         print(f'Making {local_sources_fn}')
         similar_sources.to_csv(local_sources_fn)
 

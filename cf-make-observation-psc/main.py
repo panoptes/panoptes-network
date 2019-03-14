@@ -27,7 +27,7 @@ def make_observation_psc(request):
         rawpy params: https://letmaik.github.io/rawpy/api/rawpy.Params.html
         rawpy enums: https://letmaik.github.io/rawpy/api/enums.html
 
-    Args:
+    Args:s
         request (flask.Request): HTTP request object.
     Returns:
         The response text or any set of values that can be turned into a
@@ -71,7 +71,7 @@ def make_observation_psc(request):
 
         if len(df_list) <= min_num_frames:
             state = 'error_seq_too_short'
-            msg = f'Not enough CSV files found for {sequence_id}'
+            msg = f'Not enough CSV files found for {sequence_id}: {len(df_list)} files found'
             requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
             return jsonify(success=False, msg=msg)
 
