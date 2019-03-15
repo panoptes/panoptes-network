@@ -170,7 +170,7 @@ def make_observation_psc(sequence_id, min_num_frames=10, frame_threshold=0.98, *
         # Report again
         num_sources = len(psc_df.index.levels[1].unique())
         num_frames = len(set(psc_df.index.levels[0].unique()))
-        print(f"Frames: {num_frames} Sources: {num_sources}")
+        print(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
         # Write to file
         out_fn = sequence_id.replace('/', '_')
