@@ -183,7 +183,7 @@ def make_observation_psc(sequence_id, min_num_frames=10, frame_threshold=0.98, *
         upload_bucket_path = f'{sequence_id}.csv'.replace('_', '/')
 
         print(f'Uploading {out_fn} to {upload_bucket_path}')
-        upload_blob(out_fn, upload_bucket_path)
+        upload_blob(out_fn, upload_bucket_path, bucket=psc_bucket)
 
         print(f'Removing {out_fn}')
         os.remove(out_fn)
