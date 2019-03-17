@@ -49,6 +49,7 @@ class SplitCSV(beam.DoFn):
             logging.info('Invalid row found: %s %s', str(e), element)
             self.total_invalid.inc(1)
 
+
 def make_key(row):
     return (row['picid'], row['unit_id'], row['camera_id'], row['sequence_time'])
 
@@ -78,7 +79,7 @@ class ProcessPICID(beam.DoFn):
         key = make_key(frames[0])
 
         def get_data(records, key='data'):
-            time_data = {rec['image_time']:rec[key] for rec in records}
+            time_data = {rec['image_time']: rec[key] for rec in records}
             return np.array([time_data[t] for t in sorted(time_data.keys())])
 
         # Get data array
@@ -88,7 +89,8 @@ class ProcessPICID(beam.DoFn):
         yield TaggedOutput('scores', (key, scores))
 
         # Pass the main data
-        yield (key, {r['image_time']:r['data'] for r in frames})
+        yield (key, {r['image_time']: r['data'] for r in frames})
+
 
 class SSD(beam.DoFn):
     def process(self, reference, target):
@@ -103,7 +105,7 @@ class SSD(beam.DoFn):
         target_key = make_key(target_frames[0])
 
         def get_data(records, key='data'):
-            time_data = {rec['image_time']:rec[key] for rec in records}
+            time_data = {rec['image_time']: rec[key] for rec in records}
             return np.array([time_data[t] for t in sorted(time_data.keys())])
 
         ref_data = get_data(ref_frames, key='norm')
@@ -112,6 +114,7 @@ class SSD(beam.DoFn):
         score = ((target_data - ref_data)**2).sum(1).sum()
 
         return (ref_picid, score)
+
 
 class BreakRows(beam.DoFn):
     def process(self, element):
@@ -178,7 +181,7 @@ def run(argv=None):
         records = (p |
                    'Read source files' >> ReadFromText(psc_options.input, skip_header_lines=1) |
                    'Parse row' >> beam.ParDo(SplitCSV())
-        )
+                   )
 
         # Records keyed by picid but containing all info.
         keyed_records = records | 'AddRowByKey' >> beam.Map(lambda row: ((row['picid']), row))
@@ -187,20 +190,24 @@ def run(argv=None):
         picid_counts = keyed_records | 'Counting PICID' >> beam.combiners.Count.PerKey()
 
         # Singular value to get number of frames.
-        max_frames = beam.pvalue.AsSingleton(picid_counts | 'Get Total Num Frames' >> beam.CombineGlobally(MaxFrames()))
+        max_frames = beam.pvalue.AsSingleton(
+            picid_counts | 'Get Total Num Frames' >> beam.CombineGlobally(MaxFrames()))
 
         # Group by PICID.
-        picids = {'frames': keyed_records, 'counts': picid_counts} | 'Combining Counts & Data' >> beam.CoGroupByKey()
-        
+        picids = {'frames': keyed_records,
+                  'counts': picid_counts} | 'Combining Counts & Data' >> beam.CoGroupByKey()
+
         # Filter PICIDs that aren't in enough frames.
-        filtered = picids | 'Filter PICID' >> beam.Filter(lambda row, frame_count: int(row[1]['counts'][0]) >= int(frame_count * frame_threshold), max_frames)
+        filtered = picids | 'Filter PICID' >> beam.Filter(lambda row, frame_count: int(
+            row[1]['counts'][0]) >= int(frame_count * frame_threshold), max_frames)
 
         # Process the PICID.
-        processed = filtered | 'Process PICID' >> beam.ParDo(ProcessPICID(), AsIter(filtered)).with_outputs()
+        processed = filtered | 'Process PICID' >> beam.ParDo(
+            ProcessPICID(), AsIter(filtered)).with_outputs()
 
         pscs = processed[None]  # Main output
         scores = processed.scores  # Tagged output
-    
+
         # Ungroup so we have one row per picid per frame.
         output = pscs | 'Unroll PSCs' >> beam.ParDo(BreakRows())
 
@@ -209,8 +216,10 @@ def run(argv=None):
         formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatForCSV())
 
         # Write to file
-        formatted_pscs | "Writing PSCs CSV" >> beam.io.WriteToText(psc_options.pscs_output, num_shards=1, shard_name_template='')
-        formatted_scores | "Writing scores CSV" >> beam.io.WriteToText(psc_options.scores_output, num_shards=1, shard_name_template='')
+        formatted_pscs | "Writing PSCs CSV" >> beam.io.WriteToText(
+            psc_options.pscs_output, num_shards=1, shard_name_template='')
+        formatted_scores | "Writing scores CSV" >> beam.io.WriteToText(
+            psc_options.scores_output, num_shards=1, shard_name_template='')
 
         # Actually run the pipeline (all operations above are deferred).
         result = p.run()
@@ -220,4 +229,3 @@ def run(argv=None):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     run(sys.argv)
-
