@@ -8,8 +8,14 @@
     "regexes": ["^gs:\/\/[^\n\r]+$"],
     "is_optional": false
   },{
-    "name": "output",
-    "label": "Output Cloud Storage File(s)",
+    "name": "pscs_output",
+    "label": "Output for the PSC CSV file.",
+    "help_text": "Path of the file pattern glob to save to.",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+    "is_optional": false
+  },{
+    "name": "scores_output",
+    "label": "Output for the Similar Scores CSV file.",
     "help_text": "Path of the file pattern glob to save to.",
     "regexes": ["^gs:\/\/[^\n\r]+$"],
     "is_optional": false
