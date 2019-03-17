@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import sys
-import argparse
 import logging
 import numpy as np
 
@@ -9,13 +8,9 @@ import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.metrics import Metrics
 from apache_beam.pvalue import TaggedOutput
-from apache_beam.pvalue import AsList, AsIter
-from apache_beam.typehints import with_input_types
-from apache_beam.typehints import with_output_types
-from apache_beam.typehints import Any
+from apache_beam.pvalue import AsList
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from apache_beam.options.pipeline_options import GoogleCloudOptions
 
 
 class SplitCSV(beam.DoFn):
@@ -72,7 +67,6 @@ class MaxFrames(beam.transforms.core.CombineFn):
 
 class ProcessPICID(beam.DoFn):
     def process(self, element, ref_sources):
-        picid = element[0]
         frames = element[1]['frames']
 
         # Make the sequence key from the first frame
@@ -95,14 +89,9 @@ class ProcessPICID(beam.DoFn):
 class SSD(beam.DoFn):
     def process(self, reference, target):
         ref_picid = reference[0]
-        target_picid = target[0]
 
         ref_frames = reference[1]['frames']
         target_frames = target[1]['frames']
-
-        # Make the sequence key from the first frame
-        ref_key = make_key(ref_frames[0])
-        target_key = make_key(target_frames[0])
 
         def get_data(records, key='data'):
             time_data = {rec['image_time']: rec[key] for rec in records}
@@ -203,7 +192,7 @@ def run(argv=None):
 
         # Process the PICID.
         processed = filtered | 'Process PICID' >> beam.ParDo(
-            ProcessPICID(), AsIter(filtered)).with_outputs()
+            ProcessPICID(), AsList(filtered)).with_outputs()
 
         pscs = processed[None]  # Main output
         scores = processed.scores  # Tagged output
