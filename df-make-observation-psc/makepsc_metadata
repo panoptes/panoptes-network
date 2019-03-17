@@ -1,0 +1,17 @@
+{
+  "name": "MakePSC",
+  "description": "Create Observation PSC for each PICID.",
+  "parameters": [{
+    "name": "input",
+    "label": "Input Cloud Storage File(s)",
+    "help_text": "Path of the file pattern glob to read from.",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+    "is_optional": false
+  },{
+    "name": "output",
+    "label": "Output Cloud Storage File(s)",
+    "help_text": "Path of the file pattern glob to save to.",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+    "is_optional": false
+  }]
+}
