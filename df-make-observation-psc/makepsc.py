@@ -3,13 +3,12 @@ from __future__ import absolute_import
 import sys
 import logging
 import numpy as np
-import pandas as pd
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.metrics import Metrics
-from apache_beam.pvalue import TaggedOutput
-from apache_beam.pvalue import AsIter, AsList
+# from apache_beam.pvalue import TaggedOutput
+# from apache_beam.pvalue import AsIter, AsList
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -95,19 +94,19 @@ class ProcessPICID(beam.PTransform):
         return output
 
 
-def find_similar_sources(stamps_df):
-    # Normalize each stamp
-    norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
+# def find_similar_sources(stamps_df):
+#     # Normalize each stamp
+#     norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
 
-    top_matches = dict()
-    for picid, row in norm_df.groupby('picid'):
-        norm_target = row.droplevel('picid')
-        norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
-        top_matches[picid] = norm_group.sum().sort_values()
+#     top_matches = dict()
+#     for picid, row in norm_df.groupby('picid'):
+#         norm_target = row.droplevel('picid')
+#         norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
+#         top_matches[picid] = norm_group.sum().sort_values()
 
-    similar_sources = pd.DataFrame(top_matches)
+#     similar_sources = pd.DataFrame(top_matches)
 
-    return similar_sources
+#     return similar_sources
 
 
 class BreakRows(beam.DoFn):
@@ -188,7 +187,7 @@ def run(argv=None):
 
     psc_options = pipeline_options.view_as(PSCOptions)
 
-    frame_threshold = 1.0  # psc_options.frameThreshold
+    # frame_threshold = 1.0  # psc_options.frameThreshold
 
     # Start pipeline
     with beam.Pipeline(options=pipeline_options) as p:
