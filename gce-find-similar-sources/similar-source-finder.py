@@ -106,52 +106,46 @@ def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.98
     psc_fn = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}.csv'
     log(f'Getting Observation CSV file in bucket: {psc_fn}')
 
-    try:
-        log(f'Making DataFrame for {psc_fn}')
-        psc_df = pd.read_csv(psc_fn, index_col=[
-                             'image_time', 'picid'], parse_dates=True).sort_index()
+    log(f'Making DataFrame for {psc_fn}')
+    psc_df = pd.read_csv(psc_fn, index_col=[
+                         'image_time', 'picid'], parse_dates=True).sort_index()
 
-        # Report
-        num_sources = len(psc_df.index.levels[1].unique())
-        num_frames = len(set(psc_df.index.levels[0].unique()))
-        log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
+    # Report
+    num_sources = len(psc_df.index.levels[1].unique())
+    num_frames = len(set(psc_df.index.levels[0].unique()))
+    log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
-        if num_frames <= min_num_frames:
-            state = 'error_seq_too_short'
-            requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
-            log(f'Not enough frames found for {sequence_id}: {num_frames} frames found')
-            return None
-
-        # Get minimum frame threshold
-        frame_count = psc_df.groupby('picid').count().pixel_00
-        min_frame_count = int(frame_count.max() * frame_threshold)
-        log(f'Sequence: {sequence_id} Frames: {frame_count.max()} Min cutout: {min_frame_count}')
-
-        # Filter out the sources where the number of frames is less than min_frame_count
-        def has_frame_count(grp):
-            return grp.count()['pixel_00'] >= min_frame_count
-
-        # Do the actual fileter an reset the index
-        log(f'Sequence: {sequence_id} filtering sources')
-        psc_df = psc_df.reset_index() \
-            .groupby('picid') \
-            .filter(has_frame_count) \
-            .set_index(['image_time', 'picid'])
-
-        # Report again
-        num_sources = len(psc_df.index.levels[1].unique())
-        num_frames = len(set(psc_df.index.levels[0].unique()))
-        log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
-
-        # Update state
-        state = 'psc_created'
-        log(f'Updating state for {sequence_id} to {state}')
+    if num_frames <= min_num_frames:
+        state = 'error_seq_too_short'
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+        log(f'Not enough frames found for {sequence_id}: {num_frames} frames found')
+        return None
 
-    finally:
-        log(f'Removing all downloaded files for {sequence_id}')
-        with suppress(FileNotFoundError):
-            os.remove(psc_fn)
+    # Get minimum frame threshold
+    frame_count = psc_df.groupby('picid').count().pixel_00
+    min_frame_count = int(frame_count.max() * frame_threshold)
+    log(f'Sequence: {sequence_id} Frames: {frame_count.max()} Min cutout: {min_frame_count}')
+
+    # Filter out the sources where the number of frames is less than min_frame_count
+    def has_frame_count(grp):
+        return grp.count()['pixel_00'] >= min_frame_count
+
+    # Do the actual fileter an reset the index
+    log(f'Sequence: {sequence_id} filtering sources')
+    psc_df = psc_df.reset_index() \
+        .groupby('picid') \
+        .filter(has_frame_count) \
+        .set_index(['image_time', 'picid'])
+
+    # Report again
+    num_sources = len(psc_df.index.levels[1].unique())
+    num_frames = len(set(psc_df.index.levels[0].unique()))
+    log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
+
+    # Update state
+    state = 'psc_created'
+    log(f'Updating state for {sequence_id} to {state}')
+    requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
 
     log(f"PSC DataFrame created for {sequence_id}")
     return psc_df
