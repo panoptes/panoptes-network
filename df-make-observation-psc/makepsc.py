@@ -8,7 +8,7 @@ import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.metrics import Metrics
 from apache_beam.pvalue import TaggedOutput
-from apache_beam.pvalue import AsList
+from apache_beam.pvalue import AsIter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -65,19 +65,18 @@ class MaxFrames(beam.transforms.core.CombineFn):
         return accumulator
 
 
-class ProcessPICID(beam.DoFn):
-    def process(self, element, ref_sources):
-        frames = element[1]['frames']
-
-        # Make the sequence key from the first frame
-        key = make_key(frames[0])
+class ProcessPICID(beam.PTransform):
+    def expand(self, pcoll):
 
         def get_data(records, key='data'):
             time_data = {rec['image_time']: rec[key] for rec in records}
             return np.array([time_data[t] for t in sorted(time_data.keys())])
 
+        norms = pcoll | 'Get norms' >> beam.Map(lambda row: (
+            make_key(row[1]['frames'][0]), get_data(row[1]['frames'], key='norm')))
+
         # Get data array
-        scores = ref_sources | 'SSD' >> beam.ParDo(SSD(), element)
+        scores = pcoll | 'SSD' >> beam.ParDo(SSD(), norms)
 
         # Output scores
         yield TaggedOutput('scores', (key, scores))
@@ -87,22 +86,19 @@ class ProcessPICID(beam.DoFn):
 
 
 class SSD(beam.DoFn):
-    def process(self, reference, target):
+    def process(self, reference, target_data):
         ref_picid = reference[0]
-
         ref_frames = reference[1]['frames']
-        target_frames = target[1]['frames']
 
         def get_data(records, key='data'):
             time_data = {rec['image_time']: rec[key] for rec in records}
-            return np.array([time_data[t] for t in sorted(time_data.keys())])
+            return np.array([time_data[t] for t in sorted(time_data.keys())]).astype(np.float)
 
         ref_data = get_data(ref_frames, key='norm')
-        target_data = get_data(target_frames, key='norm')
 
         score = ((target_data - ref_data)**2).sum(1).sum()
 
-        return (ref_picid, score)
+        return (ref_picid, str(score))
 
 
 class BreakRows(beam.DoFn):
@@ -113,7 +109,25 @@ class BreakRows(beam.DoFn):
             yield (key + (image_time, ), data)
 
 
-class FormatForCSV(beam.DoFn):
+class FormatPSCCSV(beam.DoFn):
+
+    def process(self, element):
+        """
+        Prepares each row to be written in the csv
+        """
+
+        idx = element[0]
+        data = element[1]
+        try:
+            data = data.astype(str)
+        except AttributeError:
+            pass
+
+        result = '{},{},{}'.format(idx[0], idx[-1], ','.join(data))
+        return [result]
+
+
+class FormatScoresCSV(beam.DoFn):
 
     def process(self, element):
         """
@@ -191,8 +205,7 @@ def run(argv=None):
             row[1]['counts'][0]) >= int(frame_count * frame_threshold), max_frames)
 
         # Process the PICID.
-        processed = filtered | 'Process PICID' >> beam.ParDo(
-            ProcessPICID(), AsList(filtered)).with_outputs()
+        processed = filtered | 'Process PICID' >> beam.ParDo(ProcessPICID()).with_outputs()
 
         pscs = processed[None]  # Main output
         scores = processed.scores  # Tagged output
@@ -201,8 +214,8 @@ def run(argv=None):
         output = pscs | 'Unroll PSCs' >> beam.ParDo(BreakRows())
 
         # Format for output
-        formatted_pscs = output | 'Formatting PSC CSV' >> beam.ParDo(FormatForCSV())
-        formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatForCSV())
+        formatted_pscs = output | 'Formatting PSC CSV' >> beam.ParDo(FormatPSCCSV())
+        formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatScoresCSV())
 
         # Write to file
         formatted_pscs | "Writing PSCs CSV" >> beam.io.WriteToText(
