@@ -1,7 +1,6 @@
 import os
 import time
 from datetime.datetime import now
-from contextlib import suppress
 
 import requests
 from google.cloud import storage
