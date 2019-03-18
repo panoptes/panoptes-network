@@ -1,6 +1,6 @@
 import os
 import time
-from datetime.datetime import now
+from datetime import datetime
 
 import requests
 from google.cloud import storage
@@ -47,7 +47,7 @@ def main():
 
 
 def log(msg):
-    print(now().isoformat(), msg)
+    print(datetime.now().isoformat(), msg)
 
 
 def msg_callback(message):
