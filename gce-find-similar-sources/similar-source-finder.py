@@ -55,7 +55,20 @@ def log(msg):
 def msg_callback(message):
 
     attributes = message.attributes
+
+    object_id = attributes['object_id']
     sequence_id = attributes['sequence_id']
+
+    log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
+
+    if sequence_id is None or sequence_id == '':
+        if object_id is not None and object_id > '':
+            path_parts = object_id.split('/')
+            sequence_id = '_'.join(path_parts[0:3]).replace('.csv', '')
+        else:
+            log(f'Invalid sequence_id and no object_id: {sequence_id}')
+            message.ack()
+            return
 
     # Put sequence_id into path form.
     sequence_id = sequence_id.replace('_', '/')
