@@ -61,6 +61,10 @@ def msg_callback(message):
 
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
+    if 'similar-sources.csv' in object_id:
+        message.ack()
+        return
+
     if sequence_id is None or sequence_id == '':
         if object_id is not None and object_id > '':
             path_parts = object_id.split('/')
