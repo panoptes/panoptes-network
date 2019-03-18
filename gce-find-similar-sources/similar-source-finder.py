@@ -1,5 +1,7 @@
 import os
 import time
+import concurrent.futures
+from itertools import zip_longest
 from datetime import datetime
 
 import requests
@@ -64,6 +66,11 @@ def msg_callback(message):
 
     # Create the observation PSC
     try:
+        # Update state
+        state = 'psc_file_created'
+        log(f'Updating state for {sequence_id} to {state}')
+        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+
         psc_df = make_observation_psc_df(**attributes)
         if psc_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
@@ -81,6 +88,11 @@ def msg_callback(message):
         bucket_path = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}-similar-sources.csv'
         log(f'Saving to {bucket_path}')
         similar_sources.to_csv(bucket_path)
+
+        # Update state
+        state = 'similar_sources_found'
+        log(f'Updating state for {sequence_id} to {state}')
+        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
     finally:
         log(f'Finished processing {sequence_id}.')
         message.ack()
@@ -141,13 +153,22 @@ def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.98
     num_frames = len(set(psc_df.index.levels[0].unique()))
     log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
-    # Update state
-    state = 'psc_created'
-    log(f'Updating state for {sequence_id} to {state}')
-    requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
-
     log(f"PSC DataFrame created for {sequence_id}")
     return psc_df
+
+
+def do_normalize(params):
+    target_params = params[0]
+    call_params = params[1]
+
+    picid = target_params[0]
+    row = target_params[1]
+
+    norm_df = call_params['all_psc']
+
+    norm_target = row.droplevel('picid')
+    norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
+    return {picid: norm_group.sum()}
 
 
 def find_similar_sources(stamps_df, sequence_id):
@@ -157,15 +178,20 @@ def find_similar_sources(stamps_df, sequence_id):
     log(f'Normalizing PSC for {sequence_id}')
     norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
 
-    top_matches = dict()
+    call_params = dict(all_psc=norm_df)
+
     log(f'Starting loop of PSCs for {sequence_id}')
-    for picid, row in tqdm(norm_df.groupby('picid')):
-        norm_target = row.droplevel('picid')
-        norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
-        top_matches[picid] = norm_group.sum()
+    # Run everything in parallel.
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        grouped_sources = norm_df.groupby('picid')
+
+        params = zip_longest(grouped_sources, [], fillvalue=call_params)
+
+        rows = list(tqdm(executor.map(do_normalize, params), total=len(grouped_sources)))
+        log(f'Found similar stars for {len(rows)} sources')
 
     log(f'Making DataFrame of similar sources for {sequence_id}')
-    similar_sources = pd.DataFrame(top_matches)
+    similar_sources = pd.DataFrame(rows)
 
     return similar_sources
 
