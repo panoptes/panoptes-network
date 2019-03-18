@@ -2,11 +2,9 @@ from __future__ import absolute_import
 
 import sys
 import logging
-import numpy as np
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
-from apache_beam.metrics import Metrics
 # from apache_beam.pvalue import TaggedOutput
 # from apache_beam.pvalue import AsIter, AsList
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -14,55 +12,62 @@ from apache_beam.options.pipeline_options import SetupOptions
 
 
 class SplitCSV(beam.DoFn):
-    def __init__(self):
-        self.total_invalid = Metrics.counter(self.__class__, 'total_invalid')
-
     def process(self, element):
-        """
-        Splits each row on commas and returns a dictionary representing the
-        row
-        """
-        try:
-            row_values = element.split(",")
+        cols = element.split(',')
 
-            data = np.array(row_values[5:]).astype(np.int)
-            # norm_data = data / sum(data)
+        # picid[0], image_time[4], pixel_data[5:]
+        return [[cols[0]] + cols[4:]]
 
-            # picid, unit_id, camera_id, sequence_time, image_time
-            row = {
-                'picid': row_values[0],
-                'unit_id': row_values[1],
-                'camera_id': row_values[2],
-                'sequence_time': row_values[3],
-                'image_time': row_values[4],
-                'data': data,
-                # 'norm': norm_data
-            }
+# class SplitCSV(beam.DoFn):
+#     def __init__(self):
+#         self.total_invalid = Metrics.counter(self.__class__, 'total_invalid')
 
-            return [row]
-        except Exception as e:
-            logging.info('Invalid row found: %s %s', str(e), element)
-            self.total_invalid.inc(1)
+#     def process(self, element):
+#         """
+#         Splits each row on commas and returns a dictionary representing the
+#         row
+#         """
+#         try:
+#             row_values = element.split(",")
+
+#             data = np.array(row_values[5:]).astype(np.int)
+#             # norm_data = data / sum(data)
+
+#             # picid, unit_id, camera_id, sequence_time, image_time
+#             row = {
+#                 'picid': row_values[0],
+#                 'unit_id': row_values[1],
+#                 'camera_id': row_values[2],
+#                 'sequence_time': row_values[3],
+#                 'image_time': row_values[4],
+#                 'data': data,
+#                 # 'norm': norm_data
+#             }
+
+#             return [row]
+#         except Exception as e:
+#             logging.info('Invalid row found: %s %s', str(e), element)
+#             self.total_invalid.inc(1)
 
 
-def make_key(row):
-    return (row['picid'], row['unit_id'], row['camera_id'], row['sequence_time'])
+# def make_key(row):
+#     return (row['picid'], row['unit_id'], row['camera_id'], row['sequence_time'])
 
 
-class MaxFrames(beam.transforms.core.CombineFn):
-    """CombineFn for computing PCollection size."""
+# class MaxFrames(beam.transforms.core.CombineFn):
+#     """CombineFn for computing PCollection size."""
 
-    def create_accumulator(self):
-        return 0  # max_frames
+#     def create_accumulator(self):
+#         return 0  # max_frames
 
-    def add_input(self, current_max, new_row):
-        return max(current_max, new_row[1])
+#     def add_input(self, current_max, new_row):
+#         return max(current_max, new_row[1])
 
-    def merge_accumulators(self, accumulators):
-        return max(accumulators)
+#     def merge_accumulators(self, accumulators):
+#         return max(accumulators)
 
-    def extract_output(self, accumulator):
-        return accumulator
+#     def extract_output(self, accumulator):
+#         return accumulator
 
 
 class ProcessPICID(beam.PTransform):
@@ -126,34 +131,35 @@ class FormatPSCCSV(beam.DoFn):
         """
         Prepares each row to be written in the csv
         """
+        return [','.join(element)]
 
-        idx = element[0]
-        data = element[1]
-        try:
-            data = data.astype(str)
-        except AttributeError:
-            pass
+        # idx = element[0]
+        # data = element[1]
+        # try:
+        #     data = data.astype(str)
+        # except AttributeError:
+        #     pass
 
-        result = '{},{},{}'.format(idx[0], idx[-1], ','.join(data))
-        return [result]
+        # result = '{},{},{}'.format(idx[0], idx[-1], ','.join(data))
+        # return [result]
 
 
-class FormatScoresCSV(beam.DoFn):
+# class FormatScoresCSV(beam.DoFn):
 
-    def process(self, element):
-        """
-        Prepares each row to be written in the csv
-        """
+#     def process(self, element):
+#         """
+#         Prepares each row to be written in the csv
+#         """
 
-        idx = element[0]
-        data = element[1]
-        try:
-            data = data.astype(str)
-        except AttributeError:
-            pass
+#         idx = element[0]
+#         data = element[1]
+#         try:
+#             data = data.astype(str)
+#         except AttributeError:
+#             pass
 
-        result = '{},{},{}'.format(idx[0], idx[-1], ','.join(data))
-        return [result]
+#         result = '{},{},{}'.format(idx[0], idx[-1], ','.join(data))
+#         return [result]
 
 
 def run(argv=None):
@@ -187,14 +193,15 @@ def run(argv=None):
 
     psc_options = pipeline_options.view_as(PSCOptions)
 
+    num_pixels = 100  # WARNING
     # frame_threshold = 1.0  # psc_options.frameThreshold
 
     # Start pipeline
     with beam.Pipeline(options=pipeline_options) as p:
         # Read the json data and extract the datapoints.
-        records = (p |
-                   'Read source files' >> ReadFromText(psc_options.input, skip_header_lines=1)
-                   # 'Parse row' >> beam.ParDo(SplitCSV())
+        records = (p
+                   | 'Read source files' >> ReadFromText(psc_options.input, skip_header_lines=1)
+                   | 'Parse row' >> beam.ParDo(SplitCSV())
                    )
 
         # Records keyed by picid but containing all info.
@@ -223,12 +230,14 @@ def run(argv=None):
         # output = (filtered | 'Process PICID' >> ProcessPICID())
 
         # Format for output
-        # formatted_pscs = records | 'Formatting PSC CSV' >> beam.ParDo(FormatPSCCSV())
+        formatted_pscs = records | 'Formatting PSC CSV' >> beam.ParDo(FormatPSCCSV())
         # formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatScoresCSV())
 
         # Write to file
-        records | "Writing PSCs CSV" >> beam.io.WriteToText(
-            psc_options.pscs_output, num_shards=1, shard_name_template='')
+        header = 'picid,image_time,' + \
+            ','.join(['pixel_{:02d}'.format(i) for i in range(num_pixels)])
+        formatted_pscs | "Writing PSCs CSV" >> beam.io.WriteToText(
+            psc_options.pscs_output, header=header, num_shards=1, shard_name_template='')
         # formatted_scores | "Writing scores CSV" >> beam.io.WriteToText(
         # self.scores_output, num_shards=1, shard_name_template='')
 
