@@ -2,7 +2,6 @@ import os
 import time
 from datetime.datetime import now
 from contextlib import suppress
-from tempfile import gettempdir
 
 import requests
 from google.cloud import storage
@@ -14,10 +13,10 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
 # Storage
 SOURCES_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-detected-sources')
-PSC_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-observation-psc')
+OBSERVATION_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-observation-psc')
 storage_client = storage.Client(project=PROJECT_ID)
-sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
-psc_bucket = storage_client.get_bucket(PSC_BUCKET_NAME)
+
+observation_bucket = storage_client.get_bucket(OBSERVATION_BUCKET_NAME)
 
 # Pubsub
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-find-similar-sources')
@@ -64,15 +63,9 @@ def msg_callback(message):
     if sequence_id.endswith('/'):
         sequence_id = sequence_id[:-1]
 
-    # The output file that will contain the similar source list.
-    similar_sources_fn = f'{sequence_id}-similar-sources.csv'
-
-    # The local path to the similar source list.
-    local_similar_sources_path = os.path.join('/tmp', similar_sources_fn.replace('/', '_'))
-
     # Create the observation PSC
     try:
-        psc_df = make_observation_psc(**attributes)
+        psc_df = make_observation_psc_df(**attributes)
         if psc_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
     except Exception as e:
@@ -85,17 +78,17 @@ def msg_callback(message):
     try:
         similar_sources = find_similar_sources(psc_df, sequence_id)
 
-        log(f'Making {local_similar_sources_path}')
-        similar_sources.to_csv(local_similar_sources_path)
-
-        upload_blob(local_similar_sources_path, similar_sources_fn, bucket=psc_bucket)
+        # The output file that will contain the similar source list.
+        bucket_path = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}-similar-sources.csv'
+        log(f'Saving to {bucket_path}')
+        similar_sources.to_csv(bucket_path)
     finally:
         log(f'Finished processing {sequence_id}.')
         message.ack()
         return
 
 
-def make_observation_psc(sequence_id, min_num_frames=10, frame_threshold=0.98, **kwargs):
+def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.98, **kwargs):
     """Makes a PSC dataframe for the given sequence id.
 
     Args:
@@ -108,54 +101,26 @@ def make_observation_psc(sequence_id, min_num_frames=10, frame_threshold=0.98, *
     """
     log(f'Sequence ID: {sequence_id} Making PSC')
 
-    bucket_path = sequence_id.replace('_', '/')
-    # Add trailing slash for lookups
-    if bucket_path.endswith('/') is False:
-        bucket_path = f'{bucket_path}/'
-    log(f'Getting CSV files in bucket: {bucket_path}')
-    csv_blobs = sources_bucket.list_blobs(prefix=bucket_path, delimiter='/')
+    sequence_id = sequence_id.replace('_', '/')
 
-    # Add the CSV files one at a time.
-    df_list = dict()
+    psc_fn = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}.csv'
+    log(f'Getting Observation CSV file in bucket: {psc_fn}')
+
     try:
-        for blob in csv_blobs:
-            log(f'Getting blob name {blob.name}')
-            tmp_fn = os.path.join(gettempdir(), blob.name.replace('/', '_'))
-            log(f'Downloading to {tmp_fn}')
-            blob.download_to_filename(tmp_fn)
-
-            log(f'Making DataFrame for {tmp_fn}')
-            df0 = pd.read_csv(tmp_fn)
-
-            # Make a datetime index
-            df0.index = pd.to_datetime(df0.image_time)
-            df0.drop(columns=['image_time'])
-
-            # Cleanup columns
-            df0.drop(columns=['unit_id', 'camera_id', 'sequence_time', 'image_time'], inplace=True)
-            df_list[tmp_fn] = df0
-
-        if len(df_list) <= min_num_frames:
-            state = 'error_seq_too_short'
-            requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
-            log(f'Not enough CSV files found for {sequence_id}: {len(df_list)} files found')
-            return None
-
-        log(f'Making PSC DataFrame for {sequence_id}')
-        psc_df = pd.concat(list(df_list.values()), sort=False)
-
-        # Only keep the keys (filenames)
-        df_list = list(df_list.keys())
-
-        # Make the PICID (as str) an index
-        psc_df.picid = psc_df.picid.astype(str)
-        psc_df.set_index(['picid'], inplace=True, append=True)
-        psc_df.sort_index(inplace=True)
+        log(f'Making DataFrame for {psc_fn}')
+        psc_df = pd.read_csv(psc_fn, index_col=[
+                             'image_time', 'picid'], parse_dates=True).sort_index()
 
         # Report
         num_sources = len(psc_df.index.levels[1].unique())
         num_frames = len(set(psc_df.index.levels[0].unique()))
         log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
+
+        if num_frames <= min_num_frames:
+            state = 'error_seq_too_short'
+            requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+            log(f'Not enough frames found for {sequence_id}: {num_frames} frames found')
+            return None
 
         # Get minimum frame threshold
         frame_count = psc_df.groupby('picid').count().pixel_00
@@ -178,33 +143,17 @@ def make_observation_psc(sequence_id, min_num_frames=10, frame_threshold=0.98, *
         num_frames = len(set(psc_df.index.levels[0].unique()))
         log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
-        # Write to file
-        out_fn = sequence_id.replace('/', '_')
-        if out_fn.endswith('_'):
-            out_fn = out_fn[:-1]
-        out_fn = os.path.join(gettempdir(), f'{out_fn}.csv')
-        log(f'Writing DataFrame to {out_fn}')
-        psc_df.to_csv(out_fn)
-
-        upload_bucket_path = f'{sequence_id}.csv'.replace('_', '/')
-
-        log(f'Uploading {out_fn} to {upload_bucket_path}')
-        upload_blob(out_fn, upload_bucket_path, bucket=psc_bucket)
-
-        log(f'Removing {out_fn}')
-        os.remove(out_fn)
-
+        # Update state
         state = 'psc_created'
         log(f'Updating state for {sequence_id} to {state}')
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
 
     finally:
         log(f'Removing all downloaded files for {sequence_id}')
-        for tmp_fn in df_list:
-            with suppress(FileNotFoundError):
-                os.remove(tmp_fn)
+        with suppress(FileNotFoundError):
+            os.remove(psc_fn)
 
-    log(f"PSC file created for {sequence_id}")
+    log(f"PSC DataFrame created for {sequence_id}")
     return psc_df
 
 
@@ -226,45 +175,6 @@ def find_similar_sources(stamps_df, sequence_id):
     similar_sources = pd.DataFrame(top_matches)
 
     return similar_sources
-
-
-def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
-    """Downloads a blob from the bucket."""
-    if bucket is None:
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-
-    blob = bucket.blob(source_blob_name)
-
-    # If no name then place in current directory
-    if destination is None:
-        destination = source_blob_name.replace('/', '_')
-
-    if os.path.isdir(destination):
-        destination = os.path.join(destination, source_blob_name.replace('/', '_'))
-
-    blob.download_to_filename(destination)
-
-    log('Blob {} downloaded to {}.'.format(source_blob_name, destination))
-
-    return destination
-
-
-def upload_blob(source_file_name, destination, bucket=None, bucket_name='panoptes-survey'):
-    """Uploads a file to the bucket."""
-    log('Uploading {} to {}.'.format(source_file_name, destination))
-
-    if bucket is None:
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-
-    # Create blob object
-    blob = bucket.blob(destination)
-
-    # Upload file to blob
-    blob.upload_from_filename(source_file_name)
-
-    log('File {} uploaded to {}.'.format(source_file_name, destination))
 
 
 if __name__ == '__main__':
