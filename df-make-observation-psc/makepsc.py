@@ -3,12 +3,13 @@ from __future__ import absolute_import
 import sys
 import logging
 import numpy as np
+import pandas as pd
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.metrics import Metrics
 from apache_beam.pvalue import TaggedOutput
-from apache_beam.pvalue import AsIter
+from apache_beam.pvalue import AsIter, AsList
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -26,7 +27,7 @@ class SplitCSV(beam.DoFn):
             row_values = element.split(",")
 
             data = np.array(row_values[5:]).astype(np.int)
-            norm_data = data / sum(data)
+            # norm_data = data / sum(data)
 
             # picid, unit_id, camera_id, sequence_time, image_time
             row = {
@@ -36,7 +37,7 @@ class SplitCSV(beam.DoFn):
                 'sequence_time': row_values[3],
                 'image_time': row_values[4],
                 'data': data,
-                'norm': norm_data
+                # 'norm': norm_data
             }
 
             return [row]
@@ -68,45 +69,56 @@ class MaxFrames(beam.transforms.core.CombineFn):
 class ProcessPICID(beam.PTransform):
     def expand(self, pcoll):
 
-        def get_data(records, key='data'):
-            time_data = {rec['image_time']: rec[key] for rec in records}
-            return np.array([time_data[t] for t in sorted(time_data.keys())])
+        # norms = pcoll | 'Get norms' >> beam.Map(
+        #     lambda row: (row['picid'], row['image_time'],
+        #                  ','.join(row['norm'].flatten().astype(str).tolist()))
+        # )
 
-        norms = pcoll | 'Get norms' >> beam.Map(lambda row: (
-            make_key(row[1]['frames'][0]), get_data(row[1]['frames'], key='norm')))
+        # pscs = pcoll | 'Get data' >> beam.Map(
+        #     lambda row: (row['picid'], row['image_time'],
+        #                  ','.join(row['data'].flatten().astype(str).tolist()))
+        # )
 
-        # Get data array
-        scores = pcoll | 'SSD' >> beam.ParDo(SSD(), norms)
+        # num_pixels = 100
 
-        # Output scores
-        yield TaggedOutput('scores', (key, scores))
+        # column_names = ['picid', 'image_time'] + \
+        #     ['pixel_{:02d}'.format(i) for i in range(num_pixels)]
+        # stamps_df = pd.DataFrame(data=list(norms))
 
-        # Pass the main data
-        yield (key, {r['image_time']: r['data'] for r in frames})
+        # scores = find_similar_sources(stamps_df)
+
+        pscs = pcoll | 'Get row info' >> beam.Map(lambda row: row[1]['frames'])
+
+        # Ungroup so we have one row per picid per frame.
+        output = pscs | 'Unroll PSCs' >> beam.ParDo(BreakRows())
+
+        return output
 
 
-class SSD(beam.DoFn):
-    def process(self, reference, target_data):
-        ref_picid = reference[0]
-        ref_frames = reference[1]['frames']
+def find_similar_sources(stamps_df):
+    # Normalize each stamp
+    norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
 
-        def get_data(records, key='data'):
-            time_data = {rec['image_time']: rec[key] for rec in records}
-            return np.array([time_data[t] for t in sorted(time_data.keys())]).astype(np.float)
+    top_matches = dict()
+    for picid, row in norm_df.groupby('picid'):
+        norm_target = row.droplevel('picid')
+        norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
+        top_matches[picid] = norm_group.sum().sort_values()
 
-        ref_data = get_data(ref_frames, key='norm')
+    similar_sources = pd.DataFrame(top_matches)
 
-        score = ((target_data - ref_data)**2).sum(1).sum()
-
-        return (ref_picid, str(score))
+    return similar_sources
 
 
 class BreakRows(beam.DoFn):
     def process(self, element):
         key = element[0]
         frames = element[1]
-        for image_time, data in frames.items():
-            yield (key + (image_time, ), data)
+
+        for row in frames:
+            data = row.pop('data')
+            key = tuple(row.values())
+            yield (key, data)
 
 
 class FormatPSCCSV(beam.DoFn):
@@ -156,15 +168,15 @@ def run(argv=None):
             # Use add_argument as usual for non-templatable arguments
             parser.add_value_provider_argument(
                 '--input', type=str,
-                default='gs://panoptes-detected-sources/PAN001/14d3bd/20190304T054407/*.csv',
+                default='gs://panoptes-detected-sources/PAN012/358d0f/20180822T035809/*.csv',
                 help='Sequence ID to process.')
             parser.add_value_provider_argument(
                 '--pscs_output', type=str,
-                default='gs://panoptes-observation-psc/PAN001/14d3bd/20190304T054407.csv',
+                default='gs://panoptes-observation-psc/PAN012/358d0f/20180822T035809.csv',
                 help='Sequence ID to process.')
             parser.add_value_provider_argument(
                 '--scores_output', type=str,
-                default='gs://panoptes-observation-psc/PAN001/14d3bd/20190304T054407-scores.csv',
+                default='gs://panoptes-observation-psc/PAN012/358d0f/20180822T035809-scores.csv',
                 help='Sequence ID to process.')
             parser.add_value_provider_argument(
                 '--frameThreshold', type=float, default=0.98,
@@ -182,46 +194,44 @@ def run(argv=None):
     with beam.Pipeline(options=pipeline_options) as p:
         # Read the json data and extract the datapoints.
         records = (p |
-                   'Read source files' >> ReadFromText(psc_options.input, skip_header_lines=1) |
-                   'Parse row' >> beam.ParDo(SplitCSV())
+                   'Read source files' >> ReadFromText(psc_options.input, skip_header_lines=1)
+                   # 'Parse row' >> beam.ParDo(SplitCSV())
                    )
 
         # Records keyed by picid but containing all info.
-        keyed_records = records | 'AddRowByKey' >> beam.Map(lambda row: ((row['picid']), row))
+        # keyed_records = records | 'AddRowByKey' >> beam.Map(lambda row: ((row['picid']), row))
 
         # Count number of stamps for each picid.
-        picid_counts = keyed_records | 'Counting PICID' >> beam.combiners.Count.PerKey()
+        # picid_counts = keyed_records | 'Counting PICID' >> beam.combiners.Count.PerKey()
 
         # Singular value to get number of frames.
-        max_frames = beam.pvalue.AsSingleton(
-            picid_counts | 'Get Total Num Frames' >> beam.CombineGlobally(MaxFrames()))
+        # max_frames = beam.pvalue.AsSingleton(
+        # picid_counts | 'Get Total Num Frames' >> beam.CombineGlobally(MaxFrames()))
 
         # Group by PICID.
-        picids = {'frames': keyed_records,
-                  'counts': picid_counts} | 'Combining Counts & Data' >> beam.CoGroupByKey()
+        # picids = {'frames': keyed_records,
+        # 'counts': picid_counts} | 'Combining Counts & Data' >> beam.CoGroupByKey()
 
         # Filter PICIDs that aren't in enough frames.
-        filtered = picids | 'Filter PICID' >> beam.Filter(lambda row, frame_count: int(
-            row[1]['counts'][0]) >= int(frame_count * frame_threshold), max_frames)
+        # filtered = (
+        #     picids |
+        #     'Filter PICID' >> beam.Filter(lambda row, frame_count: int(
+        #         row[1]['counts'][0]) >= int(frame_count * frame_threshold), max_frames) |
+        #     'Clean Filtered' >> beam.Map(lambda row: [r for r in row])
+        # )
 
         # Process the PICID.
-        processed = filtered | 'Process PICID' >> beam.ParDo(ProcessPICID()).with_outputs()
-
-        pscs = processed[None]  # Main output
-        scores = processed.scores  # Tagged output
-
-        # Ungroup so we have one row per picid per frame.
-        output = pscs | 'Unroll PSCs' >> beam.ParDo(BreakRows())
+        # output = (filtered | 'Process PICID' >> ProcessPICID())
 
         # Format for output
-        formatted_pscs = output | 'Formatting PSC CSV' >> beam.ParDo(FormatPSCCSV())
-        formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatScoresCSV())
+        # formatted_pscs = records | 'Formatting PSC CSV' >> beam.ParDo(FormatPSCCSV())
+        # formatted_scores = scores | 'Formatting Scores CSV' >> beam.ParDo(FormatScoresCSV())
 
         # Write to file
-        formatted_pscs | "Writing PSCs CSV" >> beam.io.WriteToText(
+        records | "Writing PSCs CSV" >> beam.io.WriteToText(
             psc_options.pscs_output, num_shards=1, shard_name_template='')
-        formatted_scores | "Writing scores CSV" >> beam.io.WriteToText(
-            psc_options.scores_output, num_shards=1, shard_name_template='')
+        # formatted_scores | "Writing scores CSV" >> beam.io.WriteToText(
+        # self.scores_output, num_shards=1, shard_name_template='')
 
         # Actually run the pipeline (all operations above are deferred).
         result = p.run()

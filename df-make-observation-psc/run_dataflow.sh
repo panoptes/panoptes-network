@@ -33,7 +33,7 @@ JOB_TEMPLATE='makepsc'
 
 SEQ_ID=${1}
 SEQ_PATH=${SEQ_ID//_/\/}
-JOB_NAME=${2:-${JOB_TEMPLATE}-$(date '+%Y%m%dT%H%M%S')}
+JOB_NAME=${2:-${JOB_TEMPLATE}-${SEQ_ID}-$(date '+%Y%m%dT%H%M%S')}
 
 echo '**********************'
 echo 'Starting DataFlow job:'
