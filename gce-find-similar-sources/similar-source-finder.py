@@ -107,6 +107,8 @@ def msg_callback(message):
         state = 'similar_sources_found'
         log(f'Updating state for {sequence_id} to {state}')
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+    except Exception as e:
+        log(f'ERROR Sequence {sequence_id}: {e!r}')
     finally:
         log(f'Finished processing {sequence_id}.')
         return
