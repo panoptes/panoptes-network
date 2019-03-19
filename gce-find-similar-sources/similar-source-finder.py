@@ -199,12 +199,13 @@ def find_similar_sources(stamps_df, sequence_id):
 
     log(f'Starting loop of PSCs for {sequence_id}')
     # Run everything in parallel.
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
         grouped_sources = norm_df.groupby('picid')
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        rows = list(tqdm(executor.map(do_normalize, params), total=len(grouped_sources)))
+        rows = list(tqdm(executor.map(do_normalize, params),
+                         chunksize=5, total=len(grouped_sources)))
         log(f'Found similar stars for {len(rows)} sources')
 
     log(f'Making DataFrame of similar sources for {sequence_id}')
