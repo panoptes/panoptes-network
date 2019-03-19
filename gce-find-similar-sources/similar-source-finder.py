@@ -59,10 +59,11 @@ def msg_callback(message):
     object_id = attributes['object_id']
     sequence_id = attributes['sequence_id']
 
+    # Acknowledge immediately - resend pubsub on error below.
+    message.ack()
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     if 'similar-sources.csv' in object_id:
-        message.ack()
         return
 
     if sequence_id is None or sequence_id == '':
@@ -71,7 +72,6 @@ def msg_callback(message):
             sequence_id = '_'.join(path_parts[0:3]).replace('.csv', '')
         else:
             log(f'Invalid sequence_id and no object_id: {sequence_id}')
-            message.ack()
             return
 
     # Put sequence_id into path form.
@@ -93,7 +93,6 @@ def msg_callback(message):
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
     except Exception as e:
         log(f'Error making PSC: {e!r}')
-        message.ack()
         return
 
     log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
@@ -112,7 +111,6 @@ def msg_callback(message):
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
     finally:
         log(f'Finished processing {sequence_id}.')
-        message.ack()
         return
 
 
