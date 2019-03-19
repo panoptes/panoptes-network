@@ -96,12 +96,7 @@ def msg_callback(message):
     log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
 
     try:
-        similar_sources = find_similar_sources(psc_df, sequence_id)
-
-        # The output file that will contain the similar source list.
-        bucket_path = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}-similar-sources.csv'
-        log(f'Saving to {bucket_path}')
-        similar_sources.to_csv(bucket_path)
+        find_similar_sources(psc_df, sequence_id)
 
         # Update state
         state = 'similar_sources_found'
@@ -173,23 +168,31 @@ def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.98
 
 
 def do_normalize(params):
-    target_params = params[0]
-    call_params = params[1]
+    try:
+        target_params = params[0]
+        call_params = params[1]
 
-    picid = target_params[0]
-    row = target_params[1]
+        picid = target_params[0]
+        row = target_params[1]
 
-    norm_df = call_params['all_psc']
-    sequence_id = call_params['sequence_id']
+        norm_df = call_params['all_psc']
+        sequence_id = call_params['sequence_id']
 
-    norm_target = row.droplevel('picid')
-    norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
+        norm_target = row.droplevel('picid')
+        norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
 
-    top_matches = norm_group.sum().sort_values()[:200]
+        top_matches = norm_group.sum().sort_values()[:200]
 
-    save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
-    top_matches.index.name = 'picid'
-    top_matches.to_csv(save_fn, header=['sum_ssd'])
+        save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
+        top_matches.index.name = 'picid'
+        top_matches.to_csv(save_fn, header=['sum_ssd'])
+    except Exception as e:
+        log(f'ERROR Sequence {sequence_id}: {e!r}')
+        state = 'error_finding_similar_sources'
+        log(f'Updating state for {sequence_id} to {state}')
+        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+    finally:
+        return picid
 
 
 def find_similar_sources(stamps_df, sequence_id):
@@ -208,13 +211,10 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        rows = list(executor.map(do_normalize, params, chunksize=5))
-        log(f'Found similar stars for {len(rows)} sources')
+        picids = list(executor.map(do_normalize, params, chunksize=5))
+        log(f'Found similar stars for {len(picids)} sources')
 
-    log(f'Making DataFrame of similar sources for {sequence_id}')
-    similar_sources = pd.DataFrame(rows)
-
-    return similar_sources
+    log(f'Sequence {sequence_id}: finished PICID loop')
 
 
 if __name__ == '__main__':
