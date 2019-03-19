@@ -59,6 +59,8 @@ def msg_callback(message):
     object_id = attributes['object_id']
     sequence_id = attributes['sequence_id']
 
+    # Acknowledge immediately - resend pubsub on error below.
+    message.ack()
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     # Acknowledge the message was received - if we error we will resend message.
@@ -184,7 +186,7 @@ def do_normalize(params):
 
     norm_target = row.droplevel('picid')
     norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
-    return {picid: norm_group.sum()}
+    return {picid: norm_group.sum().sort_values()[:200]}
 
 
 def find_similar_sources(stamps_df, sequence_id):
@@ -203,8 +205,7 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        rows = list(tqdm(executor.map(do_normalize, params),
-                         chunksize=5, total=len(grouped_sources)))
+        rows = list(executor.map(do_normalize, params, chunksize=5))
         log(f'Found similar stars for {len(rows)} sources')
 
     log(f'Making DataFrame of similar sources for {sequence_id}')
