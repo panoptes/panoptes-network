@@ -5,25 +5,19 @@ from itertools import zip_longest
 from datetime import datetime
 
 import requests
-from google.cloud import storage
 from google.cloud import pubsub
-from tqdm import tqdm
 import pandas as pd
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
 # Storage
-SOURCES_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-detected-sources')
 OBSERVATION_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-observation-psc')
-storage_client = storage.Client(project=PROJECT_ID)
-
-observation_bucket = storage_client.get_bucket(OBSERVATION_BUCKET_NAME)
+PICID_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-picid')
 
 # Pubsub
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-find-similar-sources')
 subscriber_client = pubsub.SubscriberClient()
 pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
-
 
 update_state_url = os.getenv(
     'HEADER_ENDPOINT',
@@ -183,10 +177,15 @@ def do_normalize(params):
     row = target_params[1]
 
     norm_df = call_params['all_psc']
+    sequence_id = call_params['sequence_id']
 
     norm_target = row.droplevel('picid')
     norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
-    return {picid: norm_group.sum().sort_values()[:200]}
+
+    top_matches = norm_group.sum().sort_values()[:200]
+
+    save_fn = f'gs://{PICID_BUCKET_NAME}/{sequence_id}-similar-sources.csv'
+    top_matches.to_csv(save_fn)
 
 
 def find_similar_sources(stamps_df, sequence_id):
@@ -196,7 +195,7 @@ def find_similar_sources(stamps_df, sequence_id):
     log(f'Normalizing PSC for {sequence_id}')
     norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
 
-    call_params = dict(all_psc=norm_df)
+    call_params = dict(all_psc=norm_df, sequence_id=sequence_id)
 
     log(f'Starting loop of PSCs for {sequence_id}')
     # Run everything in parallel.
