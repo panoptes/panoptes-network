@@ -58,6 +58,7 @@ def msg_callback(message):
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     # Acknowledge the message was received - if we error we will resend message.
+    log(f'Acknowledging message for {sequence_id}')
     message.ack()
 
     if 'similar-sources.csv' in object_id:
@@ -184,7 +185,7 @@ def do_normalize(params):
 
     top_matches = norm_group.sum().sort_values()[:200]
 
-    save_fn = f'gs://{PICID_BUCKET_NAME}/{sequence_id}-similar-sources.csv'
+    save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
     top_matches.to_csv(save_fn)
 
 
