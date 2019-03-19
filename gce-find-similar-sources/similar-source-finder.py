@@ -185,7 +185,7 @@ def do_normalize(params):
 
     norm_target = row.droplevel('picid')
     norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
-    return {picid: norm_group.sum()}
+    return {picid: norm_group.sum().sort_values()[:200]}
 
 
 def find_similar_sources(stamps_df, sequence_id):
