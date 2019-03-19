@@ -188,7 +188,8 @@ def do_normalize(params):
     top_matches = norm_group.sum().sort_values()[:200]
 
     save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
-    top_matches.to_csv(save_fn, header=['picid', 'sum_ssd'])
+    top_matches.index.name = 'picid'
+    top_matches.to_csv(save_fn, header=['sum_ssd'])
 
 
 def find_similar_sources(stamps_df, sequence_id):
