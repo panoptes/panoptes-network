@@ -1,0 +1,4 @@
+gcsfs
+google-cloud-pubsub
+pandas
+requests
