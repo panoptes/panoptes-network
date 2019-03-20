@@ -55,6 +55,7 @@ def msg_callback(message):
 
     # Acknowledge immediately - resend pubsub on error below.
     message.ack()
+    log(f'Attributes: {attributes}')
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     # Acknowledge the message was received - if we error we will resend message.
@@ -109,7 +110,7 @@ def msg_callback(message):
         return
 
 
-def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.98, **kwargs):
+def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.95, **kwargs):
     """Makes a PSC dataframe for the given sequence id.
 
     Args:
