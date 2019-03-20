@@ -1,5 +1,6 @@
 import os
 import time
+import re
 import concurrent.futures
 from itertools import zip_longest
 from datetime import datetime
@@ -33,12 +34,11 @@ def main():
         future = subscriber_client.subscribe(
             pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
 
-        # Keeps main thread from exiting.
         log(f"Similar source finder subscriber started, entering listen loop")
         while True:
             time.sleep(30)
     except Exception as e:
-        log(f'Problem starting subscriber: {e!r}')
+        log(f'Problem with subscriber: {e!r}')
         future.cancel()
 
 
@@ -65,11 +65,11 @@ def msg_callback(message):
         return
 
     if sequence_id is None or sequence_id == '':
-        if object_id is not None and object_id > '':
-            path_parts = object_id.split('/')
-            sequence_id = '_'.join(path_parts[0:3]).replace('.csv', '')
+        matches = re.fullmatch('(PAN.{3}[/_].*[/_]20.{6}T.{6}).csv', object_id)
+        if matches is not None:
+            sequence_id = matches.group(1)
         else:
-            log(f'Invalid sequence_id and no object_id: {sequence_id}')
+            log(f'Invalid sequence_id and no object_id, exiting: {object_id}')
             return
 
     # Put sequence_id into path form.
@@ -89,19 +89,25 @@ def msg_callback(message):
         psc_df = make_observation_psc_df(**attributes)
         if psc_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
+    except FileNotFoundError as e:
+        log(f'File for {sequence_id} not found in bucket, skipping.')
+        return
     except Exception as e:
         log(f'Error making PSC: {e!r}')
+        # Update state
+        state = 'error_filtering_observation_psc'
+        log(f'Updating state for {sequence_id} to {state}')
+        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
         return
 
     log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
 
     try:
-        find_similar_sources(psc_df, sequence_id)
-
-        # Update state
-        state = 'similar_sources_found'
-        log(f'Updating state for {sequence_id} to {state}')
-        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+        if find_similar_sources(psc_df, sequence_id):
+            # Update state
+            state = 'similar_sources_found'
+            log(f'Updating state for {sequence_id} to {state}')
+            requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
     except Exception as e:
         log(f'ERROR Sequence {sequence_id}: {e!r}')
     finally:
@@ -187,10 +193,7 @@ def do_normalize(params):
         top_matches.index.name = 'picid'
         top_matches.to_csv(save_fn, header=['sum_ssd'])
     except Exception as e:
-        print(f'ERROR Sequence {sequence_id}: {e!r}')
-        state = 'error_finding_similar_sources'
-        print(f'Updating state for {sequence_id} to {state}')
-        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
+        print(f'ERROR Sequence {sequence_id} Normalize: {e!r}')
     finally:
         return picid
 
@@ -211,13 +214,11 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        try:
-            picids = list(executor.map(do_normalize, params, chunksize=7))
-            log(f'Found similar stars for {len(picids)} sources')
-        except Exception as e:
-            log(f'ERROR Sequence {sequence_id}: {e!r}')
+        picids = list(executor.map(do_normalize, params))
+        log(f'Found similar stars for {len(picids)} sources')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
+    return True
 
 
 if __name__ == '__main__':

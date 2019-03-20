@@ -30,7 +30,7 @@ spec:
             configMapKeyRef:
               key: POSTGRES_PASSWORD
               name: solve-and-extract-deployment-config
-        image: gcr.io/panoptes-survey/find-similar-sources@sha256:ecafed41a26a033e66d275b977224821308f3d859766c5f2607b1210c0e92e2d
+        image: gcr.io/panoptes-survey/find-similar-sources@sha256:e817ad0af82efdf297f9f7d0987bc03b05eaf019d134dbf88f716a71dbf696d8
         imagePullPolicy: Always
         name: similar-source-finder-container
         resources: {}
