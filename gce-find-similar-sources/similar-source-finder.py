@@ -187,9 +187,9 @@ def do_normalize(params):
         top_matches.index.name = 'picid'
         top_matches.to_csv(save_fn, header=['sum_ssd'])
     except Exception as e:
-        log(f'ERROR Sequence {sequence_id}: {e!r}')
+        print(f'ERROR Sequence {sequence_id}: {e!r}')
         state = 'error_finding_similar_sources'
-        log(f'Updating state for {sequence_id} to {state}')
+        print(f'Updating state for {sequence_id} to {state}')
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
     finally:
         return picid
@@ -211,8 +211,11 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        picids = list(executor.map(do_normalize, params, chunksize=7))
-        log(f'Found similar stars for {len(picids)} sources')
+        try:
+            picids = list(executor.map(do_normalize, params, chunksize=7))
+            log(f'Found similar stars for {len(picids)} sources')
+        except Exception as e:
+            log(f'ERROR Sequence {sequence_id}: {e!r}')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
 
