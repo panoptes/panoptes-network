@@ -81,11 +81,6 @@ def msg_callback(message):
 
     # Create the observation PSC
     try:
-        # Update state
-        state = 'psc_file_created'
-        log(f'Updating state for {sequence_id} to {state}')
-        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
-
         psc_df = make_observation_psc_df(**attributes)
         if psc_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
