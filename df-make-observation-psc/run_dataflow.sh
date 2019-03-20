@@ -47,5 +47,4 @@ echo '======================'
 gcloud dataflow jobs run ${JOB_NAME} \
 	--gcs-location gs://${DATAFLOW_BUCKET}/${JOB_TEMPLATE}/${JOB_TEMPLATE} \
 	--parameters input="gs://${SOURCES_BUCKET}/${SEQ_PATH}/*.csv" \
-	--parameters pscs_output="gs://${PSC_BUCKET}/${SEQ_PATH}.csv" \
-	--parameters scores_output="gs://${PSC_BUCKET}/${SEQ_PATH}-scores.csv"
+	--parameters pscs_output="gs://${PSC_BUCKET}/${SEQ_PATH}.csv"
