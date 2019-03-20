@@ -211,7 +211,7 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        picids = list(executor.map(do_normalize, params, chunksize=5))
+        picids = list(executor.map(do_normalize, params, chunksize=7))
         log(f'Found similar stars for {len(picids)} sources')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
