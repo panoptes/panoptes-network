@@ -13,11 +13,5 @@
     "help_text": "Path of the file pattern glob to save to.",
     "regexes": ["^gs:\/\/[^\n\r]+$"],
     "is_optional": false
-  },{
-    "name": "scores_output",
-    "label": "Output for the Similar Scores CSV file.",
-    "help_text": "Path of the file pattern glob to save to.",
-    "regexes": ["^gs:\/\/[^\n\r]+$"],
-    "is_optional": false
   }]
 }
