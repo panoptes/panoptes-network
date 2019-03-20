@@ -50,12 +50,11 @@ def msg_callback(message):
 
     attributes = message.attributes
 
-    object_id = attributes['object_id']
+    object_id = attributes['objectId']  # Comes from bucket event.
     sequence_id = attributes['sequence_id']
 
     # Acknowledge immediately - resend pubsub on error below.
     message.ack()
-    log(f'Attributes: {attributes}')
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     # Acknowledge the message was received - if we error we will resend message.
