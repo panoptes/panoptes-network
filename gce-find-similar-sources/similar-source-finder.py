@@ -4,6 +4,7 @@ import re
 import concurrent.futures
 from itertools import zip_longest
 from datetime import datetime
+from tqdm import tqdm
 
 import requests
 from google.cloud import pubsub
@@ -217,7 +218,7 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        picids = list(executor.map(do_normalize, params))
+        picids = list(tqdm(executor.map(do_normalize, params), total=len(grouped_sources)))
         log(f'Found similar stars for {len(picids)} sources')
 
     log(f'Sequence {sequence_id}: finished PICID loop')

@@ -1,8 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
-    app: similar-source-finder-deployment
+  labels: {app: similar-source-finder-deployment}
   name: similar-source-finder-deployment
   namespace: default
 spec:
@@ -10,36 +9,29 @@ spec:
   replicas: 1
   revisionHistoryLimit: 10
   selector:
-    matchLabels:
-      app: similar-source-finder-deployment
+    matchLabels: {app: similar-source-finder-deployment}
   strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 1}
     type: RollingUpdate
   template:
     metadata:
       creationTimestamp: null
-      labels:
-        app: similar-source-finder-deployment
+      labels: {app: similar-source-finder-deployment}
     spec:
       containers:
       - env:
         - name: POSTGRES_PASSWORD
           valueFrom:
-            configMapKeyRef:
-              key: POSTGRES_PASSWORD
-              name: solve-and-extract-deployment-config
-        image: gcr.io/panoptes-survey/find-similar-sources@sha256:efea9aeb8ee0ce4a0dd7d2d259c434e44d5744597dd1fa62334578442ac407f4
+            configMapKeyRef: {key: POSTGRES_PASSWORD, name: solve-and-extract-deployment-config}
+        image: gcr.io/panoptes-survey/find-similar-sources@sha256:987822ed1e55a48a5777cb6cdfb57812b3ac2dafcffef4b8b37a3c25de9f3b57
         imagePullPolicy: Always
         name: similar-source-finder-container
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      nodeSelector: {for: similar-sources}
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
       terminationGracePeriodSeconds: 30
-      nodeSelector:
-        for: similar-sources
