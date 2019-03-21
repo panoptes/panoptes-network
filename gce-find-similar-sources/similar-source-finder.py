@@ -30,23 +30,24 @@ def main():
     log(f"Starting similar source finder on {pubsub_sub_path}")
 
     try:
-        flow_control = pubsub.types.FlowControl(max_messages=1)
-        future = subscriber_client.subscribe(
-            pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
+        response = subscriber_client.pull(pubsub_sub_path, max_messages=1)
+        message = response.received_messages[0]
 
-        log(f"Similar source finder subscriber started, entering listen loop")
+        log(f"Received message, processing.")
+        message.ack()
+        process_message(message)
+
         while True:
             time.sleep(30)
     except Exception as e:
         log(f'Problem with subscriber: {e!r}')
-        future.cancel()
 
 
 def log(msg):
     print(datetime.now().isoformat(), msg)
 
 
-def msg_callback(message):
+def process_message(message):
 
     attributes = message.attributes
 
@@ -59,16 +60,14 @@ def msg_callback(message):
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     # Acknowledge the message was received - if we error we will resend message.
-    log(f'Acknowledging message for {sequence_id}')
     message.ack()
 
-    if 'similar-sources.csv' in object_id:
-        return
-
     if sequence_id is None or sequence_id == '':
+        log(f'No sequence_id found, looking for matching object_id')
         matches = re.fullmatch('(PAN.{3}[/_].*[/_]20.{6}T.{6}).csv', object_id)
         if matches is not None:
             sequence_id = matches.group(1)
+            log(f'Matched object_id, setting sequence_id={sequence_id}')
         else:
             log(f'Invalid sequence_id and no object_id, exiting: {object_id}')
             return
@@ -82,6 +81,7 @@ def msg_callback(message):
 
     # Create the observation PSC
     try:
+        attributes['sequence_id'] = sequence_id
         psc_df = make_observation_psc_df(**attributes)
         if psc_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
@@ -111,7 +111,7 @@ def msg_callback(message):
         return
 
 
-def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.95, **kwargs):
+def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold=0.95, **kwargs):
     """Makes a PSC dataframe for the given sequence id.
 
     Args:
@@ -122,6 +122,9 @@ def make_observation_psc_df(sequence_id, min_num_frames=10, frame_threshold=0.95
     Returns:
         `pandas.DataFrame`: Dataframe of the PSC.
     """
+    if sequence_id is None:
+        return
+
     log(f'Sequence ID: {sequence_id} Making PSC')
 
     sequence_id = sequence_id.replace('_', '/')
