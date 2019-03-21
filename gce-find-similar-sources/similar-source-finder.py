@@ -64,7 +64,6 @@ def process_message(message):
     object_id = attributes['objectId']  # Comes from bucket event.
     sequence_id = attributes['sequence_id']
 
-    log(f'Message: {message}')
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     if sequence_id is None or sequence_id == '':
