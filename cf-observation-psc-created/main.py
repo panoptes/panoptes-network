@@ -32,12 +32,14 @@ def observation_psc_created(data, context):
 
     object_id = data['id']
 
-    matches = re.fullmatch('(PAN.{3}[/_].*[/_]20.{6}T.{6}).csv', object_id)
+    matches = re.match('panoptes-observation-psc/(PAN.{3}[/_].*[/_]20.{6}T.{6}).csv/*', object_id)
     if matches is not None:
         sequence_id = matches.group(1)
         print(f'Found sequence_id {sequence_id}')
     else:
-        return jsonify(success=False, msg=f"Cannot find matching sequence_id in {object_id}")
+        msg = f"Cannot find matching sequence_id in {object_id}"
+        print(msg)
+        return jsonify(success=False, msg=msg)
 
     # Update state
     state = 'observation_psc_created'
