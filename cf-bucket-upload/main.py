@@ -26,4 +26,4 @@ def bucket_upload(data, context):
             'object_id': object_id
         })
 
-    return jsonify(success=True, msg="Received file: {object_id}")
+    return jsonify(success=True, msg=f"Received file: {object_id}")

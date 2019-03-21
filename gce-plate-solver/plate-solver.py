@@ -3,7 +3,6 @@ import time
 from contextlib import suppress
 
 from google.cloud import storage
-from google.cloud import bigquery
 from google.cloud import pubsub
 
 from dateutil.parser import parse as parse_date
@@ -28,11 +27,6 @@ bucket = storage_client.get_bucket(BUCKET_NAME)
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-plate-solver')
 subscriber_client = pubsub.SubscriberClient()
 pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
-
-# BigQuery
-bq_client = bigquery.Client()
-bq_observations_dataset_ref = bq_client.dataset('observations')
-bq_sources_table = bq_observations_dataset_ref.table('data')
 
 
 def main():
