@@ -29,18 +29,28 @@ update_state_url = os.getenv(
 def main():
     log(f"Starting similar source finder on {pubsub_sub_path}")
 
-    try:
-        response = subscriber_client.pull(pubsub_sub_path, max_messages=1)
-        message = response.received_messages[0]
+    while True:
+        try:
+            response = subscriber_client.pull(pubsub_sub_path,
+                                              max_messages=1,
+                                              return_immediately=True)
+        except Exception as e:
+            log(f'Problem with pulling from subscriber: {e!r}')
 
-        log(f"Received message, processing.")
-        message.ack()
-        process_message(message)
+        try:
+            # Process first (and only) message
+            message = response.received_messages[0]
+            log(f"Received message, processing: {message.ack_id}")
 
-        while True:
+            # Acknowledge immediately - resend pubsub on error below.
+            subscriber_client.acknowledge(pubsub_sub_path, [message.ack_id])
+
+            # Will block while processing.
+            process_message(message.message)
+            log(f"Message complete: {message.ack_id}")
+        except IndexError:
+            # No messages, sleep before looping again.
             time.sleep(30)
-    except Exception as e:
-        log(f'Problem with subscriber: {e!r}')
 
 
 def log(msg):
@@ -54,13 +64,8 @@ def process_message(message):
     object_id = attributes['objectId']  # Comes from bucket event.
     sequence_id = attributes['sequence_id']
 
-    # Acknowledge immediately - resend pubsub on error below.
-    message.ack()
     log(f'Message: {message}')
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
-
-    # Acknowledge the message was received - if we error we will resend message.
-    message.ack()
 
     if sequence_id is None or sequence_id == '':
         log(f'No sequence_id found, looking for matching object_id')
