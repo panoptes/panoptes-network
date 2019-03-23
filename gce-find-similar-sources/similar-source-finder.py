@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 import requests
 from google.cloud import pubsub
+from google.cloud import storage
 import pandas as pd
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
@@ -15,6 +16,10 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 # Storage
 OBSERVATION_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-observation-psc')
 PICID_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-picid')
+
+# Storage
+storage_client = storage.Client(project=PROJECT_ID)
+picid_bucket = storage_client.get_bucket(PICID_BUCKET_NAME)
 
 # Pubsub
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-find-similar-sources')
@@ -65,6 +70,8 @@ def process_message(message):
     object_id = attributes['objectId']  # Comes from bucket event.
     sequence_id = attributes['sequence_id']
 
+    force_new = attributes.get('force_new', False)
+
     log(f'Received sequence_id: {sequence_id} object_id: {object_id}')
 
     if sequence_id is None or sequence_id == '':
@@ -104,7 +111,7 @@ def process_message(message):
     log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
 
     try:
-        if find_similar_sources(psc_df, sequence_id):
+        if find_similar_sources(psc_df, sequence_id, force_new=force_new):
             # Update state
             state = 'similar_sources_found'
             log(f'Updating state for {sequence_id} to {state}')
@@ -178,6 +185,7 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
 
 
 def do_normalize(params):
+
     try:
         target_params = params[0]
         call_params = params[1]
@@ -187,29 +195,41 @@ def do_normalize(params):
 
         norm_df = call_params['all_psc']
         sequence_id = call_params['sequence_id']
+        force_new = call_params['force_new'].lower() == 'true'
+
+        # Check if file already exists
+        save_fn = f'{picid}/{sequence_id}-similar-sources.csv'
+        if force_new is False and picid_bucket.get_blob(save_fn).exists():
+            raise FileExistsError('File already found in storage bucket')
 
         norm_target = row.droplevel('picid')
         norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
 
-        top_matches = norm_group.sum().sort_values()[:200]
+        top_matches = (norm_group.sum() / norm_group.std()).sort_values()[:200]
 
         save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
         top_matches.index.name = 'picid'
         top_matches.to_csv(save_fn, header=['sum_ssd'])
+    except FileExistsError:
+        pass
     except Exception as e:
         print(f'ERROR Sequence {sequence_id} Normalize: {e!r}')
     finally:
         return picid
 
 
-def find_similar_sources(stamps_df, sequence_id):
+def find_similar_sources(stamps_df, sequence_id, force_new=False):
     log(f'Loading PSC CSV for {sequence_id}')
 
     # Normalize each stamp
     log(f'Normalizing PSC for {sequence_id}')
     norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
 
-    call_params = dict(all_psc=norm_df, sequence_id=sequence_id)
+    call_params = dict(
+        all_psc=norm_df,
+        sequence_id=sequence_id,
+        force_new=force_new
+    )
 
     log(f'Starting loop of PSCs for {sequence_id}')
     # Run everything in parallel.
@@ -218,7 +238,10 @@ def find_similar_sources(stamps_df, sequence_id):
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        picids = list(tqdm(executor.map(do_normalize, params), total=len(grouped_sources)))
+        picids = list(tqdm(
+            executor.map(do_normalize, params, chunksize=2),
+            total=len(grouped_sources)
+        ))
         log(f'Found similar stars for {len(picids)} sources')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
