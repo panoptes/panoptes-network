@@ -100,7 +100,7 @@ def process_fits(bucket_path, object_id):
 
 def process_cr2(bucket_path, object_id):
     print(f"Forwarding CR2 to make-rgb-fits")
-    res = requests.json(make_rgb_endpoint, json=dict(cr2_file=bucket_path))
+    res = requests.post(make_rgb_endpoint, json=dict(cr2_file=bucket_path))
 
     if res.ok:
         print(f'RGB fits files made for {bucket_path}')
