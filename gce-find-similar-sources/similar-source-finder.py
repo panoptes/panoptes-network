@@ -168,7 +168,7 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
     def has_frame_count(grp):
         return grp.count()['pixel_00'] >= min_frame_count
 
-    # Do the actual fileter an reset the index
+    # Do the actual filter and reset the index
     log(f'Sequence: {sequence_id} filtering sources')
     psc_df = psc_df.reset_index() \
         .groupby('picid') \
@@ -184,16 +184,17 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
     return psc_df
 
 
-def do_normalize(params):
+def compare_stamps(params):
+    import numpy as np
 
     try:
         target_params = params[0]
         call_params = params[1]
 
         picid = target_params[0]
-        row = target_params[1]
+        target_table = target_params[1]
 
-        norm_df = call_params['all_psc']
+        ref_table = call_params['all_psc']
         sequence_id = call_params['sequence_id']
         force_new = call_params['force_new'].lower() == 'true'
 
@@ -202,8 +203,13 @@ def do_normalize(params):
         if force_new is False and picid_bucket.get_blob(save_fn).exists():
             raise FileExistsError('File already found in storage bucket')
 
-        norm_target = row.droplevel('picid')
-        norm_group = ((norm_df - norm_target)**2).dropna().sum(axis=1).groupby('picid')
+        # Align index with target
+        include_frames = ref_table.index.levels[0].isin(target_table.index.levels[0])
+        # Get PSC for matching frames
+        ref_table = np.array(ref_table.loc[include_frames])
+
+        # norm_target = target_table.droplevel('picid')
+        norm_group = ((ref_table - target_table)**2).dropna().sum(axis=1).groupby('picid')
 
         top_matches = (norm_group.sum() / norm_group.std()).sort_values()[:200]
 
@@ -239,7 +245,7 @@ def find_similar_sources(stamps_df, sequence_id, force_new=False):
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
         picids = list(tqdm(
-            executor.map(do_normalize, params, chunksize=2),
+            executor.map(compare_stamps, params, chunksize=2),
             total=len(grouped_sources)
         ))
         log(f'Found similar stars for {len(picids)} sources')
