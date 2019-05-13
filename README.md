@@ -9,8 +9,8 @@ their respective directories. Each directory has a specific README.
 
 Services are prefixed with the technology they use:
 
-`cf`: cloud function
-`gce`: Google compute engine
+`cf`: cloud function  
+`gce`: Google compute engine  
 `kube`: Kuberentes cluster
 
 ## Pipeline
@@ -28,7 +28,7 @@ to the `cf-image-received` endpoint.
 
 #### Bucket Upload
 
-**Service:** `cf-bucket-upload`
+**Service:** `cf-bucket-upload`  
 [README](cf-bucket-upload/README.md)
 
 A cloud function that receives a message each time an image (CR2 or FITS) is upload.
@@ -36,7 +36,7 @@ Simply forwards the request on to the `cf-image-received` service.
 
 #### Image Received
 
-**Service:** `cf-image-received`
+**Service:** `cf-image-received`  
 [README](cf-image-received/README.md)
 
 Triggers an action depending on the image type. If a FITS image, send to `cf-header-to-db`
@@ -55,7 +55,7 @@ Todo - Currently done on units.
 
 ##### RGB FITS
 
-**Service:** `cf-make-rgb-fits`
+**Service:** `cf-make-rgb-fits`  
 [README](cf-make-rgb-fits/README.md)
 
 Create separate FITS images for each of the color channels. These images are interpolated 
@@ -73,7 +73,7 @@ Todo - Currently done on units.
 
 ##### Headers
 
-**Service:** `cf-header-to-db`
+**Service:** `cf-header-to-db`  
 [README](cf-header-to-db/README.md)
 
 The FITS headers are read from each file and added to the Cloud SQL `panoptes-meta.metadata`
@@ -83,7 +83,7 @@ After successful reading of FITS headers the image is forwarded to the `gce-plat
 a PubSub message.
 
 ##### Plate Solve & Source Extraction
-**Service:** `gce-plate-solver`
+**Service:** `gce-plate-solver`  
 [README](gce-plate-solver/README.md)
 
 Listens for PubSub messages on the `gce-plate-solver` subscription and for each received
