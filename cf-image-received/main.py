@@ -9,6 +9,11 @@ add_header_endpoint = os.getenv(
     'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-db'
 )
 
+make_rgb_endpoint = os.getenv(
+    'RGB_ENDPOINT',
+    'https://us-central1-panoptes-survey.cloudfunctions.net/make-rgb-fits'
+)
+
 
 def image_received(request):
     """Look for uploaded files and process according to the file type.
@@ -94,4 +99,8 @@ def process_fits(bucket_path, object_id):
 
 
 def process_cr2(bucket_path, object_id):
-    print('TODO: ADD CR2 PROCESSING')
+    print(f"Forwarding CR2 to make-rgb-fits")
+    res = requests.post(make_rgb_endpoint, json=dict(cr2_file=bucket_path))
+
+    if res.ok:
+        print(f'RGB fits files made for {bucket_path}')

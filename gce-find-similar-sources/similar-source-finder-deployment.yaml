@@ -27,10 +27,10 @@ spec:
       - env:
         - name: POSTGRES_PASSWORD
           valueFrom:
-            configMapKeyRef:
+            configMapKeyRef: 
               key: POSTGRES_PASSWORD
               name: solve-and-extract-deployment-config
-        image: gcr.io/panoptes-survey/find-similar-sources@sha256:662c035292fb6f2d580da2eee2a531730a3e2682fb92f3c37a42e98d21929555
+        image: gcr.io/panoptes-survey/find-similar-sources@sha256:2f9f413f8b3a843ae92d37fbd9629d2eccdc3d919b8f7fd5caf459ea57326818
         imagePullPolicy: Always
         name: similar-source-finder-container
         resources: {}
@@ -41,5 +41,3 @@ spec:
       schedulerName: default-scheduler
       securityContext: {}
       terminationGracePeriodSeconds: 30
-      nodeSelector:
-        for: similar-sources
