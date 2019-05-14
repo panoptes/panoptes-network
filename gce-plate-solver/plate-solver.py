@@ -7,11 +7,10 @@ from google.cloud import bigquery
 from google.cloud import pubsub
 
 from dateutil.parser import parse as parse_date
-from psycopg2.extras import execute_values
-from psycopg2 import IntegrityError
 from astropy.io import fits
 
 import csv
+import requests
 
 from pocs.utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
@@ -28,6 +27,16 @@ bucket = storage_client.get_bucket(BUCKET_NAME)
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-plate-solver')
 subscriber_client = pubsub.SubscriberClient()
 pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
+
+update_state_url = os.getenv(
+    'HEADER_ENDPOINT',
+    'https://us-central1-panoptes-survey.cloudfunctions.net/update-state'
+)
+
+get_state_url = os.getenv(
+    'HEADER_ENDPOINT',
+    'https://us-central1-panoptes-survey.cloudfunctions.net/get-state'
+)
 
 # BigQuery
 bq_client = bigquery.Client()
@@ -88,8 +97,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             return
 
         # Don't process files that have been processed.
-        img_state = get_state(image_id=image_id, cursor=metadata_db_cursor)
-        if img_state == 'sources_extracted':
+        if get_state(image_id=image_id, cursor=metadata_db_cursor) == 'sources_extracted':
             print(f'Skipping already processed image.')
             return
 
@@ -179,11 +187,6 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
     data = fits.getdata(fits_fn)
     image_id = None
 
-    source_metadata = list()
-
-    remove_columns = ['picid', 'image_id', 'ra', 'dec',
-                      'x_image', 'y_image', 'seq_time', 'img_time']
-
     print(f'Getting point sources')
 
     row = point_sources.iloc[0]
@@ -195,7 +198,19 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
         writer = csv.writer(csv_file, quoting=csv.QUOTE_MINIMAL)
 
         # Write out headers.
-        csv_headers = ['picid', 'unit_id', 'camera_id', 'sequence_time', 'image_time']
+        csv_headers = [
+            'picid',
+            'unit_id',
+            'camera_id',
+            'sequence_time',
+            'image_time',
+            'x', 'y',
+            'ra', 'dec',
+            'sextractor_flags',
+            'background',
+            'slice_y_start', 'slice_y_stop',
+            'slice_x_start', 'slice_x_stop',
+        ]
         # Add column headers for flattened stamp.
         csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
@@ -223,37 +238,22 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 str(row.camera_id),
                 parse_date(row.seq_time),
                 parse_date(row.img_time),
+                int(row.x), int(row.y),
+                row.ra, row.dec,
+                int(row.flags),
+                row.background,
+                target_slice[0]['start'], target_slice[0]['stop'],
+                target_slice[1]['start'], target_slice[1]['stop'],
             ]
             row_values.extend(stamp)
 
             # Write out stamp data
             writer.writerow(row_values)
 
-            # Metadata for the detection, with most of row dumped into jsonb `metadata`.
-            source_metadata.append({
-                'picid': picid,
-                'image_id': row.image_id,
-                'astro_coords': f'({row.ra}, {row.dec})',
-                'metadata': row.drop(remove_columns, errors='ignore').to_json(),
-            })
-
-    # Bulk insert the sources_metadata.
+    # Upload the detected soruces CSV.
     try:
-        headers = ['picid', 'image_id', 'astro_coords', 'metadata']
-        insert_sql = f'INSERT INTO sources ({",".join(headers)}) VALUES %s'
-        insert_template = '(' + ','.join([f'%({h})s' for h in headers]) + ')'
-
-        print(f'Inserting {len(source_metadata)} metadata for {fits_fn}')
-        execute_values(cursor, insert_sql, source_metadata, insert_template)
-        cursor.connection.commit()
-    except IntegrityError:
-        print(f'Sources information already loaded into database')
-    finally:
-        update_state('metadata_inserted', image_id=image_id, cursor=cursor)
-        print(f'Copy of metadata complete {fits_fn}')
-
-    try:
-        upload_blob(sources_csv_fn, destination=sources_csv_fn.replace('-', '/'),
+        upload_blob(sources_csv_fn,
+                    destination=sources_csv_fn.replace('-', '/'),
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {fits_fn}')
@@ -305,147 +305,26 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     print('File {} uploaded to {}.'.format(source_file_name, destination))
 
 
-def meta_insert(table, cursor, **kwargs):
-    """Inserts arbitrary key/value pairs into a table.
-
-    Args:
-        table (str): Table in which to insert.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-        **kwargs: List of key/value pairs corresponding to columns in the
-            table.
-
-    Returns:
-        tuple|None: Returns the inserted row or None.
-    """
-
-    if cursor is None or cursor.closed:
-        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
-
-    col_names = list()
-    col_values = list()
-    for name, value in kwargs.items():
-        col_names.append(name)
-        col_values.append(value)
-
-    col_names_str = ','.join(col_names)
-    col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
-
-    # Build update set
-    update_cols = list()
-    for col in col_names:
-        if col in ['id']:
-            continue
-        update_cols.append('{0} = EXCLUDED.{0}'.format(col))
-
-    insert_sql = f"""
-                INSERT INTO {table} ({col_names_str})
-                VALUES ({col_val_holders})
-                ON CONFLICT (id)
-                DO UPDATE SET {', '.join(update_cols)}
-                """
-
-    try:
-        cursor.execute(insert_sql, col_values)
-        cursor.connection.commit()
-    except Exception:
-        print('Rolling back cursor and trying again')
-        try:
-            cursor.connection.rollback()
-            cursor.execute(insert_sql, col_values)
-            cursor.connection.commit()
-        except Exception as e:
-            print(f"Error in insert (error): {e!r}")
-            print(f"Error in insert (sql): {insert_sql}")
-            print(f"Error in insert (kwargs): {kwargs!r}")
-            return False
-    else:
-        print(f'Insert success: {table}')
-        return True
-
-
-def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
-    """Inserts arbitrary key/value pairs into a table.
-
-    Args:
-        table (str): Table in which to insert.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-        **kwargs: List of key/value pairs corresponding to columns in the
-            table.
-
-    Returns:
-        tuple|None: Returns the inserted row or None.
-    """
-
-    if cursor is None or cursor.closed:
-        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
-
-    if sequence_id is None and image_id is None:
-        raise ValueError('Need either a sequence_id or an image_id to update state')
-
-    table = 'sequences'
-    field = sequence_id
-    if sequence_id is None:
-        table = 'images'
-        field = image_id
-
-    update_sql = f"""
-                UPDATE {table}
-                SET state=%s
-                WHERE id=%s
-                """
-    try:
-        cursor.execute(update_sql, [state, field])
-        cursor.connection.commit()
-        print(f'{field} set to state {state}')
-    except Exception:
-        try:
-            print(f'Updating of state ({field}={state}) failed, rolling back and trying again')
-            cursor.connection.rollback()
-            cursor.execute(update_sql, [state, field])
-            cursor.connection.commit()
-            print(f'{field} set to state {state}')
-        except Exception as e:
-            print(f"Error in insert (error): {e!r}")
-            print(f"Error in insert (sql): {update_sql}")
-            print(f"Error in insert (kwargs): {kwargs!r}")
-            return False
+def update_state(state, sequence_id=None, image_id=None):
+    """Update the state of the current image or sequence."""
+    requests.post(update_state_url, json={'sequence_id': sequence_id,
+                                          'image_id': image_id,
+                                          'state': state
+                                          })
 
     return True
 
 
 def get_state(sequence_id=None, image_id=None, cursor=None, **kwargs):
-    """Gets the current `state` value for either a sequence or image.
+    """Gets the state of the current image or sequence."""
+    res = requests.post(get_state_url, json={'sequence_id': sequence_id,
+                                             'image_id': image_id,
+                                             })
 
-    Returns:
-        tuple|None: Returns the value of `state` or None.
-    """
+    if res.ok:
+        return res.json()['data']['state']
 
-    if cursor is None or cursor.closed:
-        cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
-
-    if sequence_id is None and image_id is None:
-        raise ValueError('Need either a sequence_id or an image_id to get state')
-
-    table = 'sequences'
-    field = sequence_id
-    if sequence_id is None:
-        table = 'images'
-        field = image_id
-
-    update_sql = f"SELECT state FROM {table} WHERE id=%s"
-    try:
-        cursor.execute(update_sql, [field])
-        row = cursor.fetchone()
-        return row['state']
-    except Exception as e:
-        print(f"Error in insert (error): {e!r}")
-        print(f"Error in insert (sql): {update_sql}")
-        print(f"Error in insert (kwargs): {kwargs!r}")
-        return None
+    return None
 
 
 if __name__ == '__main__':
