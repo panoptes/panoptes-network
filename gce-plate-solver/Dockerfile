@@ -8,4 +8,4 @@ EXPOSE 8000
 # Entrypoint will connect to database and get astrometry.net files
 ENTRYPOINT ["/bin/bash", "entrypoint.sh"]
 
-CMD ['python3', 'plate-solver.py']
+CMD ['/usr/bin/python3', 'plate-solver.py']

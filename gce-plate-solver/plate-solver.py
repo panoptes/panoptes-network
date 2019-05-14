@@ -61,6 +61,10 @@ def msg_callback(message):
     attributes = message.attributes
     bucket_path = attributes['bucket_path']
     object_id = attributes['object_id']
+    force = attributes.get('force', False)
+
+    if force:
+        print(f'Found force=True, forcing new plate solving')
 
     try:
         # Get DB cursors
@@ -68,16 +72,16 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         print(f'Solving {bucket_path}')
-        solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor)
+        solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=force)
     finally:
-        print(f'Finished processing {object_id}.')
+        print(f'Finished processing {bucket_path}.')
         catalog_db_cursor.close()
         metadata_db_cursor.close()
         # Acknowledge message
         message.ack()
 
 
-def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
+def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False):
 
     try:  # Wrap everything so we can do file cleanup
 
@@ -92,7 +96,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
             return
 
         # Don't process files that have been processed.
-        if get_state(image_id=image_id, cursor=metadata_db_cursor) == 'sources_extracted':
+        if force is False and get_state(image_id=image_id) == 'sources_extracted':
             print(f'Skipping already processed image.')
             return
 
@@ -112,7 +116,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         wcs_info = fits_utils.get_wcsinfo(fits_fn)
         already_solved = len(wcs_info) > 1
 
-        if not already_solved:
+        if not already_solved or force is True:
             # Solve fits file
             print(f'Plate-solving {fits_fn}')
             try:
@@ -124,7 +128,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
                 update_state('error_solving', image_id=image_id, cursor=metadata_db_cursor)
 
             # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-            if solve_info is not None and len(wcs_info) == 1:
+            if solve_info is not None and (force is True or len(wcs_info) == 1):
                 fz_fn = fits_utils.fpack(fits_fn)
                 upload_blob(fz_fn, bucket_path, bucket=bucket)
 
@@ -161,7 +165,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor):
         print(f'Error while solving field: {e!r}')
         return False
     finally:
-        print(f'Solve and extraction complete, cleaning up for {object_id}')
+        print(f'Solve and extraction complete, cleaning up for {bucket_path}')
         # Remove files
         for fn in [fits_fn, fz_fn]:
             with suppress(FileNotFoundError):
