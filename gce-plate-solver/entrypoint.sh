@@ -10,5 +10,5 @@ echo "Getting DB passwords from metadata server"
 curl --silent "http://metadata.google.internal/computeMetadata/v1/project/attributes/pgpass" -H "Metadata-Flavor: Google" > $HOME/.pgpass
 chmod 600 $HOME/.pgpass
 
-echo "Starting Plate Solver listener"
-python3 plate-solver.py
+# Execute remaining commands
+exec "$@"

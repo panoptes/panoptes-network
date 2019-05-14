@@ -3,10 +3,10 @@ Get Sequence/Image State
 
 This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
 
-Small helper function to update the `state` column on either a sequence or an
+Small helper function to lookup the `state` column on either a sequence or an
 image in the `metadata` db.
 
-Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/update-state
+Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/get-state
 
 Can be passed either a `sequence_id` or an `image_id`.
 
@@ -31,8 +31,8 @@ is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 update-state \
-                 --entry-point update-state \
+                 get-state \
+                 --entry-point get-state \
                  --runtime python37 \
                  --trigger-http
 ```
