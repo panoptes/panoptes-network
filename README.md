@@ -21,7 +21,7 @@ the pipeline and cause a series of basic cleaning and reduction steps to happen.
 The services defined in this repo control the different "nodes" of the pipeline,
 which is currently spread across a variety of technologies.
 
-[PIAA Diagram](!resources/PIAA_diagram.png)
+![PIAA Diagram](resources/PIAA_diagram.png)
 
 ### Receive Image
 
