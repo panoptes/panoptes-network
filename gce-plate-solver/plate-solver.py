@@ -223,6 +223,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 str(row.camera_id),
                 parse_date(row.seq_time),
                 parse_date(row.img_time),
+                row.x, row.y,
+                row.ra, row.dec
             ]
             row_values.extend(stamp)
 
