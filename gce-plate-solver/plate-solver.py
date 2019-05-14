@@ -3,7 +3,6 @@ import time
 from contextlib import suppress
 
 from google.cloud import storage
-from google.cloud import bigquery
 from google.cloud import pubsub
 
 from dateutil.parser import parse as parse_date
@@ -37,11 +36,6 @@ get_state_url = os.getenv(
     'HEADER_ENDPOINT',
     'https://us-central1-panoptes-survey.cloudfunctions.net/get-state'
 )
-
-# BigQuery
-bq_client = bigquery.Client()
-bq_observations_dataset_ref = bq_client.dataset('observations')
-bq_sources_table = bq_observations_dataset_ref.table('data')
 
 
 def main():
