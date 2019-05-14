@@ -13,7 +13,7 @@ from astropy.io import fits
 
 import csv
 
-from panoptes_utils .images import fits as fits_utils
+from panoptes_utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import pipeline
 from piaa.utils import helpers
