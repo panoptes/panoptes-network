@@ -92,7 +92,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         # Don't process pointing images.
         if 'pointing' in bucket_path:
             print(f'Skipping pointing file.')
-            update_state('skipped', image_id=image_id, cursor=metadata_db_cursor)
+            update_state('skipped', image_id=image_id)
             return
 
         # Don't process files that have been processed.
@@ -108,7 +108,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         print(f'Unpacking {fz_fn}')
         fits_fn = fits_utils.fpack(fz_fn, unpack=True)
         if not os.path.exists(fits_fn):
-            update_state('error_unpacking', image_id=image_id, cursor=metadata_db_cursor)
+            update_state('error_unpacking', image_id=image_id)
             raise Exception(f'Problem unpacking {fz_fn}')
 
         # Check for existing WCS info
@@ -125,7 +125,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
                 print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
-                update_state('error_solving', image_id=image_id, cursor=metadata_db_cursor)
+                update_state('error_solving', image_id=image_id)
 
             # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
             if solve_info is not None and (force is True or len(wcs_info) == 1):
@@ -152,14 +152,14 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             point_sources['unit_id'] = unit_id
             point_sources['camera_id'] = cam_id
             print(f'Sources detected: {len(point_sources)} {fz_fn}')
-            update_state('sources_detected', image_id=image_id, cursor=metadata_db_cursor)
+            update_state('sources_detected', image_id=image_id)
         except Exception as e:
-            update_state('error_sources_detection', image_id=image_id, cursor=metadata_db_cursor)
+            update_state('error_sources_detection', image_id=image_id)
             raise e
 
         print(f'Looking up sources for {fz_fn}')
         get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
-        update_state('sources_extracted', image_id=image_id, cursor=metadata_db_cursor)
+        update_state('sources_extracted', image_id=image_id)
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
