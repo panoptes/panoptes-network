@@ -42,6 +42,7 @@ def main():
     print(f"Starting pubsub listen on {pubsub_sub_path}")
 
     try:
+        # max_messages means we only process one at a time.
         flow_control = pubsub.types.FlowControl(max_messages=1)
         future = subscriber_client.subscribe(
             pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
