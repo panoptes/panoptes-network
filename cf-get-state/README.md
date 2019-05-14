@@ -12,13 +12,13 @@ Can be passed either a `sequence_id` or an `image_id`.
 
 Payload: JSON message of the form:
 
-	```json
-	{
-		'state': str,
+    ```json
+    {
+        'state': str,
         'sequence_id': str,
         'image_id': str
-	}
-	```
+    }
+    ```
 
 Deploy
 ------
