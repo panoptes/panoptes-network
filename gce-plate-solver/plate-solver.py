@@ -77,7 +77,7 @@ def msg_callback(message):
                                 catalog_db_cursor,
                                 metadata_db_cursor,
                                 force=force)
-        print(f'Write sources file {sources_fn}')
+        print(f'    Write sources file {sources_fn}')
     finally:
         print(f'Finished processing {bucket_path}.')
         catalog_db_cursor.close()
@@ -125,20 +125,18 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             # Solve fits file
             print(f'Plate-solving {fits_fn}')
             try:
-                solve_info = fits_utils.get_solve_field(
-                    fits_fn, skip_solved=False, overwrite=True, timeout=90)
+                solve_info = fits_utils.get_solve_field(fits_fn,
+                                                        skip_solved=False,
+                                                        overwrite=True,
+                                                        timeout=90)
                 print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
-
-            # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-            if solve_info is not None and (force is True or len(wcs_info) == 1):
-                fz_fn = fits_utils.fpack(fits_fn)
-                upload_blob(fz_fn, bucket_path, bucket=bucket)
-
+                return None
         else:
             print(f'Found existing WCS for {fz_fn}')
+            solve_info = None
 
         # Lookup point sources
         try:
@@ -162,9 +160,14 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             update_state('error_sources_detection', image_id=image_id)
             raise e
 
-        print(f'Looking up sources for {fz_fn}')
+        print(f'Looking up sources for {fits_fn}')
         sources_fn = get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id)
+
+        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
+        if solve_info is not None and (force is True or len(wcs_info) == 1):
+            fz_fn = fits_utils.fpack(fits_fn)
+            upload_blob(fz_fn, bucket_path, bucket=bucket)
 
         return sources_fn
 
