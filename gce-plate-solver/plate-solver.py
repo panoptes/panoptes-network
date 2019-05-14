@@ -256,7 +256,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {fits_fn}')
-        update_state('error_uploading_sources', image_id=image_id, cursor=cursor)
+        update_state('error_uploading_sources', image_id=image_id)
     finally:
         with suppress(FileNotFoundError):
             print(f'Cleaning up {sources_csv_fn}')
@@ -314,7 +314,7 @@ def update_state(state, sequence_id=None, image_id=None):
     return True
 
 
-def get_state(sequence_id=None, image_id=None, cursor=None, **kwargs):
+def get_state(sequence_id=None, image_id=None):
     """Gets the state of the current image or sequence."""
     res = requests.post(get_state_url, json={'sequence_id': sequence_id,
                                              'image_id': image_id,
