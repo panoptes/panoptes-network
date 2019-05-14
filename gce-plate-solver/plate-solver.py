@@ -72,7 +72,12 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         print(f'Solving {bucket_path}')
-        solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=force)
+        sources_fn = solve_file(bucket_path,
+                                object_id,
+                                catalog_db_cursor,
+                                metadata_db_cursor,
+                                force=force)
+        print(f'Write sources file {sources_fn}')
     finally:
         print(f'Finished processing {bucket_path}.')
         catalog_db_cursor.close()
@@ -96,7 +101,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             return
 
         # Don't process files that have been processed.
-        if force is False and get_state(image_id=image_id) == 'sources_extracted':
+        if (force is False) and (get_state(image_id=image_id) == 'sources_extracted'):
             print(f'Skipping already processed image.')
             return
 
@@ -116,7 +121,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         wcs_info = fits_utils.get_wcsinfo(fits_fn)
         already_solved = len(wcs_info) > 1
 
-        if not already_solved or force is True:
+        if not already_solved or force:
             # Solve fits file
             print(f'Plate-solving {fits_fn}')
             try:
@@ -158,8 +163,10 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             raise e
 
         print(f'Looking up sources for {fz_fn}')
-        get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
+        sources_fn = get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id)
+
+        return sources_fn
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
@@ -171,7 +178,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             with suppress(FileNotFoundError):
                 os.remove(fn)
 
-    return True
+    return None
 
 
 def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
@@ -207,8 +214,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             'ra', 'dec',
             'sextractor_flags',
             'background',
-            'slice_y_start', 'slice_y_stop',
-            'slice_x_start', 'slice_x_stop',
+            'slice_y',
+            'slice_x',
         ]
         # Add column headers for flattened stamp.
         csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
@@ -239,10 +246,10 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 parse_date(row.img_time),
                 int(row.x), int(row.y),
                 row.ra, row.dec,
-                int(row.flags),
+                int(row['flags']),
                 row.background,
-                target_slice[0]['start'], target_slice[0]['stop'],
-                target_slice[1]['start'], target_slice[1]['stop'],
+                target_slice[0],
+                target_slice[1],
             ]
             row_values.extend(stamp)
 
@@ -262,7 +269,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             print(f'Cleaning up {sources_csv_fn}')
             os.remove(sources_csv_fn)
 
-    return image_id
+    return sources_csv_fn
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
