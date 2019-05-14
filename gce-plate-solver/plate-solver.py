@@ -219,15 +219,11 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             'background',
             'slice_y',
             'slice_x',
+            'stamp'
         ]
-        # Add column headers for flattened stamp.
-        csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
 
         for picid, row in point_sources.iterrows():
-            image_id = row.image_id
-
-            # Get the stamp for the target
             target_slice = helpers.get_stamp_slice(
                 row.x, row.y,
                 stamp_size=(stamp_size, stamp_size),
@@ -238,7 +234,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             # Add the target slice to metadata to preserve original location.
             row['target_slice'] = target_slice
 
-            # Explicit type casting to match bigquery table schema.
+            # Get the stamp for the target
             stamp = data[target_slice].flatten().tolist()
 
             row_values = [
@@ -253,8 +249,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 row.background,
                 target_slice[0],
                 target_slice[1],
+                stamp
             ]
-            row_values.extend(stamp)
 
             # Write out stamp data
             writer.writerow(row_values)
