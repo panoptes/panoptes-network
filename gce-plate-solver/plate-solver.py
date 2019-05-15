@@ -197,7 +197,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
     data = fits.getdata(fits_fn)
     image_id = None
 
-    print(f'Getting point sources')
+    print(f'Extracting {len(point_sources)} point sources from {fits_fn}')
 
     row = point_sources.iloc[0]
     sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
