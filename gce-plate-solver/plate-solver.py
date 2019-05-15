@@ -1,7 +1,6 @@
 import os
 import time
 from contextlib import suppress
-import numpy as np
 
 from google.cloud import storage
 from google.cloud import pubsub
@@ -201,30 +200,14 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
 
     row = point_sources.iloc[0]
     sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
-    sources_data_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}_data.csv'
     print(f'Sources metadata will be extracted to {sources_csv_fn}')
-    print(f'Sources data will be extracted to {sources_data_csv_fn}')
-
-    # Make Bayer pattern
-    # See `panoptes_utils.images.processing.pixel_color` for details
-    # bayer[1::2, 0::2] = 1 # Red
-    # bayer[1::2, 1::2] = 1 # Green
-    # bayer[0::2, 0::2] = 1 # Green
-    # bayer[0::2, 1::2] = 1 # Blue
-    bayer = np.ones((stamp_size, stamp_size)).astype(str)
-    bayer[1::2, 0::2] = 'r'  # Red
-    bayer[1::2, 1::2] = 'g1'  # Green
-    bayer[0::2, 0::2] = 'g2'  # Green
-    bayer[0::2, 1::2] = 'b'  # Blue
-    bayer = list(bayer.flatten())
 
     print(f'Starting source extraction for {fits_fn}')
-    with open(sources_csv_fn, 'w') as metadata_fn, open(sources_data_csv_fn, 'w') as data_fn:
-        meta_writer = csv.writer(metadata_fn, quoting=csv.QUOTE_MINIMAL)
-        data_writer = csv.writer(data_fn, quoting=csv.QUOTE_MINIMAL)
+    with open(sources_csv_fn, 'w') as metadata_fn:
+        writer = csv.writer(metadata_fn, quoting=csv.QUOTE_MINIMAL)
 
         # Write out headers.
-        meta_csv_headers = [
+        csv_headers = [
             'picid',
             'unit_id',
             'camera_id',
@@ -236,17 +219,11 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
             'sextractor_background',
             'slice_y',
             'slice_x',
-            'stamp_id'
         ]
-        meta_writer.writerow(meta_csv_headers)
-
-        # We are storing A LOT of rows in tidy format.
-        data_csv_headers = ['stamp_id', 'rank', 'color', 'value']
-        data_writer.writerow(data_csv_headers)
+        csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
+        writer.writerow(csv_headers)
 
         for picid, row in point_sources.iterrows():
-            stamp_id = f'{picid}_{row.unit_id}_{row.camera_id}_{row.seq_time}_{row.img_time}'
-
             # Get the stamp for the target
             target_slice = helpers.get_stamp_slice(
                 row.x, row.y,
@@ -257,8 +234,9 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
 
             # Add the target slice to metadata to preserve original location.
             row['target_slice'] = target_slice
+            stamp = data[target_slice].flatten().tolist()
 
-            meta_row_values = [
+            row_values = [
                 int(picid),
                 str(row.unit_id),
                 str(row.camera_id),
@@ -270,31 +248,25 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
                 row.background,
                 target_slice[0],
                 target_slice[1],
-                stamp_id
+                *stamp
             ]
 
             # Write out stamp data
-            meta_writer.writerow(meta_row_values)
-
-            # There is a better way to do this.
-            stamp = data[target_slice].flatten().tolist()
-            for i, pixel_value in enumerate(stamp):
-                data_writer.writerow([stamp_id, i, bayer[i], pixel_value])
+            writer.writerow(row_values)
 
     # Upload the CSV files.
-    for upload_fn in [sources_csv_fn, sources_data_csv_fn]:
-        try:
-            upload_blob(upload_fn,
-                        destination=upload_fn.replace('-', '/'),
-                        bucket_name='panoptes-detected-sources')
-        except Exception as e:
-            print(f'Uploading of sources failed for {upload_fn}')
-            update_state('error_uploading_sources', image_id=image_id)
-        finally:
-            # Remove generated files from local server.
-            with suppress(FileNotFoundError):
-                print(f'Cleaning up {upload_fn}')
-                os.remove(upload_fn)
+    try:
+        upload_blob(sources_csv_fn,
+                    destination=sources_csv_fn.replace('-', '/'),
+                    bucket_name='panoptes-detected-sources')
+    except Exception as e:
+        print(f'Uploading of sources failed for {sources_csv_fn}')
+        update_state('error_uploading_sources', image_id=image_id)
+    finally:
+        # Remove generated files from local server.
+        with suppress(FileNotFoundError):
+            print(f'Cleaning up {sources_csv_fn}')
+            os.remove(sources_csv_fn)
 
     return True
 
