@@ -1,8 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
-    app: similar-source-finder-deployment
+  labels: {app: similar-source-finder-deployment}
   name: similar-source-finder-deployment
   namespace: default
 spec:
@@ -10,18 +9,14 @@ spec:
   replicas: 1
   revisionHistoryLimit: 10
   selector:
-    matchLabels:
-      app: similar-source-finder-deployment
+    matchLabels: {app: similar-source-finder-deployment}
   strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 1}
     type: RollingUpdate
   template:
     metadata:
       creationTimestamp: null
-      labels:
-        app: similar-source-finder-deployment
+      labels: {app: similar-source-finder-deployment}
     spec:
       containers:
       - env:
@@ -37,6 +32,7 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      nodeSelector: {for: similar-sources}
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}

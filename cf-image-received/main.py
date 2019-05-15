@@ -21,7 +21,7 @@ def image_received(request):
     Triggered when file is uploaded to bucket.
 
     FITS: Set header variables and then forward to endpoint for adding headers
-    to the metadatabase. The header is looked up from the file id, including the
+    to the metadatabase. The header is lokoed up from the file id, including the
     storage bucket file generation id, which are stored into the headers.
 
     CR2: Trigger creation of timelapse and jpg images.
