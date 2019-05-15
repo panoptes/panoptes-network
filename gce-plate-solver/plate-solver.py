@@ -11,7 +11,7 @@ from astropy.io import fits
 import csv
 import requests
 
-from pocs.utils.images import fits as fits_utils
+from panoptes_utils.images import fits as fits_utils
 from piaa.utils.postgres import get_cursor
 from piaa.utils import pipeline
 from piaa.utils import helpers
@@ -72,12 +72,12 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         print(f'Solving {bucket_path}')
-        sources_fn = solve_file(bucket_path,
-                                object_id,
-                                catalog_db_cursor,
-                                metadata_db_cursor,
-                                force=force)
-        print(f'    Write sources file {sources_fn}')
+        sources_bucket_path = solve_file(bucket_path,
+                                         object_id,
+                                         catalog_db_cursor,
+                                         metadata_db_cursor,
+                                         force=force)
+        print(f'Write sources file {sources_bucket_path}')
     finally:
         print(f'Finished processing {bucket_path}.')
         catalog_db_cursor.close()
@@ -161,7 +161,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             raise e
 
         print(f'Looking up sources for {fits_fn}')
-        sources_fn = get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
+        sources_bucket_path = get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
         update_state('sources_extracted', image_id=image_id)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -169,7 +169,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             fz_fn = fits_utils.fpack(fits_fn)
             upload_blob(fz_fn, bucket_path, bucket=bucket)
 
-        return sources_fn
+        return sources_bucket_path
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
@@ -216,16 +216,15 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             'x', 'y',
             'ra', 'dec',
             'sextractor_flags',
-            'background',
+            'sextractor_background',
             'slice_y',
             'slice_x',
+            'stamp'
         ]
         # Add column headers for flattened stamp.
-        csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
 
         for picid, row in point_sources.iterrows():
-            image_id = row.image_id
 
             # Get the stamp for the target
             target_slice = helpers.get_stamp_slice(
@@ -253,26 +252,27 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 row.background,
                 target_slice[0],
                 target_slice[1],
+                stamp
             ]
-            row_values.extend(stamp)
 
             # Write out stamp data
             writer.writerow(row_values)
 
     # Upload the detected soruces CSV.
     try:
-        upload_blob(sources_csv_fn,
-                    destination=sources_csv_fn.replace('-', '/'),
-                    bucket_name='panoptes-detected-sources')
+        bucket_path = upload_blob(sources_csv_fn,
+                                  destination=sources_csv_fn.replace('-', '/'),
+                                  bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {fits_fn}')
         update_state('error_uploading_sources', image_id=image_id)
+        bucket_path = None
     finally:
         with suppress(FileNotFoundError):
             print(f'Cleaning up {sources_csv_fn}')
             os.remove(sources_csv_fn)
 
-    return sources_csv_fn
+    return bucket_path
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
@@ -312,6 +312,8 @@ def upload_blob(source_file_name, destination, bucket=None, bucket_name='panopte
     blob.upload_from_filename(source_file_name)
 
     print('File {} uploaded to {}.'.format(source_file_name, destination))
+
+    return destination
 
 
 def update_state(state, sequence_id=None, image_id=None):

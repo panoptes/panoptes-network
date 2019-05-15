@@ -3,5 +3,6 @@ gunicorn
 requests
 google-cloud-storage
 google-cloud-pubsub
+panoptes-utils
 pandas
 astropy
