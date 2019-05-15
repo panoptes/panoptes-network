@@ -1,6 +1,7 @@
 import os
 import time
 from contextlib import suppress
+import numpy as np
 
 from google.cloud import storage
 from google.cloud import pubsub
@@ -72,14 +73,15 @@ def msg_callback(message):
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
 
         print(f'Solving {bucket_path}')
-        sources_bucket_path = solve_file(bucket_path,
-                                         object_id,
-                                         catalog_db_cursor,
-                                         metadata_db_cursor,
-                                         force=force)
-        print(f'Write sources file {sources_bucket_path}')
-    finally:
+        solve_file(bucket_path,
+                   object_id,
+                   catalog_db_cursor,
+                   metadata_db_cursor,
+                   force=force)
         print(f'Finished processing {bucket_path}.')
+    except Exception as e:
+        print(f'Problem with solve file: {e!r}')
+    finally:
         catalog_db_cursor.close()
         metadata_db_cursor.close()
         # Acknowledge message
@@ -161,7 +163,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             raise e
 
         print(f'Looking up sources for {fits_fn}')
-        sources_bucket_path = get_sources(point_sources, fits_fn, cursor=metadata_db_cursor)
+        get_sources(point_sources, fits_fn)
         update_state('sources_extracted', image_id=image_id)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -169,7 +171,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             fz_fn = fits_utils.fpack(fits_fn)
             upload_blob(fz_fn, bucket_path, bucket=bucket)
 
-        return sources_bucket_path
+        return
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
@@ -184,14 +186,13 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
     return None
 
 
-def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
+def get_sources(point_sources, fits_fn, stamp_size=10):
     """Get postage stamps for each PICID in the given file.
 
     Args:
         point_sources (`pandas.DataFrame`): A DataFrame containing the results from `sextractor`.
         fits_fn (str): The name of the FITS file to extract stamps from.
         stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
-        cursor (`psycopg2.Cursor`, optional): The DB cursor for the metadata database.
     """
     data = fits.getdata(fits_fn)
     image_id = None
@@ -200,14 +201,30 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
 
     row = point_sources.iloc[0]
     sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
-    print(f'Sources data will be extracted to {sources_csv_fn}')
+    sources_data_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}_data.csv'
+    print(f'Sources metadata will be extracted to {sources_csv_fn}')
+    print(f'Sources data will be extracted to {sources_data_csv_fn}')
+
+    # Make Bayer pattern
+    # See `panoptes_utils.images.processing.pixel_color` for details
+    # bayer[1::2, 0::2] = 1 # Red
+    # bayer[1::2, 1::2] = 1 # Green
+    # bayer[0::2, 0::2] = 1 # Green
+    # bayer[0::2, 1::2] = 1 # Blue
+    bayer = np.ones((stamp_size, stamp_size)).astype(str)
+    bayer[1::2, 0::2] = 'r'  # Red
+    bayer[1::2, 1::2] = 'g1'  # Green
+    bayer[0::2, 0::2] = 'g2'  # Green
+    bayer[0::2, 1::2] = 'b'  # Blue
+    bayer = list(bayer.flatten())
 
     print(f'Starting source extraction for {fits_fn}')
-    with open(sources_csv_fn, 'w') as csv_file:
-        writer = csv.writer(csv_file, quoting=csv.QUOTE_MINIMAL)
+    with open(sources_csv_fn, 'w') as metadata_fn, open(sources_data_csv_fn, 'w') as data_fn:
+        meta_writer = csv.writer(metadata_fn, quoting=csv.QUOTE_MINIMAL)
+        data_writer = csv.writer(data_fn, quoting=csv.QUOTE_MINIMAL)
 
         # Write out headers.
-        csv_headers = [
+        meta_csv_headers = [
             'picid',
             'unit_id',
             'camera_id',
@@ -219,12 +236,16 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             'sextractor_background',
             'slice_y',
             'slice_x',
-            'stamp'
+            'stamp_id'
         ]
-        # Add column headers for flattened stamp.
-        writer.writerow(csv_headers)
+        meta_writer.writerow(meta_csv_headers)
+
+        # We are storing A LOT of rows in tidy format.
+        data_csv_headers = ['stamp_id', 'rank', 'color', 'value']
+        data_writer.writerow(data_csv_headers)
 
         for picid, row in point_sources.iterrows():
+            stamp_id = f'{picid}_{row.unit_id}_{row.camera_id}_{row.seq_time}_{row.img_time}'
 
             # Get the stamp for the target
             target_slice = helpers.get_stamp_slice(
@@ -237,10 +258,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
             # Add the target slice to metadata to preserve original location.
             row['target_slice'] = target_slice
 
-            # Explicit type casting to match bigquery table schema.
-            stamp = data[target_slice].flatten().tolist()
-
-            row_values = [
+            meta_row_values = [
                 int(picid),
                 str(row.unit_id),
                 str(row.camera_id),
@@ -252,27 +270,33 @@ def get_sources(point_sources, fits_fn, stamp_size=10, cursor=None):
                 row.background,
                 target_slice[0],
                 target_slice[1],
-                stamp
+                stamp_id
             ]
 
             # Write out stamp data
-            writer.writerow(row_values)
+            meta_writer.writerow(meta_row_values)
 
-    # Upload the detected soruces CSV.
-    try:
-        bucket_path = upload_blob(sources_csv_fn,
-                                  destination=sources_csv_fn.replace('-', '/'),
-                                  bucket_name='panoptes-detected-sources')
-    except Exception as e:
-        print(f'Uploading of sources failed for {fits_fn}')
-        update_state('error_uploading_sources', image_id=image_id)
-        bucket_path = None
-    finally:
-        with suppress(FileNotFoundError):
-            print(f'Cleaning up {sources_csv_fn}')
-            os.remove(sources_csv_fn)
+            # There is a better way to do this.
+            stamp = data[target_slice].flatten().tolist()
+            for i, pixel_value in enumerate(stamp):
+                data_writer.writerow([stamp_id, i, bayer[i], pixel_value])
 
-    return bucket_path
+    # Upload the CSV files.
+    for upload_fn in [sources_csv_fn, sources_data_csv_fn]:
+        try:
+            upload_blob(upload_fn,
+                        destination=upload_fn.replace('-', '/'),
+                        bucket_name='panoptes-detected-sources')
+        except Exception as e:
+            print(f'Uploading of sources failed for {upload_fn}')
+            update_state('error_uploading_sources', image_id=image_id)
+        finally:
+            # Remove generated files from local server.
+            with suppress(FileNotFoundError):
+                print(f'Cleaning up {upload_fn}')
+                os.remove(upload_fn)
+
+    return True
 
 
 def download_blob(source_blob_name, destination=None, bucket=None, bucket_name='panoptes-survey'):
