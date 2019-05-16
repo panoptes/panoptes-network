@@ -1,2 +1,2 @@
-google-resumable-media==0.3.0
-psycopg2
+halo
+panoptes-utils
