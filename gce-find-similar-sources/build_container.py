@@ -3,9 +3,10 @@
 import subprocess
 import shutil
 import re
-import yaml
 
 from halo import Halo
+from panoptes_utils.serializers import to_yaml
+from panoptes_utils.serializers import from_yaml
 
 kube_fn = 'similar-source-finder-deployment.yaml'
 
@@ -46,7 +47,7 @@ def main(container_name='gcr.io/panoptes-survey/find-similar-sources', timeout=1
         try:
             # Get existing config
             with open(kube_fn, 'r') as f:
-                kube_config = yaml.load(f.read())
+                kube_config = from_yaml(f.read())
 
             # Set new sha on image name.
             new_image = f'{container_name}@sha256:{sha256}'
@@ -54,7 +55,7 @@ def main(container_name='gcr.io/panoptes-survey/find-similar-sources', timeout=1
 
             # Write new config.
             with open(kube_fn, 'w') as f:
-                f.write(yaml.dump(kube_config))
+                f.write(to_yaml(kube_config))
 
             spinner.succeed()
         except Exception as e:

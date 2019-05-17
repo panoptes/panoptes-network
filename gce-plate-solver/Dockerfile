@@ -1,9 +1,9 @@
-FROM gcr.io/panoptes-survey/piaa
+FROM gcr.io/panoptes-survey/panoptes-utils
 COPY . /app
 WORKDIR /app
-RUN cd /app && pip3 install -r requirements.txt
+RUN cd /app && pip install -r requirements.txt
 
 # Entrypoint will connect to database and get astrometry.net files
 ENTRYPOINT ["/bin/bash", "entrypoint.sh"]
 
-CMD ['/usr/bin/python3', 'plate-solver.py']
+CMD ['/usr/bin/python', 'plate-solver.py']

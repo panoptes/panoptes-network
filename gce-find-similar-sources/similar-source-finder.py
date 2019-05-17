@@ -5,6 +5,7 @@ import concurrent.futures
 from itertools import zip_longest
 from datetime import datetime
 from tqdm import tqdm
+from contextlib import suppress
 
 import requests
 from google.cloud import pubsub
@@ -15,10 +16,13 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
 # Storage
 OBSERVATION_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-observation-psc')
+SOURCES_BUCKET_NAME = os.getenv('UPLOAD_BUCKET', 'panoptes-detected-sources')
 PICID_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-picid')
 
 # Storage
 storage_client = storage.Client(project=PROJECT_ID)
+observation_bucket = storage_client.get_bucket(OBSERVATION_BUCKET_NAME)
+sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
 picid_bucket = storage_client.get_bucket(PICID_BUCKET_NAME)
 
 # Pubsub
@@ -42,21 +46,21 @@ def main():
                                               return_immediately=True)
         except Exception as e:
             log(f'Problem with pulling from subscriber: {e!r}')
+        else:
+            try:
+                # Process first (and only) message
+                message = response.received_messages[0]
+                log(f"Received message, processing: {message.ack_id}")
 
-        try:
-            # Process first (and only) message
-            message = response.received_messages[0]
-            log(f"Received message, processing: {message.ack_id}")
+                # Acknowledge immediately - resend pubsub on error below.
+                subscriber_client.acknowledge(pubsub_sub_path, [message.ack_id])
 
-            # Acknowledge immediately - resend pubsub on error below.
-            subscriber_client.acknowledge(pubsub_sub_path, [message.ack_id])
-
-            # Will block while processing.
-            process_message(message.message)
-            log(f"Message complete: {message.ack_id}")
-        except IndexError:
-            # No messages, sleep before looping again.
-            time.sleep(30)
+                # Will block while processing.
+                process_message(message.message)
+                log(f"Message complete: {message.ack_id}")
+            except IndexError:
+                # No messages, sleep before looping again.
+                time.sleep(30)
 
 
 def log(msg):
@@ -94,8 +98,8 @@ def process_message(message):
     # Create the observation PSC
     try:
         attributes['sequence_id'] = sequence_id
-        psc_df = make_observation_psc_df(**attributes)
-        if psc_df is None:
+        full_df = make_observation_psc_df(**attributes)
+        if full_df is None:
             raise Exception(f'Sequence ID: {sequence_id} No PSC created')
     except FileNotFoundError as e:
         log(f'File for {sequence_id} not found in bucket, skipping.')
@@ -111,6 +115,7 @@ def process_message(message):
     log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
 
     try:
+        psc_df = full_df.loc[:, 'pixel_00':]
         if find_similar_sources(psc_df, sequence_id, force_new=force_new):
             # Update state
             state = 'similar_sources_found'
@@ -140,13 +145,37 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
     log(f'Sequence ID: {sequence_id} Making PSC')
 
     sequence_id = sequence_id.replace('_', '/')
+    master_csv_fn = f'{sequence_id}.csv'
 
-    psc_fn = f'gs://{OBSERVATION_BUCKET_NAME}/{sequence_id}.csv'
-    log(f'Getting Observation CSV file in bucket: {psc_fn}')
+    # Look for existing file.
+    psc_df_blob = observation_bucket.get_blob(master_csv_fn)
+    if psc_df_blob and psc_df_blob.exists():
+        log(f'Found existing Observation PSC for {sequence_id}')
+        master_csv_fn = master_csv_fn.replace('/', '_')
+        master_csv_fn = f'/tmp/{master_csv_fn}'
 
-    log(f'Making DataFrame for {psc_fn}')
-    psc_df = pd.read_csv(psc_fn, index_col=[
-                         'image_time', 'picid'], parse_dates=True).sort_index()
+        log(f'Downloading Observation PSC for {sequence_id}')
+        psc_df_blob.download_to_filename(master_csv_fn)
+        psc_df = pd.read_csv(master_csv_fn, index_col=['image_time', 'picid'], parse_dates=True)
+        log(f'Returning Observation PSC for {sequence_id}')
+        return psc_df
+
+    log(f'Looking up files for {sequence_id}')
+    blobs = sources_bucket.list_blobs(prefix=sequence_id)
+
+    stamps = dict()
+    for blob in blobs:
+        # Save to local /tmp dir
+        remote_fn = blob.name.replace('/', '-')
+        temp_fn = f'/tmp/{remote_fn}'
+        blob.download_to_filename(temp_fn)
+
+        # Load dataframe
+        df0 = pd.read_csv(temp_fn, index_col=['image_time', 'picid'], parse_dates=True)
+        stamps[temp_fn] = df0
+
+    log(f'Making DataFrame for {len(stamps)} files')
+    psc_df = pd.concat(list(stamps.values()))
 
     # Report
     num_sources = len(psc_df.index.levels[1].unique())
@@ -180,7 +209,20 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
     num_frames = len(set(psc_df.index.levels[0].unique()))
     log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
+    # Remove files
+    for fn in stamps.keys():
+        with suppress(FileNotFoundError):
+            os.remove(fn)
+
     log(f"PSC DataFrame created for {sequence_id}")
+
+    try:
+        bucket_url = f'gs://{OBSERVATION_BUCKET_NAME}/{master_csv_fn}'
+        log(f"Saving full CSV for {sequence_id} to {bucket_url}")
+        psc_df.to_csv(bucket_url)
+    except Exception as e:
+        print(f'Problem saving master CSV file: {e!r}')
+
     return psc_df
 
 
@@ -196,11 +238,11 @@ def compare_stamps(params):
 
         ref_table = call_params['all_psc']
         sequence_id = call_params['sequence_id']
-        force_new = call_params['force_new'].lower() == 'true'
+        force_new = call_params['force_new']
 
         # Check if file already exists
         save_fn = f'{picid}/{sequence_id}-similar-sources.csv'
-        if force_new is False and picid_bucket.get_blob(save_fn).exists():
+        if force_new is False and picid_bucket.get_blob(save_fn):
             raise FileExistsError('File already found in storage bucket')
 
         # Align index with target
@@ -211,21 +253,26 @@ def compare_stamps(params):
         # norm_target = target_table.droplevel('picid')
         norm_group = ((ref_table - target_table)**2).dropna().sum(axis=1).groupby('picid')
 
-        top_matches = (norm_group.sum() / norm_group.std()).sort_values()[:200]
+        top_matches = (norm_group.sum() / norm_group.std()).sort_values()[:500]
 
         save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
         top_matches.index.name = 'picid'
         top_matches.to_csv(save_fn, header=['sum_ssd'])
     except FileExistsError:
-        pass
+        return False
+    except ValueError:
+        # Mismatched frames
+        return False
     except Exception as e:
-        print(f'ERROR Sequence {sequence_id} Normalize: {e!r}')
-    finally:
+        # Don't want to spit out error in thread
+        print(f'ERROR PICID {picid} Sequence {sequence_id} Normalize: {e!r}')
+        return False
+    else:
         return picid
 
 
 def find_similar_sources(stamps_df, sequence_id, force_new=False):
-    log(f'Loading PSC CSV for {sequence_id}')
+    log(f'Finding similar sources for {sequence_id}')
 
     # Normalize each stamp
     log(f'Normalizing PSC for {sequence_id}')
@@ -245,10 +292,10 @@ def find_similar_sources(stamps_df, sequence_id, force_new=False):
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
         picids = list(tqdm(
-            executor.map(compare_stamps, params, chunksize=2),
+            executor.map(compare_stamps, params, chunksize=4),
             total=len(grouped_sources)
         ))
-        log(f'Found similar stars for {len(picids)} sources')
+        log(f'Found similar stars for {sum(picids)} sources')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
     return True

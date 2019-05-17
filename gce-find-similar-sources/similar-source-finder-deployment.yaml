@@ -6,20 +6,20 @@ metadata:
   name: similar-source-finder-deployment
   namespace: default
 spec:
-  progressDeadlineSeconds: 2147483647
-  replicas: 1
-  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 2147483647.0
+  replicas: 1.0
+  revisionHistoryLimit: 10.0
   selector:
     matchLabels:
       app: similar-source-finder-deployment
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
+      maxSurge: 1.0
+      maxUnavailable: 1.0
     type: RollingUpdate
   template:
     metadata:
-      creationTimestamp: null
+      creationTimestamp:
       labels:
         app: similar-source-finder-deployment
     spec:
@@ -27,10 +27,10 @@ spec:
       - env:
         - name: POSTGRES_PASSWORD
           valueFrom:
-            configMapKeyRef: 
+            configMapKeyRef:
               key: POSTGRES_PASSWORD
               name: solve-and-extract-deployment-config
-        image: gcr.io/panoptes-survey/find-similar-sources@sha256:2f9f413f8b3a843ae92d37fbd9629d2eccdc3d919b8f7fd5caf459ea57326818
+        image: gcr.io/panoptes-survey/find-similar-sources@sha256:7f0cd90c1d445cec035b1ba482ded79c8878e9ceddf986eafd6ea3ef6a735e61
         imagePullPolicy: Always
         name: similar-source-finder-container
         resources: {}
@@ -40,4 +40,4 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 30.0
