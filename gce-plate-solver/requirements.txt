@@ -1,10 +1,12 @@
-Flask
-gunicorn
-requests
-google-cloud-storage
-google-cloud-pubsub
-numpy
-panoptes-utils
-pandas
-panoptes_utils
 astropy
+Flask
+google-cloud-pubsub
+google-cloud-storage
+gunicorn
+numpy
+pandas
+panoptes-utils
+photutils
+tqdm
+requests
+-e git+git://github.com/panoptes/PIAA.git@develop#egg=piaa

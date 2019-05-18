@@ -13,10 +13,10 @@ from astropy.io import fits
 import csv
 import requests
 
-from panoptes_utils.images import fits as fits_utils
-from piaa.utils.postgres import get_cursor
+from panoptes.utils.images import fits as fits_utils
+from panoptes.utils.google.cloudsql import get_cursor
+from panoptes.utils import bayer
 from piaa.utils import pipeline
-from piaa.utils import helpers
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
@@ -227,7 +227,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
 
         for picid, row in point_sources.iterrows():
             # Get the stamp for the target
-            target_slice = helpers.get_stamp_slice(
+            target_slice = bayer.get_stamp_slice(
                 row.x, row.y,
                 stamp_size=(stamp_size, stamp_size),
                 ignore_superpixel=False,
