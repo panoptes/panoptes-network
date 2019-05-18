@@ -5,8 +5,7 @@ google-cloud-storage
 gunicorn
 numpy
 pandas
-panoptes-utils
-photutils
 tqdm
 requests
+-e git+git://github.com/panoptes/panoptes-utils.git@develop#egg=panoptes-utils
 -e git+git://github.com/panoptes/PIAA.git@develop#egg=piaa
