@@ -1,9 +1,16 @@
-FROM gcr.io/panoptes-survey/panoptes-utils
+ARG arch=amd64
+
+FROM gcr.io/panoptes-survey/panoptes-utils:$arch
+MAINTAINER Developers for PANOPTES project<https://github.com/panoptes/POCS>
+
+ARG pandir=/var/panoptes
+ARG which_pip=pip
+
+ENV PANDIR $pandir
+ENV POCS ${PANDIR}/POCS
+
 COPY . /app
 WORKDIR /app
 RUN cd /app && pip install -r requirements.txt
 
-# Entrypoint will connect to database and get astrometry.net files
-ENTRYPOINT ["/bin/bash", "entrypoint.sh"]
-
-CMD ['/usr/bin/python', 'plate-solver.py']
+CMD ['/app/plate-solver.py']
