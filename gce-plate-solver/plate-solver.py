@@ -78,8 +78,13 @@ def msg_callback(message):
         # Get DB cursors
         catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
+    except Exception as e:
+        error_msg = f"Can't connect to Cloud SQL proxy: {e!r}"
+        print(error_msg)
+        raise Exception(error_msg)
 
-        print(f'Solving {bucket_path}')
+    print(f'Solving {bucket_path}')
+    try:
         solve_file(bucket_path,
                    object_id,
                    catalog_db_cursor,
@@ -87,6 +92,7 @@ def msg_callback(message):
                    force=force)
         print(f'Finished processing {bucket_path}.')
     except Exception as e:
+        print(f'Problem with solve file: {e!r}')
         raise Exception(f'Problem with solve file: {e!r}')
     finally:
         catalog_db_cursor.close()
