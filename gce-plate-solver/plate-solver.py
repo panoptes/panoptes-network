@@ -16,7 +16,7 @@ import requests
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.google.cloudsql import get_cursor
 from panoptes.utils import bayer
-from piaa.utils import pipeline
+from panoptes.piaa.utils import pipeline
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
@@ -54,7 +54,7 @@ def main():
         while True:
             time.sleep(30)
     except Exception as e:
-        print(f'Problem starting subscriber: {e!r}')
+        print(f'Problem in message callback: {e!r}')
         future.cancel()
 
 
@@ -81,7 +81,7 @@ def msg_callback(message):
                    force=force)
         print(f'Finished processing {bucket_path}.')
     except Exception as e:
-        print(f'Problem with solve file: {e!r}')
+        raise(f'Problem with solve file: {e!r}')
     finally:
         catalog_db_cursor.close()
         metadata_db_cursor.close()
