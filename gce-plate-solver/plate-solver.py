@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import time
 from contextlib import suppress
 
@@ -17,6 +18,11 @@ from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.google.cloudsql import get_cursor
 from panoptes.utils import bayer
 from panoptes.piaa.utils import pipeline
+
+if ((os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '') == '') and
+        (os.environ.get('GOOGLE_COMPUTE_INSTANCE', '') == '')):
+    print(f"Don't know how to authenticate, refusing to run.")
+    sys.exit(1)
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
@@ -81,7 +87,7 @@ def msg_callback(message):
                    force=force)
         print(f'Finished processing {bucket_path}.')
     except Exception as e:
-        raise(f'Problem with solve file: {e!r}')
+        raise Exception(f'Problem with solve file: {e!r}')
     finally:
         catalog_db_cursor.close()
         metadata_db_cursor.close()
