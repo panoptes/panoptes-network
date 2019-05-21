@@ -7,6 +7,7 @@ from contextlib import suppress
 
 from google.cloud import storage
 from google.cloud import pubsub
+from google.cloud.pubsub_v1.subscriber.scheduler import ThreadScheduler
 
 from dateutil.parser import parse as parse_date
 from astropy.io import fits
@@ -17,7 +18,7 @@ import requests
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.google.cloudsql import get_cursor
 from panoptes.utils import bayer
-from panoptes.piaa.utils import pipeline
+from panoptes.piaa.utils.sources import lookup_point_sources
 
 if ((os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '') == '') and
         (os.environ.get('GOOGLE_COMPUTE_INSTANCE', '') == '')):
@@ -45,15 +46,23 @@ get_state_url = os.getenv(
     'https://us-central1-panoptes-survey.cloudfunctions.net/get-state'
 )
 
+# Maximum number of simultaneous messages to process
+MAX_MESSAGES = os.getenv('MAX_MESSAGES', 5)
+
 
 def main():
     print(f"Starting pubsub listen on {pubsub_sub_path}")
 
     try:
         # max_messages means we only process one at a time.
-        flow_control = pubsub.types.FlowControl(max_messages=1)
+        flow_control = pubsub.types.FlowControl(max_messages=MAX_MESSAGES)
+        scheduler = ThreadScheduler()
         future = subscriber_client.subscribe(
-            pubsub_sub_path, callback=msg_callback, flow_control=flow_control)
+            pubsub_sub_path,
+            callback=msg_callback,
+            flow_control=flow_control,
+            scheduler=scheduler
+        )
 
         # Keeps main thread from exiting.
         print(f"Plate-solver subscriber started, entering listen loop")
@@ -62,6 +71,7 @@ def main():
     except Exception as e:
         print(f'Problem in message callback: {e!r}')
         future.cancel()
+        subscriber_client.close()
 
 
 def msg_callback(message):
@@ -79,6 +89,7 @@ def msg_callback(message):
         catalog_db_cursor = get_cursor(port=5433, db_name='v702', db_user='panoptes')
         metadata_db_cursor = get_cursor(port=5432, db_name='metadata', db_user='panoptes')
     except Exception as e:
+        message.nack()
         error_msg = f"Can't connect to Cloud SQL proxy: {e!r}"
         print(error_msg)
         raise Exception(error_msg)
@@ -156,7 +167,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         # Lookup point sources
         try:
             print(f'Looking up sources for {fits_fn}')
-            point_sources = pipeline.lookup_point_sources(
+            point_sources = lookup_point_sources(
                 fits_fn,
                 force_new=True,
                 cursor=catalog_db_cursor
