@@ -8,4 +8,5 @@ gcloud builds submit \
     ${SOURCE_DIR}
 
 # echo "Updating GCE container"
-# gcloud compute instances update-container solve-and-extract
+# IMAGE_NAME="gcr.io/panoptes-survey/solve-extract@sha-256:XXXXXX"
+# gcloud compute instances update-container solve-and-extract --container-image "${IMAGE_NAME}"
