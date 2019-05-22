@@ -9,4 +9,4 @@ gcloud builds submit \
 
 # echo "Updating GCE container"
 # IMAGE_NAME="gcr.io/panoptes-survey/find-similar-sources@sha-256:XXXXXX"
-# gcloud compute instances update-container find-similar-sources --container-image "${IMAGE_NAME}"
+# gcloud compute instances update-container find-similar-sources-1 --container-image "${IMAGE_NAME}"
