@@ -2,8 +2,8 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: solve-and-extract-deployment
-  name: solve-and-extract-deployment
+    app: solve-extract-find-sources-deployment
+  name: solve-extract-find-sources-deployment
   namespace: default
 spec:
   progressDeadlineSeconds: 2147483647
@@ -11,7 +11,7 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: solve-and-extract-deployment
+      app: solve-extract-find-sources-deployment
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -21,7 +21,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        app: solve-and-extract-deployment
+        app: solve-extract-find-sources-deployment
     spec:
       containers:
       - env:
@@ -29,7 +29,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: POSTGRES_PASSWORD
-              name: solve-and-extract-deployment-config
+              name: solve-extract-find-sources-deployment-config
         image: gcr.io/panoptes-survey/solve-extract@sha256:2bde3a47fd43e8e1bffec6fb81c741b232f1184bd89ac0d12cc4fe2ef03c16e7
         imagePullPolicy: Always
         name: solve-extract-container
