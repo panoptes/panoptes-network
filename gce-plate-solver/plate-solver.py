@@ -113,24 +113,25 @@ def msg_callback(message):
 
 
 def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False):
-
-    try:  # Wrap everything so we can do file cleanup
-
+    try:
         unit_id, field, cam_id, seq_time, file = bucket_path.split('/')
         img_time = file.split('.')[0]
         image_id = f'{unit_id}_{cam_id}_{img_time}'
+    except Exception as e:
+        raise Exception(f'Invalid file, skipping {bucket_path}')
 
-        # Don't process pointing images.
-        if 'pointing' in bucket_path:
-            print(f'Skipping pointing file: {image_id}')
-            update_state('skipped', image_id=image_id)
-            return
+    # Don't process pointing images.
+    if 'pointing' in bucket_path:
+        print(f'Skipping pointing file: {image_id}')
+        update_state('skipped', image_id=image_id)
+        return
 
-        # Don't process files that have been processed.
-        if (force is False) and (get_state(image_id=image_id) == 'sources_extracted'):
-            print(f'Skipping already processed image: {image_id}')
-            return
+    # Don't process files that have been processed.
+    if (force is False) and (get_state(image_id=image_id) == 'sources_extracted'):
+        print(f'Skipping already processed image: {image_id}')
+        return
 
+    try:  # Wrap everything so we can do file cleanup
         # Download file blob from bucket
         print(f'Downloading {bucket_path}')
         fz_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
