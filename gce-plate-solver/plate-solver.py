@@ -122,13 +122,13 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
 
         # Don't process pointing images.
         if 'pointing' in bucket_path:
-            print(f'Skipping pointing file.')
+            print(f'Skipping pointing file: {image_id}')
             update_state('skipped', image_id=image_id)
             return
 
         # Don't process files that have been processed.
         if (force is False) and (get_state(image_id=image_id) == 'sources_extracted'):
-            print(f'Skipping already processed image.')
+            print(f'Skipping already processed image: {image_id}')
             return
 
         # Download file blob from bucket
@@ -137,8 +137,11 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
 
         # Unpack the FITS file
         print(f'Unpacking {fz_fn}')
-        fits_fn = fits_utils.fpack(fz_fn, unpack=True)
-        if not os.path.exists(fits_fn):
+        try:
+            fits_fn = fits_utils.funpack(fz_fn)
+            if not os.path.exists(fits_fn):
+                raise FileNotFoundError(f"No {fits_fn} after unpacking")
+        except Exception as e:
             update_state('error_unpacking', image_id=image_id)
             raise Exception(f'Problem unpacking {fz_fn}')
 
