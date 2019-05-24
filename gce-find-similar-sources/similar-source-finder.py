@@ -130,7 +130,7 @@ def process_message(message):
         return
 
 
-def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold=0.95, **kwargs):
+def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold=0.95, force_new=False, **kwargs):
     """Makes a PSC dataframe for the given sequence id.
 
     Args:
@@ -150,17 +150,20 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
     master_csv_fn = f'{sequence_id}.csv'
 
     # Look for existing file.
-    psc_df_blob = observation_bucket.get_blob(master_csv_fn)
-    if psc_df_blob and psc_df_blob.exists():
-        log(f'Found existing Observation PSC for {sequence_id}')
-        master_csv_fn = master_csv_fn.replace('/', '_')
-        master_csv_fn = f'/tmp/{master_csv_fn}'
+    if force_new is False:
+        psc_df_blob = observation_bucket.get_blob(master_csv_fn)
+        if psc_df_blob and psc_df_blob.exists():
+            log(f'Found existing Observation PSC for {sequence_id}')
+            master_csv_fn = master_csv_fn.replace('/', '_')
+            master_csv_fn = f'/tmp/{master_csv_fn}'
 
-        log(f'Downloading Observation PSC for {sequence_id}')
-        psc_df_blob.download_to_filename(master_csv_fn)
-        psc_df = pd.read_csv(master_csv_fn, index_col=['image_time', 'picid'], parse_dates=True)
-        log(f'Returning Observation PSC for {sequence_id}')
-        return psc_df
+            log(f'Downloading Observation PSC for {sequence_id}')
+            psc_df_blob.download_to_filename(master_csv_fn)
+            psc_df = pd.read_csv(master_csv_fn, index_col=['image_time', 'picid'], parse_dates=True)
+            log(f'Returning Observation PSC for {sequence_id}')
+            return psc_df
+    else:
+        log(f'Forcing new observation PSC for {sequence_id}')
 
     log(f'Looking up files for {sequence_id}')
     blobs = sources_bucket.list_blobs(prefix=sequence_id)
