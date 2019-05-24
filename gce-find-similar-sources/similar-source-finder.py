@@ -6,12 +6,12 @@ import re
 import concurrent.futures
 from itertools import zip_longest
 from datetime import datetime
-from tqdm import tqdm
 from contextlib import suppress
 
 import requests
 from google.cloud import pubsub
 from google.cloud import storage
+import numpy as np
 import pandas as pd
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
@@ -44,7 +44,7 @@ def main():
     while True:
         try:
             response = subscriber_client.pull(pubsub_sub_path,
-                                              max_messages=1,
+                                              max_messages=2,
                                               return_immediately=True)
         except Exception as e:
             log(f'Problem with pulling from subscriber: {e!r}')
@@ -125,12 +125,17 @@ def process_message(message):
             requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
     except Exception as e:
         log(f'ERROR Sequence {sequence_id}: {e!r}')
-    finally:
+    else:
         log(f'Finished processing {sequence_id}.')
-        return
+
+    return
 
 
-def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold=0.95, force_new=False, **kwargs):
+def make_observation_psc_df(sequence_id=None,
+                            min_num_frames=10,
+                            frame_threshold=0.95,
+                            force_new=False,
+                            **kwargs):
     """Makes a PSC dataframe for the given sequence id.
 
     Args:
@@ -159,7 +164,9 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
 
             log(f'Downloading Observation PSC for {sequence_id}')
             psc_df_blob.download_to_filename(master_csv_fn)
-            psc_df = pd.read_csv(master_csv_fn, index_col=['image_time', 'picid'], parse_dates=True)
+            psc_df = pd.read_csv(master_csv_fn,
+                                 index_col=['image_time', 'picid'],
+                                 parse_dates=True)
             log(f'Returning Observation PSC for {sequence_id}')
             return psc_df
     else:
@@ -180,7 +187,7 @@ def make_observation_psc_df(sequence_id=None, min_num_frames=10, frame_threshold
         stamps[temp_fn] = df0
 
     log(f'Making DataFrame for {len(stamps)} files')
-    psc_df = pd.concat(list(stamps.values()))
+    psc_df = pd.concat(list(stamps.values()), sort=True)
 
     # Report
     num_sources = len(psc_df.index.levels[1].unique())
@@ -281,7 +288,12 @@ def find_similar_sources(stamps_df, sequence_id, force_new=False):
 
     # Normalize each stamp
     log(f'Normalizing PSC for {sequence_id}')
-    norm_df = stamps_df.copy().apply(lambda x: x / stamps_df.sum(axis=1))
+    try:
+        final_pixel = [c for c in stamps_df.columns if c.startswith('pixel')][-1]
+        norm_df = stamps_df.loc[:, 'pixel_00':final_pixel].apply(
+            lambda x: x / stamps_df.sum(axis=1))
+    except Exception as e:
+        raise e
 
     call_params = dict(
         all_psc=norm_df,
@@ -291,16 +303,16 @@ def find_similar_sources(stamps_df, sequence_id, force_new=False):
 
     log(f'Starting loop of PSCs for {sequence_id}')
     # Run everything in parallel.
+    start_time = datetime.now()
     with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
         grouped_sources = norm_df.groupby('picid')
 
         params = zip_longest(grouped_sources, [], fillvalue=call_params)
 
-        picids = list(tqdm(
-            executor.map(compare_stamps, params, chunksize=4),
-            total=len(grouped_sources)
-        ))
-        log(f'Found similar stars for {sum(picids)} sources')
+        picids = np.array(list(executor.map(compare_stamps, params, chunksize=4))).astype(bool)
+        end_time = datetime.now()
+        total_time = (end_time - start_time).total_seconds()
+        log(f'Found similar stars for {picids.sum()} sources in {total_time:.1f} seconds')
 
     log(f'Sequence {sequence_id}: finished PICID loop')
     return True
