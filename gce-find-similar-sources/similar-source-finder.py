@@ -38,13 +38,17 @@ update_state_url = os.getenv(
 )
 
 
+class InvalidPSC(Exception):
+    pass
+
+
 def main():
     log(f"Starting similar source finder on {pubsub_sub_path}")
 
     while True:
         try:
             response = subscriber_client.pull(pubsub_sub_path,
-                                              max_messages=2,
+                                              max_messages=3,
                                               return_immediately=True)
         except Exception as e:
             log(f'Problem with pulling from subscriber: {e!r}')
@@ -106,6 +110,9 @@ def process_message(message):
     except FileNotFoundError as e:
         log(f'File for {sequence_id} not found in bucket, skipping.')
         return
+    except InvalidPSC as e:
+        log(f'Problem with PSC for {sequence_id}: {e!r}')
+        return
     except Exception as e:
         log(f'Error making PSC: {e!r}')
         # Update state
@@ -147,7 +154,7 @@ def make_observation_psc_df(sequence_id=None,
         `pandas.DataFrame`: Dataframe of the PSC.
     """
     if sequence_id is None:
-        return
+        raise InvalidPSC('No sequence_id given')
 
     log(f'Sequence ID: {sequence_id} Making PSC')
 
@@ -167,8 +174,15 @@ def make_observation_psc_df(sequence_id=None,
             psc_df = pd.read_csv(master_csv_fn,
                                  index_col=['image_time', 'picid'],
                                  parse_dates=True)
-            log(f'Returning Observation PSC for {sequence_id}')
-            return psc_df
+
+            log(f'Checking existing Observation PSC for {sequence_id}')
+            if 'sextractor_flags' in psc_df.columns:
+                log(f'Returning Observation PSC for {sequence_id}')
+                return psc_df
+            else:
+                del psc_df
+                log(f'Missing columns in existing PSC, forcing new.')
+
     else:
         log(f'Forcing new observation PSC for {sequence_id}')
 
@@ -198,7 +212,7 @@ def make_observation_psc_df(sequence_id=None,
         state = 'error_seq_too_short'
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
         log(f'Not enough frames found for {sequence_id}: {num_frames} frames found')
-        return None
+        raise InvalidPSC('Sequence too short')
 
     # Get minimum frame threshold
     frame_count = psc_df.groupby('picid').count().pixel_00
@@ -258,28 +272,39 @@ def compare_stamps(params):
             raise FileExistsError('File already found in storage bucket')
 
         # Align index with target
-        include_frames = ref_table.index.levels[0].isin(target_table.index.levels[0])
+        target_frames = target_table.index.levels[0]
+        print(f'Target {picid} has {len(target_frames)} frames')
+        include_frames = ref_table.index.levels[0].isin(target_frames)
+        print(f'Reference for {picid} matched {len(include_frames)} frames')
+
         # Get PSC for matching frames
+        print(f'Building reference table with matching frames for {picid}')
         ref_table = np.array(ref_table.loc[include_frames])
+        print(f'reference table shape for {picid}: {ref_table.shape}')
 
         # norm_target = target_table.droplevel('picid')
+        print(f'Normalizing references for {picid}')
         norm_group = ((ref_table - target_table)**2).dropna().sum(axis=1).groupby('picid')
 
+        print(f'Finding top matches for {picid}')
         top_matches = (norm_group.sum() / norm_group.std()).sort_values()[:500]
 
         save_fn = f'gs://{PICID_BUCKET_NAME}/{picid}/{sequence_id}-similar-sources.csv'
+        print(f'Saving {picid} to {save_fn}')
         top_matches.index.name = 'picid'
         top_matches.to_csv(save_fn, header=['sum_ssd'])
     except FileExistsError:
         return False
-    except ValueError:
+    except ValueError as e:
         # Mismatched frames
+        print(f'Mismatched frames for {sequence_id}: {e!r}')
         return False
     except Exception as e:
         # Don't want to spit out error in thread
         print(f'ERROR PICID {picid} Sequence {sequence_id} Normalize: {e!r}')
         return False
     else:
+        print(f'Compare stamps complete for {picid}')
         return picid
 
 
