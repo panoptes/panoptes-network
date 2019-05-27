@@ -47,7 +47,7 @@ get_state_url = os.getenv(
 )
 
 # Maximum number of simultaneous messages to process
-MAX_MESSAGES = os.getenv('MAX_MESSAGES', 5)
+MAX_MESSAGES = os.getenv('MAX_MESSAGES', 2)
 
 
 def main():
@@ -118,7 +118,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         img_time = file.split('.')[0]
         image_id = f'{unit_id}_{cam_id}_{img_time}'
     except Exception as e:
-        raise Exception(f'Invalid file, skipping {bucket_path}')
+        raise Exception(f'Invalid file, skipping {bucket_path}: {e!r}')
 
     # Don't process pointing images.
     if 'pointing' in bucket_path:
@@ -144,7 +144,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
                 raise FileNotFoundError(f"No {fits_fn} after unpacking")
         except Exception as e:
             update_state('error_unpacking', image_id=image_id)
-            raise Exception(f'Problem unpacking {fz_fn}')
+            raise Exception(f'Problem unpacking {fz_fn}: {e!r}')
 
         # Check for existing WCS info
         print(f'Getting existing WCS for {fits_fn}')
@@ -187,6 +187,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             print(f'Sources detected: {len(point_sources)} {fz_fn}')
             update_state('sources_detected', image_id=image_id)
         except Exception as e:
+            print(f'FError in detection: {fits_fn} {e!r}')
             update_state('error_sources_detection', image_id=image_id)
             raise e
 
@@ -203,6 +204,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
+        update_state('sources_extracted', image_id=image_id)
         return False
     finally:
         print(f'Solve and extraction complete, cleaning up for {bucket_path}')

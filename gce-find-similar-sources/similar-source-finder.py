@@ -105,19 +105,20 @@ def process_message(message):
         attributes['sequence_id'] = sequence_id
         full_df = make_observation_psc_df(**attributes)
         if full_df is None:
-            raise Exception(f'Sequence ID: {sequence_id} No PSC found, cannot continue')
+            log(f'Sequence ID: {sequence_id} No PSC found, cannot continue')
+            return
     except InvalidPSC as e:
         log(f'Problem with PSC for {sequence_id}: {e!r}')
         return
     except Exception as e:
         log(f'Error making PSC: {e!r}')
         # Update state
-        state = 'error_filtering_observation_psc'
+        state = 'invalid_observation_psc'
         log(f'Updating state for {sequence_id} to {state}')
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
         return
 
-    log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
+    log(f'Sequence ID: {sequence_id} Observation PSC downloaded, finding similar sources.')
 
     try:
         psc_df = full_df.loc[:, 'pixel_00':]
