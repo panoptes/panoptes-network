@@ -10,6 +10,7 @@ import requests
 from google.cloud import pubsub
 from google.cloud import storage
 import pandas as pd
+import dask.dataframe as dd
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
@@ -179,12 +180,9 @@ def make_observation_psc_df(sequence_id=None,
         temp_fn = f'/tmp/{remote_fn}'
         blob.download_to_filename(temp_fn)
 
-        # Load dataframe
-        df0 = pd.read_csv(temp_fn, index_col=['image_time', 'picid'], parse_dates=True)
-        stamps[temp_fn] = df0
-
+    # Combine all CSV files
     log(f'Making DataFrame for {len(stamps)} files')
-    psc_df = pd.concat(list(stamps.values()), sort=True)
+    psc_df = dd.read_csv('/tmp/*.csv', parse_dates=True).set_index('image_time').compute()
 
     # Report
     num_sources = len(psc_df.index.levels[1].unique())
