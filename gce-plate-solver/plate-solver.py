@@ -79,7 +79,7 @@ def msg_callback(message):
     attributes = message.attributes
     bucket_path = attributes['bucket_path']
     object_id = attributes['object_id']
-    force = attributes.get('force', False)
+    force = attributes.get('force_new', False)
 
     if force:
         print(f'Found force=True, forcing new plate solving')
