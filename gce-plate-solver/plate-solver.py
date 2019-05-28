@@ -225,6 +225,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
         stamp_size (int, optional): The size of the stamp to extract, default 10 pixels.
     """
     data = fits.getdata(fits_fn)
+    header = fits.getheader(fits_fn)
     image_id = None
 
     print(f'Extracting {len(point_sources)} point sources from {fits_fn}')
@@ -250,6 +251,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
             'sextractor_background',
             'slice_y',
             'slice_x',
+            'exptime'
         ]
         csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
@@ -279,6 +281,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
                 row.background,
                 target_slice[0],
                 target_slice[1],
+                header.get('EXPTIME', -1),
                 *stamp
             ]
 
