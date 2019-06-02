@@ -10,7 +10,7 @@ from psycopg2.pool import SimpleConnectionPool
 
 PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
+PUB_TOPIC = os.getenv('PUB_TOPIC', 'plate-solver')
 
 publisher = pubsub.PublisherClient()
 storage_client = storage.Client(project=PROJECT_ID)
