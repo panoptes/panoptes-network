@@ -213,8 +213,8 @@ def make_observation_psc_df(sequence_id=None,
         .set_index(['image_time', 'picid'])
 
     # Report again
-    num_sources = len(psc_df.picid.unique())
-    num_frames = len(set(psc_df.index.unique()))
+    num_sources = len(psc_df.index.levels[1].unique())
+    num_frames = len(set(psc_df.index.levels[0].unique()))
     log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
     # Remove files

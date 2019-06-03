@@ -1,4 +1,4 @@
-dask
+dask[dataframe]
 google-cloud-pubsub
 google-cloud-storage
 pandas
