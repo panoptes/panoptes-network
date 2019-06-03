@@ -251,7 +251,9 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
             'sextractor_background',
             'slice_y',
             'slice_x',
-            'exptime'
+            'exptime',
+            'field',
+            'gcs_file',
         ]
         csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
@@ -282,6 +284,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
                 target_slice[0],
                 target_slice[1],
                 header.get('EXPTIME', -1),
+                header.get('FIELD', 'UNKNOWN'),
+                row.gcs_file,
                 *stamp
             ]
 
