@@ -363,7 +363,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         print(f'{field} set to state {state}')
     except Exception:
         try:
-            print('Updating of state ({field}={state}) failed, rolling back and trying again')
+            print(f'Updating of state ({field}={state}) failed, rolling back and trying again')
             cursor.connection.rollback()
             cursor.execute(update_sql, [state, sequence_id])
             cursor.connection.commit()

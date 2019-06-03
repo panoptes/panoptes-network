@@ -173,20 +173,21 @@ def make_observation_psc_df(sequence_id=None,
     log(f'Looking up files for {sequence_id}')
     blobs = sources_bucket.list_blobs(prefix=sequence_id)
 
-    stamps = dict()
+    stamp_files = list()  # Helps with cleanup
     for blob in blobs:
         # Save to local /tmp dir
         remote_fn = blob.name.replace('/', '-')
         temp_fn = f'/tmp/{remote_fn}'
+        stamp_files.append(temp_fn)
         blob.download_to_filename(temp_fn)
 
     # Combine all CSV files
-    log(f'Making DataFrame for {len(stamps)} files')
+    log(f'Making Dask DataFrame')
     psc_df = dd.read_csv('/tmp/*.csv', parse_dates=True).set_index('image_time').compute()
 
     # Report
-    num_sources = len(psc_df.index.levels[1].unique())
-    num_frames = len(set(psc_df.index.levels[0].unique()))
+    num_sources = len(psc_df.picid.unique())
+    num_frames = len(set(psc_df.index.unique()))
     log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
     if num_frames <= min_num_frames:
@@ -212,12 +213,12 @@ def make_observation_psc_df(sequence_id=None,
         .set_index(['image_time', 'picid'])
 
     # Report again
-    num_sources = len(psc_df.index.levels[1].unique())
-    num_frames = len(set(psc_df.index.levels[0].unique()))
+    num_sources = len(psc_df.picid.unique())
+    num_frames = len(set(psc_df.index.unique()))
     log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
 
     # Remove files
-    for fn in stamps.keys():
+    for fn in stamp_files:
         with suppress(FileNotFoundError):
             os.remove(fn)
 
