@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from contextlib import suppress
+import tempfile
 
 from google.cloud import storage
 from google.cloud import pubsub
@@ -94,25 +95,34 @@ def msg_callback(message):
         print(error_msg)
         raise Exception(error_msg)
 
-    print(f'Solving {bucket_path}')
-    try:
-        solve_file(bucket_path,
-                   object_id,
-                   catalog_db_cursor,
-                   metadata_db_cursor,
-                   force=force)
-        print(f'Finished processing {bucket_path}.')
-    except Exception as e:
-        print(f'Problem with solve file: {e!r}')
-        raise Exception(f'Problem with solve file: {e!r}')
-    finally:
-        catalog_db_cursor.close()
-        metadata_db_cursor.close()
-        # Acknowledge message
-        message.ack()
+    print(f'Creating temporary directory for {bucket_path}')
+    with tempfile.TemporaryDirectory() as tmp_dir_name:
+        print(f'Creating temp directory {tmp_dir_name} for {bucket_path}')
+        print(f'Solving {bucket_path}')
+        try:
+            solve_file(bucket_path,
+                       object_id,
+                       catalog_db_cursor,
+                       metadata_db_cursor,
+                       force=force,
+                       tmp_dir=tmp_dir_name
+                       )
+            print(f'Finished processing {bucket_path}.')
+        except Exception as e:
+            print(f'Problem with solve file: {e!r}')
+            raise Exception(f'Problem with solve file: {e!r}')
+        finally:
+            catalog_db_cursor.close()
+            metadata_db_cursor.close()
+            # Acknowledge message
+            print(f'Acknowledging message {message.id}')
+            message.ack()
+            
+            print(f'Cleaning up temporary directory: {tmp_dir_name}')
 
 
-def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False):
+
+def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False, tmp_dir='/tmp'):
     try:
         unit_id, field, cam_id, seq_time, file = bucket_path.split('/')
         img_time = file.split('.')[0]
@@ -134,7 +144,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
     try:  # Wrap everything so we can do file cleanup
         # Download file blob from bucket
         print(f'Downloading {bucket_path}')
-        fz_fn = download_blob(bucket_path, destination='/tmp', bucket=bucket)
+        fz_fn = download_blob(bucket_path, destination=tmp_dir, bucket=bucket)
 
         # Unpack the FITS file
         print(f'Unpacking {fz_fn}')
@@ -178,7 +188,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             )
 
             # Adjust some of the header items
-            point_sources['gcs_file'] = object_id
+            point_sources['bucket_path'] = bucket_path
             point_sources['image_id'] = image_id
             point_sources['seq_time'] = seq_time
             point_sources['img_time'] = img_time
@@ -192,7 +202,7 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
             raise e
 
         print(f'Looking up sources for {fits_fn}')
-        get_sources(point_sources, fits_fn)
+        get_sources(point_sources, fits_fn, tmp_dir=tmp_dir)
         update_state('sources_extracted', image_id=image_id)
 
         # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
@@ -208,15 +218,11 @@ def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, fo
         return False
     finally:
         print(f'Solve and extraction complete, cleaning up for {bucket_path}')
-        # Remove files
-        for fn in [fits_fn, fz_fn]:
-            with suppress(FileNotFoundError):
-                os.remove(fn)
 
     return None
 
 
-def get_sources(point_sources, fits_fn, stamp_size=10):
+def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
     """Get postage stamps for each PICID in the given file.
 
     Args:
@@ -231,7 +237,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
     print(f'Extracting {len(point_sources)} point sources from {fits_fn}')
 
     row = point_sources.iloc[0]
-    sources_csv_fn = f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv'
+    sources_csv_fn = os.path.join(tmp_dir, f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv')
     print(f'Sources metadata will be extracted to {sources_csv_fn}')
 
     print(f'Starting source extraction for {fits_fn}')
@@ -253,7 +259,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
             'slice_x',
             'exptime',
             'field',
-            'gcs_file',
+            'bucket_path',
         ]
         csv_headers.extend([f'pixel_{i:02d}' for i in range(stamp_size**2)])
         writer.writerow(csv_headers)
@@ -285,7 +291,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
                 target_slice[1],
                 header.get('EXPTIME', -1),
                 header.get('FIELD', 'UNKNOWN'),
-                row.gcs_file,
+                row.bucket_path,
                 *stamp
             ]
 
@@ -295,16 +301,13 @@ def get_sources(point_sources, fits_fn, stamp_size=10):
     # Upload the CSV files.
     try:
         upload_blob(sources_csv_fn,
-                    destination=sources_csv_fn.replace('-', '/'),
+                    destination=os.path.basename(sources_csv_fn.replace('-', '/')),
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {sources_csv_fn}')
         update_state('error_uploading_sources', image_id=image_id)
     finally:
-        # Remove generated files from local server.
-        with suppress(FileNotFoundError):
-            print(f'Cleaning up {sources_csv_fn}')
-            os.remove(sources_csv_fn)
+        print(f'Cleaning up after source matching')
 
     return True
 
