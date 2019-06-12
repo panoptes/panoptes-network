@@ -117,9 +117,8 @@ def msg_callback(message):
             # Acknowledge message
             print(f'Acknowledging message {message.id}')
             message.ack()
-            
-            print(f'Cleaning up temporary directory: {tmp_dir_name}')
 
+            print(f'Cleaning up temporary directory: {tmp_dir_name}')
 
 
 def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False, tmp_dir='/tmp'):
@@ -237,7 +236,8 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
     print(f'Extracting {len(point_sources)} point sources from {fits_fn}')
 
     row = point_sources.iloc[0]
-    sources_csv_fn = os.path.join(tmp_dir, f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv')
+    sources_csv_fn = os.path.join(
+        tmp_dir, f'{row.unit_id}-{row.camera_id}-{row.seq_time}-{row.img_time}.csv')
     print(f'Sources metadata will be extracted to {sources_csv_fn}')
 
     print(f'Starting source extraction for {fits_fn}')
@@ -301,7 +301,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
     # Upload the CSV files.
     try:
         upload_blob(sources_csv_fn,
-                    destination=os.path.basename(sources_csv_fn.replace('-', '/')),
+                    destination=os.path.basename(sources_csv_fn).replace('-', '/'),
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
         print(f'Uploading of sources failed for {sources_csv_fn}')
