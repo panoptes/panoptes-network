@@ -118,7 +118,7 @@ def msg_callback(message):
             print(f'Acknowledging message {message.ack_id}')
             message.ack()
 
-            print(f'Cleaning up temporary directory: {tmp_dir_name}')
+            print(f'Cleaning up temporary directory: {tmp_dir_name} for {bucket_path}')
 
 
 def solve_file(bucket_path,
