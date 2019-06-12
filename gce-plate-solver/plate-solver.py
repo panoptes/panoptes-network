@@ -115,13 +115,18 @@ def msg_callback(message):
             catalog_db_cursor.close()
             metadata_db_cursor.close()
             # Acknowledge message
-            print(f'Acknowledging message {message.id}')
+            print(f'Acknowledging message {message.ack_id}')
             message.ack()
 
             print(f'Cleaning up temporary directory: {tmp_dir_name}')
 
 
-def solve_file(bucket_path, object_id, catalog_db_cursor, metadata_db_cursor, force=False, tmp_dir='/tmp'):
+def solve_file(bucket_path,
+               object_id,
+               catalog_db_cursor,
+               metadata_db_cursor,
+               force=False,
+               tmp_dir='/tmp'):
     try:
         unit_id, field, cam_id, seq_time, file = bucket_path.split('/')
         img_time = file.split('.')[0]
@@ -307,7 +312,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
         print(f'Uploading of sources failed for {sources_csv_fn}')
         update_state('error_uploading_sources', image_id=image_id)
     finally:
-        print(f'Cleaning up after source matching')
+        print(f'Cleaning up after source matching {image_id}')
 
     return True
 
