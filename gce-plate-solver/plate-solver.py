@@ -3,7 +3,6 @@
 import os
 import sys
 import time
-from contextlib import suppress
 import tempfile
 
 from google.cloud import storage
@@ -309,7 +308,7 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
                     destination=os.path.basename(sources_csv_fn).replace('-', '/'),
                     bucket_name='panoptes-detected-sources')
     except Exception as e:
-        print(f'Uploading of sources failed for {sources_csv_fn}')
+        print(f'Uploading of sources failed for {sources_csv_fn}: {e!r}')
         update_state('error_uploading_sources', image_id=image_id)
     finally:
         print(f'Cleaning up after source matching {image_id}')
