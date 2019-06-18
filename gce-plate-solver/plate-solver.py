@@ -9,16 +9,26 @@ from google.cloud import storage
 from google.cloud import pubsub
 from google.cloud.pubsub_v1.subscriber.scheduler import ThreadScheduler
 
-from dateutil.parser import parse as parse_date
-from astropy.io import fits
-
 import csv
 import requests
+from dateutil.parser import parse as parse_date
+import numpy as np
+from astropy.io import fits
+from astropy.stats import SigmaClip
+
+from photutils import Background2D
+from photutils import MeanBackground
+from photutils import MMMBackground
+from photutils import MedianBackground
+from photutils import SExtractorBackground
+from photutils import BkgZoomInterpolator
 
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.google.cloudsql import get_cursor
 from panoptes.utils import bayer
 from panoptes.piaa.utils.sources import lookup_point_sources
+from panoptes.utils.bayer import get_rgb_data
+
 
 if ((os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '') == '') and
         (os.environ.get('GOOGLE_COMPUTE_INSTANCE', '') == '')):
@@ -79,6 +89,7 @@ def msg_callback(message):
     attributes = message.attributes
     bucket_path = attributes['bucket_path']
     object_id = attributes['object_id']
+    subtract_background = attributes.get('subtract_background', True)
     force = attributes.get('force_new', False)
 
     if force:
@@ -103,6 +114,7 @@ def msg_callback(message):
                        object_id,
                        catalog_db_cursor,
                        metadata_db_cursor,
+                       subtract_background=subtract_background,
                        force=force,
                        tmp_dir=tmp_dir_name
                        )
@@ -124,6 +136,7 @@ def solve_file(bucket_path,
                object_id,
                catalog_db_cursor,
                metadata_db_cursor,
+               subtract_background=True,
                force=False,
                tmp_dir='/tmp'):
     try:
@@ -164,8 +177,14 @@ def solve_file(bucket_path,
         wcs_info = fits_utils.get_wcsinfo(fits_fn)
         already_solved = len(wcs_info) > 1
 
+        background_subtracted = fits_utils.getval(fits_fn, 'BKGSUB')
+
+        # Do background subtraction
+        if subtract_background and background_subtracted is False:
+            fits_fn = subtract_color_background(fits_fn, bucket_path)
+
+        # Solve fits file
         if not already_solved or force:
-            # Solve fits file
             print(f'Plate-solving {fits_fn}')
             try:
                 solve_info = fits_utils.get_solve_field(fits_fn,
@@ -223,6 +242,147 @@ def solve_file(bucket_path,
         print(f'Solve and extraction complete, cleaning up for {bucket_path}')
 
     return None
+
+
+def subtract_color_background(fits_fn,
+                              bucket_path=None,
+                              box_size=(84, 84),
+                              filter_size=(3, 3),
+                              camera_bias=2048,
+                              estimator='median',
+                              interpolator='zoom',
+                              sigma=5,
+                              iters=5,
+                              exclude_percentile=100
+                              ):
+    """Get the background for each color channel.
+
+    Most of the options are described in the `photutils.Background2D` page:
+
+    https://photutils.readthedocs.io/en/stable/background.html#d-background-and-noise-estimation
+
+    Args:
+        fits_fn (str): The filename of the FITS image.
+        bucket_path (None, optional): Bucket path for upload, no upload if None (default).
+        box_size (tuple, optional): The box size over which to compute the
+            2D-Background, default (84, 84).
+        filter_size (tuple, optional): The filter size for determining the median,
+            default (3, 3).
+        camera_bias (int, optional): The built-in camera bias, default 2048.
+        estimator (str, optional): The estimator object to use, default 'median'.
+        interpolator (str, optional): The interpolater object to user, default 'zoom'.
+        sigma (int, optional): The sigma on which to filter values, default 5.
+        iters (int, optional): The number of iterations to sigma filter, default 5.
+        exclude_percentile (int, optional): The percentage of the data (per channel)
+            that can be masked, default 100 (i.e. all).
+
+    Returns:
+        list: A list containing a `photutils.Background2D` for each color channel, in RGB order.
+    """
+    estimators = {
+        'sexb': SExtractorBackground,
+        'median': MedianBackground,
+        'mean': MeanBackground,
+        'mmm': MMMBackground
+    }
+    interpolators = {
+        'zoom': BkgZoomInterpolator(),
+    }
+
+    print(f"Performing background subtraction for {fits_fn}")
+    print(f"Est: {estimator} Interp: {interpolator} Box: {box_size} Sigma: {sigma} Iters: {iters}")
+
+    data = fits_utils.getdata(fits_fn)  # - camera_bias
+    header = fits_utils.getheader(fits_fn)
+
+    # Got the data per color channel.
+    rgb_data = get_color_data(data)
+
+    bkg_estimator = estimators[estimator]()
+    interp = interpolators[interpolator]
+    sigma_clip = SigmaClip(sigma=sigma, maxiters=iters)
+
+    backgrounds = list()
+    for color, color_data in zip(['R', 'G', 'B'], rgb_data):
+        print(f'Performing background {color} for {fits_fn}')
+
+        bkg = Background2D(color_data, box_size, filter_size=filter_size,
+                           sigma_clip=sigma_clip, bkg_estimator=bkg_estimator,
+                           exclude_percentile=exclude_percentile,
+                           mask=color_data.mask,
+                           interpolator=interp)
+
+        # Create a masked array for the background
+        backgrounds.append(np.ma.array(data=bkg.background, mask=color_data.mask))
+        print(f"{color} Value: {bkg.background_median:.02f} RMS: {bkg.background_rms_median:.02f}")
+
+    # Create one array for the backgrounds, where any holes are filled with the bias.
+    full_background = np.ma.array(backgrounds).sum(0).filled(camera_bias)
+
+    # Upload background file
+    if bucket_path is not None:
+        try:
+            back_fn = fits_fn.replace('.fits', '-background.fits')
+            bucket_path = bucket_path.replace('.fits', '-background.fits')
+
+            # Pack the background
+            back_fz_fn = fits_utils.fpack(back_fn)
+
+            # Make FITS file with background substracted version
+            hdu = fits.PrimaryHDU(data=full_background.astype(np.int16), header=header)
+            hdu.writeto(back_fn, overwrite=True)
+
+            upload_blob(back_fz_fn, bucket_path, bucket=bucket)
+        except Exception as e:
+            print(f'Error uploading background file for {fits_fn}: {e}')
+
+    # Subtract the background
+    subtacted_data = data - full_background
+
+    # Replace FITS file with subtracted version
+    try:
+        header['BKGSUB'] = True
+        hdu = fits.PrimaryHDU(data=subtacted_data.astype(np.int16), header=header)
+        hdu.writeto(fits_fn, overwrite=True)
+    except Exception as e:
+        print(f'Error writing substracted FITS: {e}')
+
+    return fits_fn
+
+
+def get_color_data(data):
+    """Split the data according to the RGB Bayer pattern.
+
+    Args:
+        data (`numpy.array`): The image data.
+
+    Returns:
+        list: A list contained an `numpy.ma.array` for each color channel.
+    """
+
+    # Split the color channels
+    rgb_data = get_rgb_data(data)
+
+    red_pixels_mask = np.ones_like(data)
+    green_pixels_mask = np.ones_like(data)
+    blue_pixels_mask = np.ones_like(data)
+
+    red_pixels_mask[1::2, 0::2] = False  # Red
+    green_pixels_mask[1::2, 1::2] = False  # Green
+    green_pixels_mask[0::2, 0::2] = False  # Green
+    blue_pixels_mask[0::2, 1::2] = False  # Blue
+
+    red_data = np.ma.array(data, mask=red_pixels_mask)
+    green_data = np.ma.array(data, mask=green_pixels_mask)
+    blue_data = np.ma.array(data, mask=blue_pixels_mask)
+
+    rgb_data = [
+        red_data,
+        green_data,
+        blue_data
+    ]
+
+    return rgb_data
 
 
 def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
