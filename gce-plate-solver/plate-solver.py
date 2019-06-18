@@ -177,7 +177,10 @@ def solve_file(bucket_path,
         wcs_info = fits_utils.get_wcsinfo(fits_fn)
         already_solved = len(wcs_info) > 1
 
-        background_subtracted = fits_utils.getval(fits_fn, 'BKGSUB')
+        try:
+            background_subtracted = fits_utils.getval(fits_fn, 'BKGSUB')
+        except KeyError:
+            background_subtracted = False
 
         # Do background subtraction
         if subtract_background and background_subtracted is False:
