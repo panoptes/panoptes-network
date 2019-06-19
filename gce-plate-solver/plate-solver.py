@@ -190,11 +190,11 @@ def solve_file(bucket_path,
         if not already_solved or force:
             print(f'Plate-solving {fits_fn}')
             try:
-                solve_info = fits_utils.get_solve_field(fits_fn,
-                                                        skip_solved=False,
-                                                        overwrite=True,
-                                                        timeout=90)
-                print(f'Solved {fits_fn}: {solve_info}')
+                fits_utils.get_solve_field(fits_fn,
+                                           skip_solved=False,
+                                           overwrite=True,
+                                           timeout=90)
+                print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
