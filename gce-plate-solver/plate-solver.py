@@ -193,7 +193,7 @@ def solve_file(bucket_path,
                                                         skip_solved=False,
                                                         overwrite=True,
                                                         timeout=90)
-                print(f'Solved {fits_fn}: {solve_info}')
+                print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
