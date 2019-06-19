@@ -125,7 +125,7 @@ def msg_callback(message):
             catalog_db_cursor.close()
             metadata_db_cursor.close()
             # Acknowledge message
-            print(f'Acknowledging message {message.ack_id}')
+            print(f'Acknowledging message for {bucket_path}: {message.ack_id}')
             message.ack()
 
             print(f'Cleaning up temporary directory: {tmp_dir_name} for {bucket_path}')
@@ -193,14 +193,13 @@ def solve_file(bucket_path,
                                                         skip_solved=False,
                                                         overwrite=True,
                                                         timeout=90)
-                print(f'Solved {fits_fn}')
+                print(f'Solved {fits_fn}: {solve_info}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
                 return None
         else:
             print(f'Found existing WCS for {fz_fn}')
-            solve_info = None
 
         # Lookup point sources
         try:
