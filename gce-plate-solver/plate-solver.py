@@ -91,6 +91,7 @@ def msg_callback(message):
     subtract_background = attributes.get('subtract_background', True)
     force = attributes.get('force_new', False)
 
+    print(f'Received message {message.message_id} for {bucket_path}')
     if force:
         print(f'Found force=True, forcing new plate solving')
 
@@ -125,7 +126,7 @@ def msg_callback(message):
             catalog_db_cursor.close()
             metadata_db_cursor.close()
             # Acknowledge message
-            print(f'Acknowledging message for {bucket_path}: {message.ack_id}')
+            print(f'Acknowledging message {message.message_id} for {bucket_path}')
             message.ack()
 
             print(f'Cleaning up temporary directory: {tmp_dir_name} for {bucket_path}')
