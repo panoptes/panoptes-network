@@ -193,7 +193,7 @@ def solve_file(bucket_path,
                                                         skip_solved=False,
                                                         overwrite=True,
                                                         timeout=90)
-                print(f'Solved {fits_fn}')
+                print(f'Solved {fits_fn}: {solve_info}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
@@ -229,10 +229,9 @@ def solve_file(bucket_path,
         get_sources(point_sources, fits_fn, tmp_dir=tmp_dir)
         update_state('sources_extracted', image_id=image_id)
 
-        # Upload solved file if newly solved (i.e. nothing besides filename in wcs_info)
-        if solve_info is not None and (force is True or len(wcs_info) == 1):
-            fz_fn = fits_utils.fpack(fits_fn)
-            upload_blob(fz_fn, bucket_path, bucket=bucket)
+        # Upload new file
+        fz_fn = fits_utils.fpack(fits_fn)
+        upload_blob(fz_fn, bucket_path, bucket=bucket)
 
         return
 
