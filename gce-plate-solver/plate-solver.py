@@ -328,13 +328,14 @@ def subtract_color_background(fits_fn,
             back_fn = fits_fn.replace('.fits', '-background.fits')
             bucket_path = bucket_path.replace('.fits', '-background.fits')
 
-            # Pack the background
-            back_fz_fn = fits_utils.fpack(back_fn)
-
             # Make FITS file with background substracted version
             hdu = fits.PrimaryHDU(data=full_background.astype(np.int16), header=header)
             hdu.writeto(back_fn, overwrite=True)
 
+            # Pack the background
+            back_fz_fn = fits_utils.fpack(back_fn)
+
+            # Store the background
             upload_blob(back_fz_fn, bucket_path, bucket=bucket)
         except Exception as e:
             print(f'Error uploading background file for {fits_fn}: {e}')
