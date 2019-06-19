@@ -27,7 +27,6 @@ from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.google.cloudsql import get_cursor
 from panoptes.utils import bayer
 from panoptes.piaa.utils.sources import lookup_point_sources
-from panoptes.utils.bayer import get_rgb_data
 
 
 if ((os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '') == '') and
@@ -363,10 +362,6 @@ def get_color_data(data):
     Returns:
         list: A list contained an `numpy.ma.array` for each color channel.
     """
-
-    # Split the color channels
-    rgb_data = get_rgb_data(data)
-
     red_pixels_mask = np.ones_like(data)
     green_pixels_mask = np.ones_like(data)
     blue_pixels_mask = np.ones_like(data)
