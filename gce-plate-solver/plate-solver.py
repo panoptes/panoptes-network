@@ -295,7 +295,7 @@ def subtract_color_background(fits_fn,
     print(f"Performing background subtraction for {fits_fn}")
     print(f"Est: {estimator} Interp: {interpolator} Box: {box_size} Sigma: {sigma} Iters: {iters}")
 
-    data = fits_utils.getdata(fits_fn)  # - camera_bias
+    data = fits.getdata(fits_fn)  # - camera_bias
     header = fits_utils.getheader(fits_fn)
 
     # Got the data per color channel.
