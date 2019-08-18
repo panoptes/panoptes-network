@@ -38,9 +38,13 @@ if ((os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '') == '') and
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
 
 # Storage
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 storage_client = storage.Client(project=PROJECT_ID)
+
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
 bucket = storage_client.get_bucket(BUCKET_NAME)
+
+PROCESSED_BUCKET_NAME = os.getenv('PROCESSED_BUCKET_NAME', 'panoptes-processed')
+processed_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
 
 PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-solve-extract-match')
 subscriber_client = pubsub.SubscriberClient()
@@ -222,7 +226,7 @@ def solve_file(bucket_path,
             print(f'Sources detected: {len(point_sources)} {fz_fn}')
             update_state('sources_detected', image_id=image_id)
         except Exception as e:
-            print(f'FError in detection: {fits_fn} {e!r}')
+            print(f'Error in detection: {fits_fn} {e!r}')
             update_state('error_sources_detection', image_id=image_id)
             raise e
 
@@ -230,9 +234,10 @@ def solve_file(bucket_path,
         get_sources(point_sources, fits_fn, tmp_dir=tmp_dir)
         update_state('sources_extracted', image_id=image_id)
 
-        # Upload new file
+        # Pack file
         fz_fn = fits_utils.fpack(fits_fn)
-        upload_blob(fz_fn, bucket_path, bucket=bucket)
+        # Upload new file to processed bucket
+        upload_blob(fz_fn, bucket_path, bucket=processed_bucket)
 
         return
 
@@ -416,8 +421,13 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
             'image_time',
             'x', 'y',
             'ra', 'dec',
+            'tmag', 'tmag_err',
+            'vmag', 'vmag_err',
+            'lumclass', 'lum', 'lum_err',
+            'contratio', 'numcont',
+            'catalog_sep_arcsec',
             'sextractor_flags',
-            'sextractor_background',
+            # 'sextractor_background',
             'slice_y',
             'slice_x',
             'exptime',
@@ -448,8 +458,13 @@ def get_sources(point_sources, fits_fn, stamp_size=10, tmp_dir='/tmp'):
                 parse_date(row.img_time),
                 int(row.x), int(row.y),
                 row.ra, row.dec,
+                row.tmag, row.tmag_err,
+                row.vmag, row.vmag_err,
+                row.lumclass, row.lum, row.lum_err,
+                row.contratio, row.numcont,
+                row.catalog_sep_arcsec,
                 int(row['flags']),
-                row.background,
+                # row.background,
                 target_slice[0],
                 target_slice[1],
                 header.get('EXPTIME', -1),
