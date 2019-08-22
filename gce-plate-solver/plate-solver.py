@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -46,7 +46,7 @@ bucket = storage_client.get_bucket(BUCKET_NAME)
 PROCESSED_BUCKET_NAME = os.getenv('PROCESSED_BUCKET_NAME', 'panoptes-processed')
 processed_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
 
-PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'gce-solve-extract-match')
+PUBSUB_SUB_PATH = os.getenv('SUB_PATH', 'solve-extract-match')
 subscriber_client = pubsub.SubscriberClient()
 pubsub_sub_path = f'projects/{PROJECT_ID}/subscriptions/{PUBSUB_SUB_PATH}'
 
@@ -127,12 +127,13 @@ def msg_callback(message):
         except Exception as e:
             print(f'Problem with solve file: {e!r}')
             raise Exception(f'Problem with solve file: {e!r}')
-        finally:
-            catalog_db_cursor.close()
-            metadata_db_cursor.close()
+        else:
             # Acknowledge message
             print(f'Acknowledging message {message.message_id} for {bucket_path}')
             message.ack()
+        finally:
+            catalog_db_cursor.close()
+            metadata_db_cursor.close()
 
             print(f'Cleaning up temporary directory: {tmp_dir_name} for {bucket_path}')
 
@@ -182,11 +183,14 @@ def solve_file(bucket_path,
         wcs_info = fits_utils.get_wcsinfo(fits_fn)
         already_solved = len(wcs_info) > 1
 
+        print(f'WCS exists: {already_solved} {fits_fn}')
+
         try:
             background_subtracted = fits_utils.getval(fits_fn, 'BKGSUB')
         except KeyError:
             background_subtracted = False
 
+        print(f'Background subtracted: {background_subtracted} {fits_fn}')
         # Do background subtraction
         if subtract_background and background_subtracted is False:
             fits_fn = subtract_color_background(fits_fn, bucket_path)
@@ -198,12 +202,13 @@ def solve_file(bucket_path,
                 fits_utils.get_solve_field(fits_fn,
                                            skip_solved=False,
                                            overwrite=True,
-                                           timeout=90)
+                                           timeout=90,
+                                           verbose=True)
                 print(f'Solved {fits_fn}')
             except Exception as e:
                 print(f'File not solved, skipping: {fits_fn} {e!r}')
                 update_state('error_solving', image_id=image_id)
-                return None
+                return False
         else:
             print(f'Found existing WCS for {fz_fn}')
 
@@ -239,7 +244,7 @@ def solve_file(bucket_path,
         # Upload new file to processed bucket
         upload_blob(fz_fn, bucket_path, bucket=processed_bucket)
 
-        return
+        return True
 
     except Exception as e:
         print(f'Error while solving field: {e!r}')
@@ -247,8 +252,6 @@ def solve_file(bucket_path,
         return False
     finally:
         print(f'Solve and extraction complete, cleaning up for {bucket_path}')
-
-    return None
 
 
 def subtract_color_background(fits_fn,
@@ -299,7 +302,7 @@ def subtract_color_background(fits_fn,
     print(f"Performing background subtraction for {fits_fn}")
     print(f"Est: {estimator} Interp: {interpolator} Box: {box_size} Sigma: {sigma} Iters: {iters}")
 
-    data = fits.getdata(fits_fn)  # - camera_bias
+    data = fits.getdata(fits_fn) - camera_bias
     header = fits_utils.getheader(fits_fn)
 
     # Got the data per color channel.
@@ -323,8 +326,9 @@ def subtract_color_background(fits_fn,
         backgrounds.append(np.ma.array(data=bkg.background, mask=color_data.mask))
         print(f"{color} Value: {bkg.background_median:.02f} RMS: {bkg.background_rms_median:.02f}")
 
-    # Create one array for the backgrounds, where any holes are filled with the bias.
-    full_background = np.ma.array(backgrounds).sum(0).filled(camera_bias)
+    # Create one array for the backgrounds, where any holes are filled with zeros.
+    # Add bias back to data so we can save with unsigned.
+    full_background = np.ma.array(backgrounds).sum(0).filled(0)
 
     # Upload background file
     if bucket_path is not None:
@@ -333,7 +337,8 @@ def subtract_color_background(fits_fn,
             bucket_path = bucket_path.replace('.fits', '-background.fits')
 
             # Make FITS file with background substracted version
-            hdu = fits.PrimaryHDU(data=full_background.astype(np.int16), header=header)
+            save_back_data = (full_background + camera_bias).astype(np.uint16)
+            hdu = fits.PrimaryHDU(data=save_back_data, header=header)
             hdu.writeto(back_fn, overwrite=True)
 
             # Pack the background
