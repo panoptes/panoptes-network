@@ -217,6 +217,7 @@ def solve_file(bucket_path,
             print(f'Looking up sources for {fits_fn}')
             point_sources = lookup_point_sources(
                 fits_fn,
+                max_catalog_separation=15,  # arcsec
                 force_new=True,
                 cursor=catalog_db_cursor
             )
