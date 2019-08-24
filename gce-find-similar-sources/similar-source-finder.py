@@ -6,7 +6,6 @@ import re
 import concurrent.futures
 from itertools import zip_longest
 from datetime import datetime
-from contextlib import suppress
 
 import requests
 from google.cloud import pubsub
@@ -101,27 +100,25 @@ def process_message(message):
     if sequence_id.endswith('/'):
         sequence_id = sequence_id[:-1]
 
-    # Create the observation PSC
+    # Get the observation PSC
     try:
         attributes['sequence_id'] = sequence_id
         full_df = make_observation_psc_df(**attributes)
         if full_df is None:
-            raise Exception(f'Sequence ID: {sequence_id} No PSC created')
-    except FileNotFoundError as e:
-        log(f'File for {sequence_id} not found in bucket, skipping.')
-        return
+            log(f'Sequence ID: {sequence_id} No PSC found, cannot continue')
+            return
     except InvalidPSC as e:
         log(f'Problem with PSC for {sequence_id}: {e!r}')
         return
     except Exception as e:
         log(f'Error making PSC: {e!r}')
         # Update state
-        state = 'error_filtering_observation_psc'
+        state = 'invalid_observation_psc'
         log(f'Updating state for {sequence_id} to {state}')
         requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
         return
 
-    log(f'Sequence ID: {sequence_id} Done creating PSC, finding similar sources.')
+    log(f'Sequence ID: {sequence_id} Observation PSC downloaded, finding similar sources.')
 
     try:
         psc_df = full_df.loc[:, 'pixel_00':]
@@ -138,12 +135,10 @@ def process_message(message):
     return
 
 
-def make_observation_psc_df(sequence_id=None,
-                            min_num_frames=10,
-                            frame_threshold=0.95,
-                            force_new=False,
-                            **kwargs):
-    """Makes a PSC dataframe for the given sequence id.
+def make_observation_psc_df(sequence_id=None, **kwargs):
+    """Download the PSC dataframe for the given sequence id.
+
+    The Observation PSC is created by the `gce-make-observation-psc` service.
 
     Args:
         sequence_id (str): The sequence_id in the form `<unit_id>_<camera_id>_<sequence_time>`.
@@ -162,94 +157,27 @@ def make_observation_psc_df(sequence_id=None,
     master_csv_fn = f'{sequence_id}.csv'
 
     # Look for existing file.
-    if force_new is False:
-        psc_df_blob = observation_bucket.get_blob(master_csv_fn)
-        if psc_df_blob and psc_df_blob.exists():
-            log(f'Found existing Observation PSC for {sequence_id}')
-            master_csv_fn = master_csv_fn.replace('/', '_')
-            master_csv_fn = f'/tmp/{master_csv_fn}'
+    psc_df_blob = observation_bucket.get_blob(master_csv_fn)
+    if psc_df_blob and psc_df_blob.exists():
+        log(f'Found existing Observation PSC for {sequence_id}')
+        master_csv_fn = master_csv_fn.replace('/', '_')
+        master_csv_fn = f'/tmp/{master_csv_fn}'
 
-            log(f'Downloading Observation PSC for {sequence_id}')
-            psc_df_blob.download_to_filename(master_csv_fn)
-            psc_df = pd.read_csv(master_csv_fn,
-                                 index_col=['image_time', 'picid'],
-                                 parse_dates=True)
+        log(f'Downloading Observation PSC for {sequence_id}')
+        psc_df_blob.download_to_filename(master_csv_fn)
+        psc_df = pd.read_csv(master_csv_fn,
+                             index_col=['image_time', 'picid'],
+                             parse_dates=True)
 
-            log(f'Checking existing Observation PSC for {sequence_id}')
-            if 'sextractor_flags' in psc_df.columns:
-                log(f'Returning Observation PSC for {sequence_id}')
-                return psc_df
-            else:
-                del psc_df
-                log(f'Missing columns in existing PSC, forcing new.')
+        log(f'Checking existing Observation PSC for {sequence_id}')
 
-    else:
-        log(f'Forcing new observation PSC for {sequence_id}')
+        # This is just checking for a new version format of the Observation
+        # PSC and can probably be removed in the future.
+        if 'sextractor_flags' in psc_df.columns:
+            log(f'Returning Observation PSC for {sequence_id}')
+            return psc_df
 
-    log(f'Looking up files for {sequence_id}')
-    blobs = sources_bucket.list_blobs(prefix=sequence_id)
-
-    stamps = dict()
-    for blob in blobs:
-        # Save to local /tmp dir
-        remote_fn = blob.name.replace('/', '-')
-        temp_fn = f'/tmp/{remote_fn}'
-        blob.download_to_filename(temp_fn)
-
-        # Load dataframe
-        df0 = pd.read_csv(temp_fn, index_col=['image_time', 'picid'], parse_dates=True)
-        stamps[temp_fn] = df0
-
-    log(f'Making DataFrame for {len(stamps)} files')
-    psc_df = pd.concat(list(stamps.values()), sort=True)
-
-    # Report
-    num_sources = len(psc_df.index.levels[1].unique())
-    num_frames = len(set(psc_df.index.levels[0].unique()))
-    log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
-
-    if num_frames <= min_num_frames:
-        state = 'error_seq_too_short'
-        requests.post(update_state_url, json={'sequence_id': sequence_id, 'state': state})
-        log(f'Not enough frames found for {sequence_id}: {num_frames} frames found')
-        raise InvalidPSC('Sequence too short')
-
-    # Get minimum frame threshold
-    frame_count = psc_df.groupby('picid').count().pixel_00
-    min_frame_count = int(frame_count.max() * frame_threshold)
-    log(f'Sequence: {sequence_id} Frames: {frame_count.max()} Min cutout: {min_frame_count}')
-
-    # Filter out the sources where the number of frames is less than min_frame_count
-    def has_frame_count(grp):
-        return grp.count()['pixel_00'] >= min_frame_count
-
-    # Do the actual filter and reset the index
-    log(f'Sequence: {sequence_id} filtering sources')
-    psc_df = psc_df.reset_index() \
-        .groupby('picid') \
-        .filter(has_frame_count) \
-        .set_index(['image_time', 'picid'])
-
-    # Report again
-    num_sources = len(psc_df.index.levels[1].unique())
-    num_frames = len(set(psc_df.index.levels[0].unique()))
-    log(f"Sequence: {sequence_id} Frames: {num_frames} Sources: {num_sources}")
-
-    # Remove files
-    for fn in stamps.keys():
-        with suppress(FileNotFoundError):
-            os.remove(fn)
-
-    log(f"PSC DataFrame created for {sequence_id}")
-
-    try:
-        bucket_url = f'gs://{OBSERVATION_BUCKET_NAME}/{master_csv_fn}'
-        log(f"Saving full CSV for {sequence_id} to {bucket_url}")
-        psc_df.to_csv(bucket_url)
-    except Exception as e:
-        print(f'Problem saving master CSV file: {e!r}')
-
-    return psc_df
+    return None
 
 
 def compare_stamps(params):

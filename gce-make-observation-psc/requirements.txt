@@ -1,6 +1,6 @@
-astropy
+gcsfs
+dask[dataframe]
 google-cloud-pubsub
 google-cloud-storage
-numpy
+pandas
 requests
-photutils

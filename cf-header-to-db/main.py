@@ -10,7 +10,7 @@ from psycopg2.pool import SimpleConnectionPool
 
 PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUB_TOPIC = os.getenv('PUB_TOPIC', 'image-pipeline')
+PUB_TOPIC = os.getenv('PUB_TOPIC', 'solve-extract-match')
 
 publisher = pubsub.PublisherClient()
 storage_client = storage.Client(project=PROJECT_ID)
@@ -363,7 +363,7 @@ def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
         print(f'{field} set to state {state}')
     except Exception:
         try:
-            print('Updating of state ({field}={state}) failed, rolling back and trying again')
+            print(f'Updating of state ({field}={state}) failed, rolling back and trying again')
             cursor.connection.rollback()
             cursor.execute(update_sql, [state, sequence_id])
             cursor.connection.commit()

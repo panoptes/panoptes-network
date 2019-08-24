@@ -41,7 +41,7 @@ spec:
     spec:
       containers:
       - name: "solve-extract-sha256"
-        image: "gcr.io/panoptes-survey/solve-extract@sha256:899ed1f8d1ff67e62dceb2c142d199c6cce5b4178f52f8ede9cfc8a9c5125404"
+        image: "gcr.io/panoptes-survey/solve-extract@sha256:b069be314f61eef5c6bc62815131f908de5a7795c70187d3b2a122a3762fcffa"
         env:
         - name: "GOOGLE_COMPUTE_INSTANCE"
           valueFrom:
