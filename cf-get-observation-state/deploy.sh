@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: cf-get-state"
+echo "Deploying cloud function: cf-get-observation-state"
 
 gcloud functions deploy \
                  get-observation-state \
