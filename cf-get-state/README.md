@@ -12,13 +12,13 @@ Can be passed either a `sequence_id` or an `image_id`.
 
 Payload: JSON message of the form:
 
-    ```json
-    {
-        'state': str,
-        'sequence_id': str,
-        'image_id': str
-    }
-    ```
+```json
+{
+    'state': str,
+    'sequence_id': str,
+    'image_id': str
+}
+```
 
 Deploy
 ------
@@ -37,8 +37,7 @@ gcloud functions deploy \
                  --trigger-http
 ```
 
-> :bulb: There is also a small convenience script called `deploy.sh` that
-does the same thing.
+There is also a small convenience script called `deploy.sh` that does the same thing.
 ```bash
 ./deploy.sh
 ```
