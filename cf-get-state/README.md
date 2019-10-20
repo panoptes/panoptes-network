@@ -37,7 +37,8 @@ gcloud functions deploy \
                  --trigger-http
 ```
 
-There is also a small convenience script called `deploy.sh` that does the same thing.
+> :bulb: There is also a small convenience script called `deploy.sh` that
+does the same thing.
 ```bash
 ./deploy.sh
 ```

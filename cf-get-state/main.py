@@ -5,16 +5,13 @@ from flask import jsonify
 from psycopg2 import OperationalError
 from psycopg2.pool import SimpleConnectionPool
 
-PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-
 CONNECTION_NAME = os.getenv(
     'INSTANCE_CONNECTION_NAME',
-    'panoptes-survey:us-central1:panoptes-meta'
+    'panoptes-exp:us-central1:panoptes-metadata'
 )
-DB_USER = os.getenv('POSTGRES_USER', 'panoptes')
-DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', None)
-DB_NAME = os.getenv('POSTGRES_DATABASE', 'metadata')
+DB_USER = os.getenv('DB_USER', 'panoptes')
+DB_PASSWORD = os.getenv('DB_PASSWORD', None)
+DB_NAME = os.getenv('DB_NAME', 'observations')
 
 pg_config = {
     'user': DB_USER,
