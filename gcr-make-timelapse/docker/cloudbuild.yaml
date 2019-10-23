@@ -1,0 +1,19 @@
+steps:
+# Build
+# AMD Build
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'amd64-base'
+  args:
+  - 'build'
+  - '-f=docker/Dockerfile'
+  - '--tag=gcr.io/${PROJECT_ID}/gcr-make-timelapse:latest'
+  - '.'
+  waitFor: ['-']
+
+# Push
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-amd64-base'
+  args:
+  - 'push'
+  - 'gcr.io/${PROJECT_ID}/gcr-make-timelapse:latest'
+  waitFor: ['amd64-base']

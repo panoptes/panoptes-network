@@ -1,0 +1,5 @@
+Flask
+google-cloud-storage
+google-cloud-logging
+gunicorn
+panoptes-utils
