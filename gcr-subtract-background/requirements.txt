@@ -1,0 +1,7 @@
+Flask
+google-cloud-logging
+google-cloud-storage
+gunicorn
+json-logging-py
+panoptes-piaa
+panoptes-utils
