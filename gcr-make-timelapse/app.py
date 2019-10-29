@@ -28,6 +28,7 @@ except RuntimeError:
     sys.exit(1)
 
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+LEGACY_BUCKET_NAME = os.getenv('LEGACY_BUCKET_NAME', 'panoptes-survey')
 
 TIMELAPSE_BUCKET_NAME = os.getenv('PROCESSED_BUCKET_NAME', 'panoptes-timelapse')
 
@@ -43,12 +44,13 @@ def main():
     if request.json:
         params = request.get_json(force=True)
         bucket_path = params.get('bucket_path', None)
+        use_legacy = params.get('legacy', False)
 
         with tempfile.TemporaryDirectory() as tmp_dir_name:
             logging.info(f'Creating temp directory {tmp_dir_name} for {bucket_path}')
             try:
                 logging.info(f'Downloading images for {bucket_path}.')
-                download_blobs(bucket_path, tmp_dir_name)
+                download_blobs(bucket_path, tmp_dir_name, use_legacy=use_legacy)
                 logging.info(f'Making timelapse for {bucket_path}.')
                 # Save with underscores so it's one file, not in folders
                 timelapse_fn = make_timelapse(tmp_dir_name,
@@ -57,7 +59,14 @@ def main():
                 if timelapse_fn is None:
                     raise FileNotFoundError(f'Timelapse not created at {timelapse_fn}')
                 logging.info(f'Uploading timelapse to {TIMELAPSE_BUCKET_NAME}: {timelapse_fn}.')
+
                 # Upload with folder structure
+                if use_legacy:
+                    print(f'Found legacy path, removing field name')
+                    unit_id, field_name, cam_id, seq_id, image_name = bucket_path.split('/')
+                    bucket_path = os.path.join(unit_id, cam_id, seq_id, image_name)
+                    print(f'New name: {bucket_path}')
+
                 timelapse_uri = upload_blob(timelapse_fn, f'{bucket_path}.mp4')
                 return jsonify(timelapse_uri=timelapse_uri)
             except Exception as e:
@@ -69,9 +78,14 @@ def main():
         return jsonify(error="No 'bucket_path' parameter given")
 
 
-def download_blobs(bucket_path, dir_name):
+def download_blobs(bucket_path, dir_name, use_legacy=False):
     """Downloads a blob from the bucket."""
-    blobs = storage_client.list_blobs(BUCKET_NAME, prefix=bucket_path)
+    if use_legacy:
+        bucket = LEGACY_BUCKET_NAME
+    else:
+        bucket = BUCKET_NAME
+
+    blobs = storage_client.list_blobs(bucket, prefix=bucket_path)
 
     # Get just the jpg images
     images = [b for b in blobs if b.name.endswith('jpg') and not b.name.startswith('pointing')]
