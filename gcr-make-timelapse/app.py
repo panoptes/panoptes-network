@@ -67,6 +67,9 @@ def main():
                     bucket_path = os.path.join(unit_id, cam_id, seq_id, image_name)
                     print(f'New name: {bucket_path}')
 
+                if bucket_path.endswith('/'):
+                    bucket_path = bucket_path[:-1]
+
                 timelapse_uri = upload_blob(timelapse_fn, f'{bucket_path}.mp4')
                 return jsonify(timelapse_uri=timelapse_uri)
             except Exception as e:
