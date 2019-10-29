@@ -63,8 +63,8 @@ def main():
                 # Upload with folder structure
                 if use_legacy:
                     print(f'Found legacy path, removing field name')
-                    unit_id, field_name, cam_id, seq_id, image_name = bucket_path.split('/')
-                    bucket_path = os.path.join(unit_id, cam_id, seq_id, image_name)
+                    unit_id, field_name, cam_id, seq_id = bucket_path.split('/')
+                    bucket_path = os.path.join(unit_id, cam_id, seq_id)
                     print(f'New name: {bucket_path}')
 
                 if bucket_path.endswith('/'):
