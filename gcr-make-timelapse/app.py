@@ -89,7 +89,7 @@ def download_blobs(bucket_path, dir_name, use_legacy=False):
 
     # Get just the jpg images
     images = [b for b in blobs if b.name.endswith('jpg') and not b.name.startswith('pointing')]
-    logging.info(f'Found {len(images)} for {bucket_path}')
+    logging.info(f'Found {len(images)} images for {bucket_path}')
 
     image_names = list()
     for image in images:

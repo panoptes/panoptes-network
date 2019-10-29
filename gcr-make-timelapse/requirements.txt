@@ -2,4 +2,5 @@ Flask
 google-cloud-storage
 google-cloud-logging
 gunicorn
+json-logging-py
 panoptes-utils
