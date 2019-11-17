@@ -113,7 +113,9 @@ export default {
       if (this.files !== undefined) {
         this.jpg_files = this.files.jpg
         this.thumbUrl = this.files.jpg[0]
-        this.timelapseUrl = this.files.mp4[0]
+        this.timelapseUrl = ''
+        if (this.files.mp4)
+          this.timelapseUrl = this.files.mp4[0]
       } else {
         this.files = []
       }
