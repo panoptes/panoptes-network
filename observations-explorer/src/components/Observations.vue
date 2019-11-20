@@ -1,6 +1,6 @@
 <template>
   <div>
-    <vue-good-table 
+    <vue-good-table
       :columns="fields"
       :rows="rows"
       :pagination-options="{
@@ -12,7 +12,7 @@
     >
     <template slot="table-row" slot-scope="props">
       <span v-if="props.column.field == 'id'">
-        <router-link 
+        <router-link
           :to="{ name: 'observationDetail', params: { sequenceId: props.row.id, info: props.row }}">
           {{ props.row.id }}
         </router-link>
@@ -20,7 +20,7 @@
       <span v-else>
         {{props.formattedRow[props.column.field]}}
       </span>
-    </template>   
+    </template>
   </vue-good-table>
   </div>
 </template>
@@ -41,7 +41,7 @@ export default {
       let l = -1 * value.toFixed(0).length
       unitId = unitId.slice(0, l)
       unitId += value
-      return unitId      
+      return unitId
     }
   },
   created () {
@@ -61,48 +61,50 @@ export default {
       filter: null,
       rows: [],
       fields: [
-        { 
-          label: 'Unit', 
-          field: 'unit_id', 
-          sortable: true, 
+        {
+          label: 'Unit',
+          field: 'unit_id',
+          sortable: true,
           formatFn: this.formatUnitId,
           filterOptions: {
             enabled: true,
             filterDropdownItems: [
               { value: 1, text: 'PAN001' },
               { value: 6, text: 'PAN006' },
+              { value: 8, text: 'PAN008' },
+              { value: 10, text: 'PAN010' },
               { value: 12, text: 'PAN012' },
             ]
           }
         },
-        { 
-          label: 'Sequence', 
-          field: 'id', 
+        {
+          label: 'Sequence',
+          field: 'id',
           sortable: true,
           filterOptions: {
             enabled: true
           }
         },
-        { 
-          label: 'Field', 
-          field: 'field', 
+        {
+          label: 'Field',
+          field: 'field',
           sortable: true ,
           filterOptions: {
             enabled: true
           }
         },
         // { label: 'POCS Version', field: 'pocs_version', sortable: true },
-        { 
-          label: 'Date', 
-          field: 'start_date', 
-          sortable: true, 
+        {
+          label: 'Date',
+          field: 'start_date',
+          sortable: true,
           type: 'date',
           type: 'date',
-          dateInputFormat: 'YYYY-MM-DDTHH:mm:ss',
-          dateOutputFormat: 'YYYY-MM-DD HH:mm',
+          dateInputFormat: 'yyyy-MM-dd HH:mm:ss',
+          dateOutputFormat: 'yyyy-MM-dd HH:mm',
           filterOptions: {
             enabled: true
-          }    
+          }
         },
         { label: 'Exp Time', field: 'exptime', sortable: true, type: 'decimal' },
         { label: 'Image Count', field: 'image_count', sortable: true, type: 'number' },
