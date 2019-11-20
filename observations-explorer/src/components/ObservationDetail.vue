@@ -2,23 +2,23 @@
 <b-card>
   <b-tabs card>
     <b-tab title="info" active>
-      <b-card header="<b>Info</b>">
-        <ObservationSummary 
+      <b-card header="Info">
+        <ObservationSummary
           :sequence="sequence"
           :sequenceDir="sequenceDir"
         />
       </b-card>
-      <b-card 
+      <b-card
         no-body
-        :header="'<b>Images <small>(' + images.length + ')</small></b>'"
+        :header="'Images (' + images.length + ')'"
         >
         <b-card-body>
-          <b-table 
-            :items="images" 
+          <b-table
+            :items="images"
             :fields="fields"
             :per-page="perPage"
             :current-page="currentPage"
-            sort-by="obstime"
+            sort-by="imgtime"
             :sort-desc=false
             caption-top
             bordered
@@ -27,22 +27,39 @@
             hoverable
             small
           >
-          <template slot="obstime" slot-scope="data">
+          <template v-slot:cell(imgtime)="data">
             {{ data.value | moment("HH:mm:ss") }}
-          </template>                            
-          <template slot="file_path" slot-scope="data">
-            <b-link 
+          </template>
+          <template v-slot:cell(airmass)="data">
+            {{ data.value | roundVal }}
+          </template>
+          <template v-slot:cell(file_path)="data">
+            FITS:
+            <b-link
               v-if="jpg_files"
-              :href="data.value | toJpg" target="_blank" 
+              :href="data.value.replace('.fits.fz', '_r.fits').replace()" target="_blank"
+              >R </b-link>
+
+            <b-link
+              v-if="jpg_files"
+              :href="data.value.replace('.fits.fz', '_g.fits')" target="_blank"
+              >G </b-link>
+
+            <b-link
+              v-if="jpg_files"
+              :href="data.value.replace('.fits.fz', '_b.fits')" target="_blank"
+              >B </b-link>
+              JPG
+            <b-link
+              v-if="jpg_files"
+              :href="data.value.replace('.fits.fz', '.jpg')" target="_blank"
               >
               <font-awesome-icon icon="image"></font-awesome-icon>
             </b-link>
-            </a>
-          </template>  
-
-        </b-table>            
+          </template>
+        </b-table>
         <b-row>
-          <b-col cols="6">              
+          <b-col cols="6">
             <b-button size='sm' variant='link'>
               <a :href='"http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=" + sequenceId'>Download file list</a>
             </b-button>
@@ -60,18 +77,18 @@
              <code>wget -i {{sequenceId}}.txt</code>
           </b-popover>
           <b-col cols="6">
-            <b-pagination 
-              :total-rows="images.length" 
-              :per-page="perPage" 
-              v-model="currentPage" 
+            <b-pagination
+              :total-rows="images.length"
+              :per-page="perPage"
+              v-model="currentPage"
               class="float-right"
                />
           </b-col>
-        </b-row>                  
+        </b-row>
         </b-card-body>
       </b-card>
     </b-tab>
-    <b-tab 
+    <b-tab
       title="timelapse"
       :disabled="timelapseUrl == ''"
       >
@@ -114,8 +131,9 @@ export default {
         this.jpg_files = this.files.jpg
         this.thumbUrl = this.files.jpg[0]
         this.timelapseUrl = ''
-        if (this.files.mp4)
+        if (this.files.mp4) {
           this.timelapseUrl = this.files.mp4[0]
+        }
       } else {
         this.files = []
       }
@@ -126,10 +144,10 @@ export default {
       .finally(() => (this.loading = false))
   },
   filters: {
-    toJpg: function (value) {
-      return value.replace(".fits.fz", ".jpg")
+    roundVal : function(value) {
+      return Number(value).toFixed(3);
     }
-  },  
+  },
   data () {
     return {
       sequenceId: this.$route.params.sequenceId,
@@ -148,12 +166,10 @@ export default {
       thumbUrl: '',
       timelapseUrl: '',
       fields: [
-        { label: 'Time', key: 'obstime', sortable: true },
+        { label: 'Time', key: 'imgtime', sortable: true },
         { label: 'HA', key: 'ha_mnt', sortable: true },
-        { label: 'RA', key: 'ra_mnt', sortable: true },
-        { label: 'Dec', key: 'dec_mnt', sortable: true },
+        { label: 'Airmass', key: 'airmass', sortable: true },
         { label: 'Exptime', key: 'exptime', sortable: true },
-        { label: 'State', key: 'state', sortable: true },
         { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
       ]
     }
