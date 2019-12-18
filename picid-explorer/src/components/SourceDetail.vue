@@ -45,10 +45,9 @@
         <div v-if="sourceRunDetail">
           <b-tabs content-class="mt-3">
             <b-tab title="Data">
-              <Plotly
-                :data="stampData"
-                :layout="layout"
-              /></Plotly>
+              <LightcurvePlot
+                :sourceRunDetail="sourceRunDetail"
+              />
             </b-tab>
             <b-tab title="Lightcurve" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['lightcurve-plot']" target="_blank">
@@ -116,17 +115,14 @@
 
 <script>
 import { SourcesService } from '../services/SourcesService.js'
-import { Plotly } from 'vue-plotly'
-
-const csv = require('csvtojson');
-const request = require('request');
+import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
 
 let sources = new SourcesService();
 
 export default {
   name: 'SourceDetail',
   components: {
-    Plotly
+    LightcurvePlot
   },
   methods: {
     selectRow: function(row) {
@@ -136,67 +132,6 @@ export default {
       .then((piaa_record) => { this.piaaRecord = piaa_record.data(); })
       .catch((err) => { console.log('Error getting PIAA details', err); })
       .finally(() => { this.loading = false; });
-
-      // Get lightcurve data
-      var image_times = [];
-      var r_data = [];
-      var g_data = [];
-      var b_data = [];
-
-      csv()
-      .fromStream(request.get(this.sourceRunDetail.files['lightcurve-data']))
-      .subscribe((json)=>{
-          image_times.push(json.image_time);
-          r_data.push(json.r);
-          g_data.push(json.g);
-          b_data.push(json.b);
-      });
-
-      this.stampData = [
-        {
-          x: image_times,
-          y: r_data,
-          mode: 'lines+markers',
-          name: 'R data',
-          line: {
-            color: 'red',
-            size: 3
-          },
-          marker: {
-            color: 'red',
-            size: 7
-          }
-        },
-        {
-          x: image_times,
-          y: g_data,
-          mode: 'lines+markers',
-          name: 'G data',
-          line: {
-            color: 'green',
-            size: 3
-          },
-          marker: {
-            color: 'green',
-            size: 7
-          }
-        },
-        {
-          x: image_times,
-          y: b_data,
-          mode: 'lines+markers',
-          name: 'B data',
-          line: {
-            color: 'blue',
-            size: 3
-          },
-          marker: {
-            color: 'blue',
-            size: 7
-          }
-        },
-      ];
-
     },
     roundVal : function(value) {
       return Number(value).toFixed(3);
@@ -251,11 +186,7 @@ export default {
       piaaRecord: null,
       sources: sources,
       loading: true,
-      picid: this.$route.params.picid,
-      layout: {
-        title: 'Lightcurve ' + this.$route.params.picid,
-        colors: ['red', 'green', 'blue']
-      }
+      picid: this.$route.params.picid
     }
   }
 }
