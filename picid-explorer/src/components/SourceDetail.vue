@@ -1,8 +1,8 @@
 <template>
   <b-container class="observations">
     <b-row> <a href="/piaa">PICID List</a> </b-row>
-    <b-row>
-      <b-col cols="4">
+    <b-row class="header" no-gutters>
+      <b-col>
           <b-card :title="'PICID: ' + picid">
             <b-card-text v-if="sourceRecord">
               Vmag: {{ sourceRecord.vmag | roundVal }} <br>
@@ -13,6 +13,8 @@
               </a>
             </b-card-text>
           </b-card>
+      </b-col>
+      <b-col>
         <b-card title="Processing Runs">
           <b-list-group id='observations'>
             <b-list-group-item href="#" v-on:click="selectRow(row)" v-for="row in rows" :class="{'active': row === sourceRunDetail}">
@@ -20,44 +22,25 @@
             </b-list-group-item>
           </b-list-group>
         </b-card>
-        <div>
-          <b-card v-if="sourceRunDetail" title="Processing Details">
-            <b-card-text>
-              <dl class="row">
-                <dt class="col-sm-5">Notes:</dt>
-                <dd class="col-sm-7">{{ sourceRunDetail.notes }}</dd>
-                <dt class="col-sm-5">Stamp Size:</dt>
-                <dd class="col-sm-7">{{ piaaRecord.stamp_size}}</dd>
-                <dt class="col-sm-5">Num refs:</dt>
-                <dd class="col-sm-7">{{ sourceRunDetail.num_refs }}</dd>
-                <dt class="col-sm-5">Sequence ID:</dt>
-                <dd class="col-sm-7">
-                  <a :href="'/observations/' + sourceRunDetail.sequence_id" target="_blank">{{ sourceRunDetail.sequence_id }}</a>
-                </dd>
-                <dt class="col-sm-5">Run ID:</dt>
-                <dd class="col-sm-7">{{ sourceRunDetail.piaa_document_id }}</dd>
-              </dl>
-            </b-card-text>
-          </b-card>
-        </div>
       </b-col>
-      <b-col cols="8">
+      <b-col>
+        <ProcessingDetail
+          v-if="sourceRunDetail && piaaRecord"
+          v-bind:sourceRunDetail="sourceRunDetail"
+          v-bind:piaaRecord="piaaRecord"
+        />
+      </b-col>
+        </div>
+    </b-row>
+    <b-row>
+      <b-col cols="12">
         <div v-if="sourceRunDetail">
           <b-tabs content-class="mt-3">
             <b-tab title="Data">
-              <LightcurvePlot
-                :sourceRunDetail="sourceRunDetail"
+              <lightcurve-plot
+                v-bind:stampData="stampData"
+                v-bind:loading="loading"
               />
-            </b-tab>
-            <b-tab title="Lightcurve" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['lightcurve-plot']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['lightcurve-plot']" fluid-grow></b-img>
-              </a>
-            </b-tab>
-            <b-tab title="Lightcurve Clipped" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['lightcurve-plot-clipped']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['lightcurve-plot-clipped']" fluid-grow></b-img>
-              </a>
             </b-tab>
             <b-tab title="Raw Flux 01" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['raw-flux-01']" target="_blank">
@@ -106,7 +89,6 @@
               </ul>
             </b-tab>
           </b-tabs>
-
         </div>
       </b-col>
     </b-row>
@@ -115,23 +97,41 @@
 
 <script>
 import { SourcesService } from '../services/SourcesService.js'
+
 import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
+import ProcessingDetail from './SourceDetail/ProcessingDetail.vue'
+
+const csv = require('csvtojson');
+const request = require('request');
 
 let sources = new SourcesService();
 
 export default {
   name: 'SourceDetail',
   components: {
-    LightcurvePlot
+    LightcurvePlot, ProcessingDetail
   },
   methods: {
     selectRow: function(row) {
+      this.loading = true;
       this.sourceRunDetail = row;
 
       this.sources.getPIAA(this.sourceRunDetail.piaa_document_id)
       .then((piaa_record) => { this.piaaRecord = piaa_record.data(); })
       .catch((err) => { console.log('Error getting PIAA details', err); })
       .finally(() => { this.loading = false; });
+
+      console.log('getting document', this.picid, this.sourceRunDetail.id)
+      this.sources.getLightcurveData(this.picid, this.sourceRunDetail.id).then((response) => {
+        if (response.status == 200){
+          console.log(response.data.lightcurve);
+          this.stampData = response.data.lightcurve;
+          this.loading = false;
+        }
+      }).catch(function(error){
+        console.log(error)
+      })
+
     },
     roundVal : function(value) {
       return Number(value).toFixed(3);
@@ -179,7 +179,7 @@ export default {
     return {
       rows: [],
       currentStamp: 1,
-      stampData: [],
+      stampData: {},
       perPage: 1,
       sourceRunDetail: null,
       sourceRecord: null,
@@ -194,6 +194,9 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.header {
+  font-size: 0.9rem;
+}
 h1, h2 {
   font-weight: normal;
 }
@@ -209,4 +212,5 @@ table th {
   overflow: scroll;
   -webkit-overflow-scrolling: touch;
 }
+
 </style>

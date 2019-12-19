@@ -4,14 +4,16 @@ import router from './router'
 import store from './store'
 import BootstrapVue from 'bootstrap-vue'
 import { FontAwesomeIcon, FontAwesomeLayers, FontAwesomeLayersText } from '@fortawesome/vue-fontawesome'
+
 import VueGoodTablePlugin from 'vue-good-table'
-import VueGoogleCharts from 'vue-google-charts'
 
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue/dist/bootstrap-vue.css'
 
 import 'vue-good-table/dist/vue-good-table.css'
 
+import axios from 'axios'
+import VueAxios from 'vue-axios'
 
 Vue.use(BootstrapVue)
 Vue.component('font-awesome-icon', FontAwesomeIcon)
@@ -19,7 +21,7 @@ Vue.component('font-awesome-layers', FontAwesomeLayers)
 Vue.component('font-awesome-layers-text', FontAwesomeLayersText)
 Vue.use(VueGoodTablePlugin)
 Vue.use(require('vue-moment'))
-Vue.use(VueGoogleCharts)
+Vue.use(VueAxios, axios)
 
 Vue.config.productionTip = false
 

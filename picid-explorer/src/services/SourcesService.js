@@ -1,6 +1,10 @@
 const request = require('request');
+const axios = require('axios').default;
+
 const db = firebase.firestore();
 const functions = firebase.functions();
+
+const base_url = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-piaa-details';
 
 export class SourcesService {
   constructor () {
@@ -23,10 +27,12 @@ export class SourcesService {
     return db.collection('picid/' + picid + '/observations').orderBy('observation_start_time').get();
   }
 
-  getLightcurveData (url) {
-    return request.get(url);
+  getLightcurveData(picid, picid_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        document_id: picid_doc_id,
+        document: false,
+        lightcurve: true
+    })
   }
 };
-
-
-

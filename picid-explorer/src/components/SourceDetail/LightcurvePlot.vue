@@ -1,9 +1,10 @@
 <template>
     <div>
         <b-spinner v-if="loading" label="Loading..."></b-spinner>
+        {{ r_std }}
       <Plotly
         v-if="!loading"
-        :data="stampData"
+        :data="plotData"
         :layout="layout"
       /></Plotly>
     </div>
@@ -11,61 +12,60 @@
 
 <script>
 import { Plotly } from 'vue-plotly'
+import { create, all } from 'mathjs'
 
-const csv = require('csvtojson');
-const request = require('request');
+const math = create(all)
 
 export default {
+    name: 'lightcurve-plot',
     components: {
         Plotly
     },
     props: {
-        sourceRunDetail: {
+        stampData: {
             type: Object,
             required: true
+        },
+        loading: {
+            type: Boolean,
+            default: true
         }
     },
     methods: {
+        loadData(data){
+            this.plotData[0]['x'] = data.image_time;
+            this.plotData[1]['x'] = data.image_time;
+            this.plotData[2]['x'] = data.image_time;
+
+            this.plotData[0]['y'] = data.r;
+            this.plotData[1]['y'] = data.g;
+            this.plotData[2]['y'] = data.b;
+
+            this.$nextTick();
+        }
     },
-    created: function() {
-        var image_times = [];
-        var r_data = [];
-        var g_data = [];
-        var b_data = [];
-
-        console.log('Fetching data.')
-        csv()
-        .fromStream(request.get(this.sourceRunDetail.files['lightcurve-data']))
-        .subscribe((json)=>{
-
-            image_times.push(json.image_time);
-            r_data.push(json.r);
-            g_data.push(json.g);
-            b_data.push(json.b);
-        });
-
-        console.log('Loading data.')
-
-        this.stampData[0]['x'] = image_times;
-        this.stampData[1]['x'] = image_times;
-        this.stampData[2]['x'] = image_times;
-
-        this.stampData[0]['y'] = r_data;
-        this.stampData[1]['y'] = g_data;
-        this.stampData[2]['y'] = b_data;
-
-        console.log(this.stampData);
-        this.loading = false;
+    computed: {
+        r_std: function () {
+            return ''; //math.std(this.plotData[0].get_y());
+        }
+    },
+    mounted: function() {
+        this.loadData(this.stampData);
+    },
+    watch: {
+        stampData: function(newValue, oldValue) {
+            this.loadData(newValue);
+        }
     },
     data () {
         return {
             name: 'LightcurvePlot',
-            loading: true,
+            imageTimes: [],
             layout: {
               title: 'Lightcurve ' + this.$route.params.picid,
               colors: ['red', 'green', 'blue']
             },
-            stampData: [
+            plotData: [
               {
                 x: [],
                 y: [],
