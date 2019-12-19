@@ -46,6 +46,7 @@ def get_piaa_details(request):
     # Data types to get
     get_document = request_json.get('document', True)
     should_get_metadata = request_json.get('metadata', False)
+    should_get_metadata = False  # For now
     should_get_lightcurve = request_json.get('lightcurve', False)
     should_get_psc = request_json.get('psc', False)
 
@@ -65,13 +66,13 @@ def get_piaa_details(request):
             response = piaa_doc
 
         if should_get_metadata:
-            response['metadata'] = get_metadata(metadata_url).to_dict()
+            response['metadata'] = get_metadata(metadata_url).to_dict(orient='record')
 
         if should_get_lightcurve:
-            response['lightcurve'] = get_lightcurve(lightcurve_url).to_dict()
+            response['lightcurve'] = get_lightcurve(lightcurve_url).to_dict(orient='list')
 
         if should_get_psc:
-            response['psc'] = get_psc(target_url, comparison_url).to_dict()
+            response['psc'] = get_psc(target_url, comparison_url).to_dict(orient='list')
     except Exception as e:
         response_body = to_json({'Error': e})
     else:
@@ -126,14 +127,8 @@ def get_lightcurve(lightcurve_url):
     lc_df0.image_time = pd.to_datetime(lc_df0.image_time)
     lc_df0.sort_values(by='image_time')
 
-    # Put into tidy form
-    lc_df1 = lc_df0.melt(id_vars=['image_time'], var_name='color')
-
     # Mark those values that would be sigma clipped
-    lc_df1['outlier'] = False
-
     for color in list('rgb'):
-        clipped_data = sigma_clip(lc_df1.query('color == @color').value)
-        lc_df1.loc[lc_df1.color == color, 'outlier'] = clipped_data.mask
+        lc_df0[f'{color}_outlier'] = sigma_clip(lc_df0[color]).mask
 
-    return lc_df1
+    return lc_df0
