@@ -37,7 +37,7 @@
         <div v-if="sourceRunDetail">
           <b-tabs content-class="mt-3">
             <b-tab title="Data">
-              <lightcurve-plot
+              <LightcurvePlot
                 v-bind:stampData="stampData"
               />
             </b-tab>
