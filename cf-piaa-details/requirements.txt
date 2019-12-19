@@ -1,0 +1,6 @@
+astropy
+Flask
+google-cloud-firestore
+numpy
+pandas
+panoptes-utils
