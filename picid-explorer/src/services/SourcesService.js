@@ -35,4 +35,13 @@ export class SourcesService {
         lightcurve: true
     })
   }
+
+  getRawCounts(picid, picid_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        document_id: picid_doc_id,
+        document: false,
+        counts: true
+    })
+  }
 };

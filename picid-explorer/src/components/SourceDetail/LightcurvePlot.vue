@@ -1,7 +1,6 @@
 <template>
     <div>
         <b-spinner v-if="loading" label="Loading..."></b-spinner>
-        {{ r_std }}
       <Plotly
         v-if="!loading"
         :data="plotData"
@@ -25,10 +24,6 @@ export default {
         stampData: {
             type: Object,
             required: true
-        },
-        loading: {
-            type: Boolean,
-            default: true
         }
     },
     methods: {
@@ -42,11 +37,7 @@ export default {
             this.plotData[2]['y'] = data.b;
 
             this.$nextTick();
-        }
-    },
-    computed: {
-        r_std: function () {
-            return ''; //math.std(this.plotData[0].get_y());
+            this.loading = false;
         }
     },
     mounted: function() {
@@ -61,6 +52,7 @@ export default {
         return {
             name: 'LightcurvePlot',
             imageTimes: [],
+            loading: true,
             layout: {
               title: 'Lightcurve ' + this.$route.params.picid,
               colors: ['red', 'green', 'blue']

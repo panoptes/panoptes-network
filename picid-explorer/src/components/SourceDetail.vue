@@ -39,19 +39,13 @@
             <b-tab title="Data">
               <lightcurve-plot
                 v-bind:stampData="stampData"
-                v-bind:loading="loading"
               />
             </b-tab>
-            <b-tab title="Raw Flux 01" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['raw-flux-01']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['raw-flux-01']" fluid-grow></b-img>
-              </a>
+            <b-tab title="Raw Flux">
+              <RawCountPlot
+                v-bind:rawData="rawData"
+              />
             </b-tab>
-            <b-tab title="Raw Flux 02" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['raw-flux-02']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['raw-flux-02']" fluid-grow></b-img>
-              </a>
-            </b-tab>`
             <b-tab title="Ref Locations" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['reference-locations']" target="_blank">
                 <b-img :src="sourceRunDetail.files.plots['reference-locations']" fluid-grow></b-img>
@@ -99,6 +93,8 @@
 import { SourcesService } from '../services/SourcesService.js'
 
 import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
+import RawCountPlot from './SourceDetail/RawCountPlot.vue'
+
 import ProcessingDetail from './SourceDetail/ProcessingDetail.vue'
 
 const csv = require('csvtojson');
@@ -109,11 +105,11 @@ let sources = new SourcesService();
 export default {
   name: 'SourceDetail',
   components: {
-    LightcurvePlot, ProcessingDetail
+    LightcurvePlot, RawCountPlot,
+    ProcessingDetail
   },
   methods: {
     selectRow: function(row) {
-      this.loading = true;
       this.sourceRunDetail = row;
 
       this.sources.getPIAA(this.sourceRunDetail.piaa_document_id)
@@ -121,16 +117,20 @@ export default {
       .catch((err) => { console.log('Error getting PIAA details', err); })
       .finally(() => { this.loading = false; });
 
-      console.log('getting document', this.picid, this.sourceRunDetail.id)
       this.sources.getLightcurveData(this.picid, this.sourceRunDetail.id).then((response) => {
         if (response.status == 200){
-          console.log(response.data.lightcurve);
           this.stampData = response.data.lightcurve;
-          this.loading = false;
         }
       }).catch(function(error){
         console.log(error)
-      })
+      });
+
+      this.sources.getRawCounts(this.picid, this.sourceRunDetail.id).then((response) => {
+        if (response.status == 200){
+          console.log(response.data.counts);
+          this.rawData = response.data.counts;
+        }
+      });
 
     },
     roundVal : function(value) {
@@ -180,6 +180,7 @@ export default {
       rows: [],
       currentStamp: 1,
       stampData: {},
+      rawData: {},
       perPage: 1,
       sourceRunDetail: null,
       sourceRecord: null,
