@@ -49,6 +49,7 @@ def get_piaa_details(request):
     should_get_metadata = False  # For now
     should_get_lightcurve = request_json.get('lightcurve', False)
     should_get_psc = request_json.get('psc', False)
+    should_get_counts = request_json.get('counts', False)
 
     # Fetch the document
     piaa_doc = db.document(f'picid/{picid}/observations/{document_id}').get().to_dict()
@@ -73,6 +74,11 @@ def get_piaa_details(request):
 
         if should_get_psc:
             response['psc'] = get_psc(target_url, comparison_url).to_dict(orient='list')
+
+        if should_get_counts:
+            metadata_df = get_metadata(metadata_url)
+            psc_df = get_psc(target_url, comparison_url)
+            response['counts'] = get_counts(picid, metadata_df, psc_df).to_dict(orient='list')
     except Exception as e:
         response_body = to_json({'Error': e})
     else:
@@ -132,3 +138,19 @@ def get_lightcurve(lightcurve_url):
         lc_df0[f'{color}_outlier'] = sigma_clip(lc_df0[color]).mask
 
     return lc_df0
+
+
+def get_counts(picid, metadata_df, psc_df):
+    flux = psc_df.groupby(['source', 'image_time']).value.sum().reset_index()
+
+    raw_target_flux = metadata_df.query('picid == @picid').filter(['picid', 'image_time', 'flux_best', 'fluxerr_best'])
+    raw_target_flux.image_time = pd.to_datetime(raw_target_flux.image_time)
+    raw_target_flux.drop(columns=['picid', 'fluxerr_best'], inplace=True)
+
+    fluxes = pd.concat([
+        flux,
+        raw_target_flux.melt(id_vars=['image_time'], var_name='source')
+    ], sort=False)
+
+    # Return in long format
+    return fluxes.pivot(index='image_time', columns='source', values='value').reset_index()
