@@ -44,4 +44,13 @@ export class SourcesService {
         counts: true
     })
   }
+
+  getPixelDrift(picid, picid_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        document_id: picid_doc_id,
+        document: false,
+        pixel_drift: true
+    })
+  }
 };

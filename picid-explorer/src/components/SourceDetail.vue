@@ -64,10 +64,10 @@
                 <b-img :src="sourceRunDetail.files.plots['reference-coeffs']"></b-img>
               </a>
             </b-tab>
-            <b-tab title="Pixel Drift" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['pixel-drift']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['pixel-drift']" fluid-grow></b-img>
-              </a>
+            <b-tab title="Pixel Drift">
+              <PixelDriftPlot
+                v-bind:pixelData="pixelData"
+              />
             </b-tab>
             <b-tab title="Ref Vmags" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['reference-vmags']" target="_blank">
@@ -94,6 +94,7 @@ import { SourcesService } from '../services/SourcesService.js'
 
 import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
 import RawCountPlot from './SourceDetail/RawCountPlot.vue'
+import PixelDriftPlot from './SourceDetail/PixelDriftPlot.vue'
 
 import ProcessingDetail from './SourceDetail/ProcessingDetail.vue'
 
@@ -105,7 +106,7 @@ let sources = new SourcesService();
 export default {
   name: 'SourceDetail',
   components: {
-    LightcurvePlot, RawCountPlot,
+    LightcurvePlot, RawCountPlot, PixelDriftPlot,
     ProcessingDetail
   },
   methods: {
@@ -127,8 +128,13 @@ export default {
 
       this.sources.getRawCounts(this.picid, this.sourceRunDetail.id).then((response) => {
         if (response.status == 200){
-          console.log(response.data.counts);
           this.rawData = response.data.counts;
+        }
+      });
+
+      this.sources.getPixelDrift(this.picid, this.sourceRunDetail.id).then((response) => {
+        if (response.status == 200){
+          this.pixelData = response.data.pixel_drift;
         }
       });
 
@@ -181,6 +187,7 @@ export default {
       currentStamp: 1,
       stampData: {},
       rawData: {},
+      pixelData: {},
       perPage: 1,
       sourceRunDetail: null,
       sourceRecord: null,

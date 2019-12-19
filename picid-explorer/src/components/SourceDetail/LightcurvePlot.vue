@@ -36,6 +36,7 @@ export default {
             this.plotData[2]['y'] = data.b;
 
             this.$nextTick();
+
             this.loading = false;
         }
     },
@@ -50,8 +51,8 @@ export default {
     data () {
         return {
             name: 'LightcurvePlot',
-            imageTimes: [],
             loading: true,
+            imageTimes: [],
             layout: {
               title: 'Lightcurve ' + this.$route.params.picid,
               colors: ['red', 'green', 'blue']

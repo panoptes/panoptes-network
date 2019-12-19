@@ -50,6 +50,7 @@ def get_piaa_details(request):
     should_get_lightcurve = request_json.get('lightcurve', False)
     should_get_psc = request_json.get('psc', False)
     should_get_counts = request_json.get('counts', False)
+    should_get_pixel_drift = request_json.get('pixel_drift', False)
 
     # Fetch the document
     piaa_doc = db.document(f'picid/{picid}/observations/{document_id}').get().to_dict()
@@ -79,6 +80,11 @@ def get_piaa_details(request):
             metadata_df = get_metadata(metadata_url)
             psc_df = get_psc(target_url, comparison_url)
             response['counts'] = get_counts(picid, metadata_df, psc_df).to_dict(orient='list')
+
+        if should_get_pixel_drift:
+            metadata_df = get_metadata(metadata_url)
+            response['pixel_drift'] = get_pixel_drift(picid, metadata_df).to_dict(orient='list')
+
     except Exception as e:
         response_body = to_json({'Error': e})
     else:
@@ -154,3 +160,14 @@ def get_counts(picid, metadata_df, psc_df):
 
     # Return in long format
     return fluxes.pivot(index='image_time', columns='source', values='value').reset_index()
+
+
+def get_pixel_drift(picid, metadata_df):
+    pixel_df = metadata_df.query('picid == @picid').filter(['image_time', 'x', 'y'])
+    pixel_df.image_time = pd.to_datetime(pixel_df.image_time)
+    pixel_df.sort_values(by='image_time', inplace=True)
+
+    pixel_df['x_offset'] = pixel_df.x - pixel_df.iloc[0].x
+    pixel_df['y_offset'] = pixel_df.y - pixel_df.iloc[0].y
+
+    return pixel_df
