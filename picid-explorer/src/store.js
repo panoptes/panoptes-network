@@ -3,7 +3,6 @@ import Vuex from 'vuex'
 
 import { SourcesService } from './services/SourcesService.js'
 
-const csv = require('csvtojson');
 const request = require('request');
 
 let sources = new SourcesService();
