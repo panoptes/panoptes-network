@@ -46,12 +46,10 @@ export default {
     }
   },
   created () {
-    this.sources.getRecent().then((snapshot) => {
-        snapshot.forEach((doc) => {
-          var data = doc.data();
-          data['id'] = doc.id;
-          this.rows.push(data);
-        });
+    this.sources.getRecent().then((response) => {
+      if (response.status == 200){
+        this.rows = response.data.picid;
+      }
       })
       .catch((err) => {
         console.log('Error getting documents', err);

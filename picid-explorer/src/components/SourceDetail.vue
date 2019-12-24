@@ -17,18 +17,14 @@
       <b-col>
         <b-card title="Processing Runs">
           <b-list-group id='observations'>
-            <b-list-group-item href="#" v-on:click="selectRow(row)" v-for="row in rows" :class="{'active': row === sourceRunDetail}">
+            <b-list-group-item href="#" v-on:click="selectRow(row)" v-for="row in observations" :class="{'active': row === sourceRunDetail}">
               {{ row.sequence_id }} {{ row.stamp_size }} {{ row.notes }}
             </b-list-group-item>
           </b-list-group>
         </b-card>
       </b-col>
       <b-col>
-        <ProcessingDetail
-          v-if="sourceRunDetail && piaaRecord"
-          v-bind:sourceRunDetail="sourceRunDetail"
-          v-bind:piaaRecord="piaaRecord"
-        />
+        <ProcessingDetail v-if="sourceRunDetail && piaaRecord" />
       </b-col>
         </div>
     </b-row>
@@ -46,10 +42,8 @@
                 v-bind:rawData="rawData"
               />
             </b-tab>
-            <b-tab title="Ref Locations" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['reference-locations']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['reference-locations']" fluid-grow></b-img>
-              </a>
+            <b-tab title="Ref Locations" @click="getReferenceLocations">
+              <ReferenceLocationsPlot v-if="locationData.picid && locationData.picid.length > 0" />
             </b-tab>
             <b-tab title="Ref Distances" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['reference-pairplot']" target="_blank">
@@ -90,53 +84,27 @@
 </template>
 
 <script>
-import { SourcesService } from '../services/SourcesService.js'
+import { mapState, mapActions } from 'vuex'
 
 import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
 import RawCountPlot from './SourceDetail/RawCountPlot.vue'
 import PixelDriftPlot from './SourceDetail/PixelDriftPlot.vue'
+import ReferenceLocationsPlot from './SourceDetail/ReferenceLocationsPlot.vue'
 
 import ProcessingDetail from './SourceDetail/ProcessingDetail.vue'
-
-const csv = require('csvtojson');
-const request = require('request');
-
-let sources = new SourcesService();
 
 export default {
   name: 'SourceDetail',
   components: {
-    LightcurvePlot, RawCountPlot, PixelDriftPlot,
+    LightcurvePlot,
+    RawCountPlot,
+    PixelDriftPlot,
+    ReferenceLocationsPlot,
     ProcessingDetail
   },
   methods: {
     selectRow: function(row) {
-      this.sourceRunDetail = row;
-
-      this.sources.getPIAA(this.sourceRunDetail.piaa_document_id)
-      .then((piaa_record) => { this.piaaRecord = piaa_record.data(); })
-      .catch((err) => { console.log('Error getting PIAA details', err); })
-      .finally(() => { this.loading = false; });
-
-      this.sources.getLightcurveData(this.picid, this.sourceRunDetail.id).then((response) => {
-        if (response.status == 200){
-          this.stampData = response.data.lightcurve;
-        }
-      }).catch(function(error){
-        console.log(error)
-      });
-
-      this.sources.getRawCounts(this.picid, this.sourceRunDetail.id).then((response) => {
-        if (response.status == 200){
-          this.rawData = response.data.counts;
-        }
-      });
-
-      this.sources.getPixelDrift(this.picid, this.sourceRunDetail.id).then((response) => {
-        if (response.status == 200){
-          this.pixelData = response.data.pixel_drift;
-        }
-      });
+      this.$store.dispatch('selectRow', row);
 
     },
     roundVal : function(value) {
@@ -147,7 +115,10 @@ export default {
       var s = String(num);
       while (s.length < (size || 2)) {s = "0" + s;}
       return s;
-    }
+    },
+    ...mapActions([
+      'getReferenceLocations'
+    ])
   },
   filters: {
     roundVal : function(value) {
@@ -160,39 +131,25 @@ export default {
       return s;
     }
   },
+  computed: {
+    ...mapState([
+      'observations',
+      'sourceRecord',
+      'sourceRunDetail',
+      'piaaRecord',
+      'locationData',
+      'stampData',
+      'rawData',
+      'pixelData'
+    ])
+  },
   created () {
-    this.sources.getSourceObservations(this.picid).then((observations) => {
-        observations.forEach((observation) => {
-          var data = observation.data();
-          data['id'] = observation.id;
-          this.rows.push(data);
-        });
-      })
-      .catch((err) => {
-        console.log('Error getting documents', err);
-      })
-      .finally(() => (this.loading = false));
-
-      this.sources.getSource(this.picid).then((picid_info) => {
-        this.sourceRecord = picid_info.data();
-      })
-      .catch((err) => {
-        console.log('Error getting documents', err);
-      })
-      .finally(() => (this.loading = false));
+    this.$store.dispatch('setSource', this.$route.params.picid);
   },
   data () {
     return {
-      rows: [],
       currentStamp: 1,
-      stampData: {},
-      rawData: {},
-      pixelData: {},
       perPage: 1,
-      sourceRunDetail: null,
-      sourceRecord: null,
-      piaaRecord: null,
-      sources: sources,
       loading: true,
       picid: this.$route.params.picid
     }

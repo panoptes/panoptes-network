@@ -20,10 +20,19 @@
 </template>
 
 <script>
+import { mapState } from 'vuex'
+
 export default {
-    props: {
-        sourceRunDetail: Object,
-        piaaRecord: Object,
+  name: 'ProcessingDetail',
+  computed: {
+    ...mapState([
+      'sourceRunDetail',
+      'piaaRecord'
+    ])
+  },
+  data () {
+    return {
     }
+  }
 }
 </script>

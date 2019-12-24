@@ -1,8 +1,4 @@
-const request = require('request');
 const axios = require('axios').default;
-
-const db = firebase.firestore();
-const functions = firebase.functions();
 
 const base_url = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-piaa-details';
 
@@ -12,45 +8,62 @@ export class SourcesService {
   }
 
   getRecent () {
-    return db.collection('picid').limit(100).get();
-  }
-
-  getPIAA (piaa_doc_id) {
-    return db.doc('piaa/' + piaa_doc_id).get();
+    return axios.post(base_url, {
+      recent_picid: true
+    })
   }
 
   getSource (picid) {
-    return db.doc('picid/' + picid).get();
+    return axios.post(base_url, {
+        picid: picid,
+        source_info: true
+    })
   }
 
   getSourceObservations (picid) {
-    return db.collection('picid/' + picid + '/observations').orderBy('observation_start_time').get();
-  }
-
-  getLightcurveData(picid, picid_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        document_id: picid_doc_id,
-        document: false,
+        piaa_runs: true
+    })
+  }
+
+  getPIAA (picid, piaa_doc_id) {
+    return axios.post(base_url, {
+        picid: picid,
+        piaa_document_id: piaa_doc_id,
+        piaa_document: true
+    })
+  }
+
+  getLightcurveData(picid, piaa_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        piaa_document_id: piaa_doc_id,
         lightcurve: true
     })
   }
 
-  getRawCounts(picid, picid_doc_id){
+  getRawCounts(picid, piaa_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        document_id: picid_doc_id,
-        document: false,
+        piaa_document_id: piaa_doc_id,
         counts: true
     })
   }
 
-  getPixelDrift(picid, picid_doc_id){
+  getPixelDrift(picid, piaa_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        document_id: picid_doc_id,
-        document: false,
+        piaa_document_id: piaa_doc_id,
         pixel_drift: true
+    })
+  }
+
+  getReferenceLocations(picid, piaa_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        piaa_document_id: piaa_doc_id,
+        ref_locations: true
     })
   }
 };
