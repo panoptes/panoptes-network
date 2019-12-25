@@ -43,6 +43,9 @@ export default {
             loading: false,
             imageTimes: [],
             layout: {
+              autosize: false,
+              width: 900,
+              height: 600,
               title: 'Reference Locations ' + this.$route.params.picid,
               xaxis: {
                 range: [ 0, 5208]

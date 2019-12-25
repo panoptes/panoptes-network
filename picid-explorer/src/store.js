@@ -87,6 +87,7 @@ export default new Vuex.Store({
       selectRow: function({ commit, state, dispatch }, row) {
         commit('setRunDetail', row);
 
+        commit('setPiaaRecord', {});
         state.sources.getPIAA(state.picid, row.id)
         .then((response) => {
           if (response.status == 200){
@@ -101,6 +102,7 @@ export default new Vuex.Store({
       },
 
       getLightcurve: function({ commit, state }) {
+        commit('setStampData', {})
         state.sources.getLightcurveData(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
             commit('setStampData', response.data.lightcurve)
@@ -111,6 +113,7 @@ export default new Vuex.Store({
       },
 
       getRawCounts: function({ commit, state }) {
+        commit('setRawCounts', {})
         state.sources.getRawCounts(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
             commit('setRawCounts', response.data.counts)
@@ -119,6 +122,7 @@ export default new Vuex.Store({
       },
 
       getPixelDrift: function({ commit, state }) {
+        commit('setPixelData', {});
         state.sources.getPixelDrift(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
             commit('setPixelData', response.data.pixel_drift);
@@ -127,6 +131,7 @@ export default new Vuex.Store({
       },
 
       getReferenceLocations: function({ commit, state }) {
+        commit('setLocationData', {})
         state.sources.getReferenceLocations(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
             commit('setLocationData', response.data.ref_locations)
