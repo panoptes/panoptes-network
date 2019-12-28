@@ -21,6 +21,7 @@ export default new Vuex.Store({
       piaaRecord: null,
       locationData: {},
       stampData: {},
+      lightcurveData: {},
       rawData: {},
       pixelData: {}
   },
@@ -42,6 +43,9 @@ export default new Vuex.Store({
       },
       setStampData(state, record){
         state.stampData = record;
+      },
+      setLightcurveData(state, record){
+        state.LightcurveData = record;
       },
       setPixelData(state, record){
         state.pixelData = record;
@@ -73,9 +77,6 @@ export default new Vuex.Store({
 
         state.sources.getSource(state.picid).then((response) => {
           if (response.status == 200){
-            if (isNaN(response.data.picid_document.lumclass)){
-              response.data.picid_document.lumclass = 'Unknown';
-            }
             commit('setSourceRecord', response.data.picid_document);
           }
         })
@@ -91,21 +92,31 @@ export default new Vuex.Store({
         state.sources.getPIAA(state.picid, row.id)
         .then((response) => {
           if (response.status == 200){
-            commit('setPiaaRecord', response.data);
+            commit('setPiaaRecord', response.data.piaa_document);
           }
         })
         .catch((err) => { console.log('Error getting PIAA details', err); });
 
         dispatch('getLightcurve');
-        dispatch('getPixelDrift');
-        dispatch('getRawCounts');
       },
 
       getLightcurve: function({ commit, state }) {
-        commit('setStampData', {})
+        commit('setLightcurveData', {})
         state.sources.getLightcurveData(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
-            commit('setStampData', response.data.lightcurve)
+            commit('setLightcurveData', response.data.lightcurve)
+          }
+        }).catch(function(error){
+          console.log(error)
+        });
+      },
+
+      getPSC: function({ commit, state }) {
+        commit('setStampData', {})
+        state.sources.getPSC(state.picid, state.sourceRunDetail.id).then((response) => {
+          if (response.status == 200){
+            console.log(response.data)
+            commit('setStampData', response.data)
           }
         }).catch(function(error){
           console.log(error)

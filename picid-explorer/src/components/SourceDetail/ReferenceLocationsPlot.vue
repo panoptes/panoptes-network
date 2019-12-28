@@ -70,6 +70,7 @@ export default {
                 name: 'Target',
                 marker: {
                     color: 'red',
+                    style: '*',
                     size: 200
                 }
               }

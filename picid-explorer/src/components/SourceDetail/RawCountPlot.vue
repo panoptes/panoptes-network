@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-spinner v-if="loading" label="Loading..."></b-spinner>
+      <b-spinner v-if="loading" label="Loading..."></b-spinner>
       <Plotly
         v-if="!loading"
         :data="plotData"

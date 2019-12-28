@@ -20,7 +20,7 @@ export default {
         Plotly
     },
     props: {
-        stampData: {
+        lightcurveData: {
             type: Object,
             required: true
         }
@@ -41,10 +41,10 @@ export default {
         }
     },
     mounted: function() {
-        this.loadData(this.stampData);
+        this.loadData(this.lightcurveData);
     },
     watch: {
-        stampData: function(newValue, oldValue) {
+        lightcurveData: function(newValue, oldValue) {
             this.loadData(newValue);
         }
     },

@@ -34,16 +34,16 @@
           <b-tabs content-class="mt-3">
             <b-tab title="Data">
               <LightcurvePlot
-                v-bind:stampData="stampData"
+                v-bind:lightcurveData="lightcurveData"
               />
             </b-tab>
-            <b-tab title="Raw Flux">
+            <b-tab title="Raw Flux" @click="getRawCounts">
               <RawCountPlot
                 v-bind:rawData="rawData"
               />
             </b-tab>
             <b-tab title="Ref Locations" @click="getReferenceLocations">
-              <ReferenceLocationsPlot v-if="locationData.picid && locationData.picid.length > 0" />
+              <ReferenceLocationsPlot v-bind:locationData="locationData" />
             </b-tab>
             <b-tab title="Ref Distances" v-if="sourceRunDetail.files.plots">
               <a :href="sourceRunDetail.files.plots['reference-pairplot']" target="_blank">
@@ -58,7 +58,7 @@
                 <b-img :src="sourceRunDetail.files.plots['reference-coeffs']"></b-img>
               </a>
             </b-tab>
-            <b-tab title="Pixel Drift">
+            <b-tab title="Pixel Drift" @click="getPixelDrift">
               <PixelDriftPlot
                 v-bind:pixelData="pixelData"
               />
@@ -117,7 +117,11 @@ export default {
       return s;
     },
     ...mapActions([
-      'getReferenceLocations'
+      'getLightcurve',
+      'getReferenceLocations',
+      'getPixelDrift',
+      'getRawCounts',
+      'getPSC'
     ])
   },
   filters: {
@@ -138,7 +142,7 @@ export default {
       'sourceRunDetail',
       'piaaRecord',
       'locationData',
-      'stampData',
+      'lightcurveData',
       'rawData',
       'pixelData'
     ])

@@ -27,42 +27,50 @@ export class SourcesService {
     })
   }
 
-  getPIAA (picid, piaa_doc_id) {
+  getPIAA (picid, picid_doc_id) {
     return axios.post(base_url, {
         picid: picid,
-        piaa_document_id: piaa_doc_id,
+        picid_doc_id: picid_doc_id,
         piaa_document: true
     })
   }
 
-  getLightcurveData(picid, piaa_doc_id){
+  getLightcurveData(picid, picid_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        piaa_document_id: piaa_doc_id,
+        picid_doc_id: picid_doc_id,
         lightcurve: true
     })
   }
 
-  getRawCounts(picid, piaa_doc_id){
+  getPSC(picid, picid_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        piaa_document_id: piaa_doc_id,
+        picid_doc_id: picid_doc_id,
+        psc: true
+    })
+  }
+
+  getRawCounts(picid, picid_doc_id){
+    return axios.post(base_url, {
+        picid: picid,
+        picid_doc_id: picid_doc_id,
         counts: true
     })
   }
 
-  getPixelDrift(picid, piaa_doc_id){
+  getPixelDrift(picid, picid_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        piaa_document_id: piaa_doc_id,
+        picid_doc_id: picid_doc_id,
         pixel_drift: true
     })
   }
 
-  getReferenceLocations(picid, piaa_doc_id){
+  getReferenceLocations(picid, picid_doc_id){
     return axios.post(base_url, {
         picid: picid,
-        piaa_document_id: piaa_doc_id,
+        picid_doc_id: picid_doc_id,
         ref_locations: true
     })
   }
