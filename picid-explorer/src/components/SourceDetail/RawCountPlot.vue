@@ -10,17 +10,13 @@
 </template>
 
 <script>
+import { mapState, mapActions } from 'vuex'
+
 import { Plotly } from 'vue-plotly'
 
 export default {
     components: {
         Plotly
-    },
-    props: {
-        rawData: {
-            type: Object,
-            required: true
-        }
     },
     methods: {
         loadData(data){
@@ -36,13 +32,13 @@ export default {
             this.loading = false;
         }
     },
-    mounted: function() {
-        this.loadData(this.rawData);
-    },
     watch: {
         rawData: function(newValue, oldValue) {
           this.loadData(newValue);
         }
+    },
+    computed: {
+        ...mapState(['rawData'])
     },
     data () {
         return {
@@ -50,7 +46,7 @@ export default {
             loading: true,
             imageTimes: [],
             layout: {
-              title: 'Raw Counts ' + this.$route.params.picid
+              title: 'Raw Counts ' + this.$store.state.picid
             },
             plotData: [
               {

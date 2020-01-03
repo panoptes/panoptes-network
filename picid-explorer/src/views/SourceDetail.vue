@@ -1,9 +1,9 @@
 <template>
-  <div class="sources">
+  <section class="section">
 	  <div class="container">
 			<SourceDetail />
 	  </div>
-  </div>
+  </section>
 </template>
 
 <script>

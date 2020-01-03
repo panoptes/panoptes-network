@@ -14,6 +14,8 @@ Vue.use(Vuex)
 export default new Vuex.Store({
   state: {
       picid: null,
+      frameIndex: 0,
+      totalFrames: null,
       sources: sources,
       observations: [],
       sourceRecord: null,
@@ -28,39 +30,42 @@ export default new Vuex.Store({
   mutations: {
       setSource(state, picid) {
         state.picid = picid;
+        // Reset everything.
+        state.observations = [];
+        state.sourceRecord = null;
+        state.sourceRunDetail = null;
+        state.piaaRecord = null;
+        state.locationData = {};
+        state.stampData = {};
+        state.lightcurveData = {};
+        state.rawData = {};
+        state.plotData = {};
+        state.frameIndex = 0;
+        state.totalFrames = null;
       },
-      setSourceRecord(state, record) {
-        state.sourceRecord = record;
+      setFrame(state, record) {
+        state.frameIndex = record;
+        if (state.frameIndex == state.totalFrames){
+          state.frameIndex = 0;
+        }
+        if (state.frameIndex == -1){
+          state.frameIndex = state.totalFrames - 1;
+        }
       },
-      setRunDetail(state, record){
-        state.sourceRunDetail = record;
-      },
-      setPiaaRecord(state, record){
-        state.piaaRecord = record;
-      },
-      setLocationData(state, record){
-        state.locationData = record;
-      },
-      setStampData(state, record){
-        state.stampData = record;
-      },
-      setLightcurveData(state, record){
-        state.LightcurveData = record;
-      },
-      setPixelData(state, record){
-        state.pixelData = record;
-      },
-      setRawCounts(state, record){
-        state.rawData = record;
-      },
-      setObservations(state, records){
-        state.observations = records;
-      },
-      addObservationRun(state, data) {
-        state.observations.push(data);
-      }
+      setFrameSize(state, record) { state.totalFrames = record },
+      setSourceRecord(state, record) { state.sourceRecord = record },
+      setRunDetail(state, record){ state.sourceRunDetail = record },
+      setPiaaRecord(state, record){ state.piaaRecord = record },
+      setLocationData(state, record){ state.locationData = record },
+      setStampData(state, record){ state.stampData = record },
+      setLightcurveData(state, record){ state.lightcurveData = record },
+      setPixelData(state, record){ state.pixelData = record },
+      setRawCounts(state, record){ state.rawData = record },
+      setObservations(state, records){ state.observations = records },
+      addObservationRun(state, data) { state.observations.push(data) }
   },
   actions: {
+      setFrame({ commit, state }, newIndex ){ commit('setFrame', newIndex) },
       setSource({ commit, state }, picid) {
         // Set property
         commit('setSource', picid);
@@ -98,6 +103,10 @@ export default new Vuex.Store({
         .catch((err) => { console.log('Error getting PIAA details', err); });
 
         dispatch('getLightcurve');
+        dispatch('getRawCounts');
+        dispatch('getReferenceLocations');
+        dispatch('getPixelDrift');
+        dispatch('getPSC');
       },
 
       getLightcurve: function({ commit, state }) {
@@ -115,8 +124,8 @@ export default new Vuex.Store({
         commit('setStampData', {})
         state.sources.getPSC(state.picid, state.sourceRunDetail.id).then((response) => {
           if (response.status == 200){
-            console.log(response.data)
-            commit('setStampData', response.data)
+            commit('setStampData', response.data.psc)
+            commit('setFrameSize', response.data.psc.target.length)
           }
         }).catch(function(error){
           console.log(error)

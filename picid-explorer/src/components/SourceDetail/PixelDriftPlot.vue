@@ -1,8 +1,6 @@
 <template>
     <div>
-        <b-spinner v-if="loading" label="Loading..."></b-spinner>
       <Plotly
-        v-if="!loading"
         :data="plotData"
         :layout="layout"
       /></Plotly>
@@ -10,17 +8,13 @@
 </template>
 
 <script>
+import { mapState } from 'vuex'
+
 import { Plotly } from 'vue-plotly'
 
 export default {
     components: {
         Plotly
-    },
-    props: {
-        pixelData: {
-            type: Object,
-            required: true
-        }
     },
     methods: {
         loadData(data){
@@ -31,24 +25,22 @@ export default {
             this.plotData[1]['y'] = data.y_offset;
 
             this.$nextTick();
-            this.loading = false;
         }
-    },
-    mounted: function() {
-        this.loadData(this.pixelData);
     },
     watch: {
         pixelData: function(newValue, oldValue) {
           this.loadData(newValue);
         }
     },
+    computed: {
+        ...mapState(['pixelData'])
+    },
     data () {
         return {
             name: 'PixelDriftPlot',
-            loading: true,
             imageTimes: [],
             layout: {
-              title: 'Pixel Drift ' + this.$route.params.picid
+              title: 'Pixel Drift ' + this.$store.state.picid
             },
             plotData: [
               {

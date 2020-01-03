@@ -1,6 +1,5 @@
 <template>
   <div>
-    <h1>PICID List</h1>
     <vue-good-table
       :columns="fields"
       :rows="rows"

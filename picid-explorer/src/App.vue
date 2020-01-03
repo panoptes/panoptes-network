@@ -1,11 +1,20 @@
 <template>
   <b-container fluid id="app">
-    <div id="nav">
-      <router-link to="/">
-        <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
-      </router-link>
-      <h1 class="title">PANOPTES Observations Explorer</h1>
-    </div>
+    <b-navbar>
+      <template slot="brand">
+        <b-navbar-item tag="router-link" :to="{ path: '/' }">
+          <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
+        </b-navbar-item>
+      </template>
+      <template slot="start">
+        <b-navbar-item href="/observations">
+            Observations
+        </b-navbar-item>
+        <b-navbar-item href="/piaa">
+            Stars
+        </b-navbar-item>
+      </template>
+    </b-navbar>
     <b-row id="content">
       <b-col cols="12">
         <router-view id="routerView"/>

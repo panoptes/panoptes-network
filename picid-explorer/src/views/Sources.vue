@@ -1,10 +1,8 @@
 <template>
-  <div class="sources">
-	<section class="section">
-	  <div class="container">
+  <div class="columns">
+	<column class="column">
 	    <Sources />
-	  </div>
-	</section>
+	</column>
   </div>
 </template>
 

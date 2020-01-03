@@ -1,6 +1,5 @@
 <template>
     <div>
-      <b-spinner v-if="loading" label="Loading..."></b-spinner>
       <Plotly
         :data="plotData"
         :layout="layout"
@@ -9,8 +8,9 @@
 </template>
 
 <script>
-import { Plotly } from 'vue-plotly'
 import { mapState } from 'vuex'
+
+import { Plotly } from 'vue-plotly'
 
 export default {
     components: {
@@ -18,15 +18,28 @@ export default {
     },
     methods: {
         loadData(data){
-            this.loading = true;
+          if (data.x !== undefined){
             this.plotData[0]['x'] = data.x;
             this.plotData[0]['y'] = data.y;
+            this.plotData[0].marker.color = data.score_rank;
 
-            this.plotData[1]['x'] = data.x[0];
-            this.plotData[1]['y'] = data.y[0];
+            for (var i = data.x.length - 1; i >= 0; i--) {
+              let labelText = 'Score Rank: ' + data.score_rank[i];
+              labelText += '<br />';
+              labelText += 'Score (x100): ' + (data.score[i] * 100).toFixed(3);
+              labelText += '<br />';
+              labelText += 'Coeff: ' + data.coeffs[i].toFixed(3);
+              this.plotData[0].text.push(labelText);
+
+              // let markerSize = 1 / (data.score_rank[i] / 80);
+              // this.plotData[0].marker.size.push(markerSize);
+            }
+
+            this.plotData[1]['x'] = [data.x[0]];
+            this.plotData[1]['y'] = [data.y[0]];
 
             this.$nextTick();
-            this.loading = false;
+          }
         }
     },
     watch: {
@@ -35,18 +48,20 @@ export default {
         }
     },
     computed: {
-        ...mapState(['locationData']),
+      ...mapState([
+        'picid',
+        'locationData'
+      ])
     },
     data () {
         return {
             name: 'ReferenceLocationsPlot',
-            loading: false,
             imageTimes: [],
             layout: {
               autosize: false,
               width: 900,
               height: 600,
-              title: 'Reference Locations ' + this.$route.params.picid,
+              title: 'Reference Locations ' + this.$store.state.picid,
               xaxis: {
                 range: [ 0, 5208]
               },
@@ -60,7 +75,13 @@ export default {
                 y: [],
                 mode: 'markers',
                 type: 'scatter',
-                name: 'References'
+                name: 'References',
+                text: [],
+                marker: {
+                  colorscale: 'Picnic',
+                  symbol: 'star',
+                  size: 11
+                }
               },
               {
                 x: [],
@@ -70,8 +91,12 @@ export default {
                 name: 'Target',
                 marker: {
                     color: 'red',
-                    style: '*',
-                    size: 200
+                    symbol: 'star',
+                    size: 19,
+                    line: {
+                      color: 'black',
+                      width: 2
+                    }
                 }
               }
             ]

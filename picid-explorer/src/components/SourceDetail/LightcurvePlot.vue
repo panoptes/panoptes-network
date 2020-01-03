@@ -10,6 +10,8 @@
 </template>
 
 <script>
+import { mapState, mapActions } from 'vuex'
+
 import { Plotly } from 'vue-plotly'
 import { create, all } from 'mathjs'
 
@@ -19,14 +21,9 @@ export default {
     components: {
         Plotly
     },
-    props: {
-        lightcurveData: {
-            type: Object,
-            required: true
-        }
-    },
     methods: {
         loadData(data){
+            this.imageTimes = data.image_time;
             this.plotData[0]['x'] = data.image_time;
             this.plotData[1]['x'] = data.image_time;
             this.plotData[2]['x'] = data.image_time;
@@ -35,9 +32,10 @@ export default {
             this.plotData[1]['y'] = data.g;
             this.plotData[2]['y'] = data.b;
 
-            this.$nextTick();
+            this.layout.shapes[0]['x0'] = [data.image_time[this.frameIndex]];
+            this.layout.shapes[0]['x1'] = [data.image_time[this.frameIndex]];
 
-            this.loading = false;
+            this.$nextTick();
         }
     },
     mounted: function() {
@@ -48,14 +46,34 @@ export default {
             this.loadData(newValue);
         }
     },
+    computed: {
+      ...mapState([
+        'frameIndex',
+        'lightcurveData'
+      ]),
+      loading: function() {
+        return this.imageTimes ===  [];
+      }
+    },
     data () {
         return {
             name: 'LightcurvePlot',
-            loading: true,
             imageTimes: [],
             layout: {
-              title: 'Lightcurve ' + this.$route.params.picid,
-              colors: ['red', 'green', 'blue']
+              title: 'Lightcurve ' + this.$store.state.picid,
+              colors: ['red', 'green', 'blue'],
+              shapes: [
+                {
+                  x0: [],
+                  x1: [],
+                  y0: [.9],
+                  y1: [1.1],
+                  line: {
+                    color: 'rgb(55, 128, 191)',
+                    width: 3
+                  }
+                }
+              ],
             },
             plotData: [
               {
@@ -99,7 +117,7 @@ export default {
                   color: 'blue',
                   size: 7
                 }
-              },
+              }
             ]
         }
     }

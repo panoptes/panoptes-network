@@ -1,86 +1,63 @@
 <template>
-  <b-container class="observations">
-    <b-row> <a href="/piaa">PICID List</a> </b-row>
-    <b-row class="header" no-gutters>
-      <b-col>
-          <b-card :title="'PICID: ' + picid">
-            <b-card-text v-if="sourceRecord">
-              Vmag: {{ sourceRecord.vmag | roundVal }} <br>
-              Coords: {{ sourceRecord.ra | roundVal }}° {{ sourceRecord.dec | roundVal }}° <br>
-              Class: {{ sourceRecord.lumclass }} <br>
-              <a :href="'https://exofop.ipac.caltech.edu/tess/target.php?id=' + picid" target="_blank">
-                ExoFOP
-              </a>
-            </b-card-text>
-          </b-card>
-      </b-col>
-      <b-col>
-        <b-card title="Processing Runs">
-          <b-list-group id='observations'>
-            <b-list-group-item href="#" v-on:click="selectRow(row)" v-for="row in observations" :class="{'active': row === sourceRunDetail}">
-              {{ row.sequence_id }} {{ row.stamp_size }} {{ row.notes }}
-            </b-list-group-item>
-          </b-list-group>
-        </b-card>
-      </b-col>
-      <b-col>
-        <ProcessingDetail v-if="sourceRunDetail && piaaRecord" />
-      </b-col>
-        </div>
-    </b-row>
-    <b-row>
-      <b-col cols="12">
-        <div v-if="sourceRunDetail">
-          <b-tabs content-class="mt-3">
-            <b-tab title="Data">
-              <LightcurvePlot
-                v-bind:lightcurveData="lightcurveData"
-              />
-            </b-tab>
-            <b-tab title="Raw Flux" @click="getRawCounts">
-              <RawCountPlot
-                v-bind:rawData="rawData"
-              />
-            </b-tab>
-            <b-tab title="Ref Locations" @click="getReferenceLocations">
-              <ReferenceLocationsPlot v-bind:locationData="locationData" />
-            </b-tab>
-            <b-tab title="Ref Distances" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['reference-pairplot']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['reference-pairplot']"></b-img>
-              </a>
-            </b-tab>
-            <b-tab title="Coeffs" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['reference-scores']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['reference-scores']"></b-img>
-              </a>
-              <a :href="sourceRunDetail.files.plots['reference-coeffs']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['reference-coeffs']"></b-img>
-              </a>
-            </b-tab>
-            <b-tab title="Pixel Drift" @click="getPixelDrift">
-              <PixelDriftPlot
-                v-bind:pixelData="pixelData"
-              />
-            </b-tab>
-            <b-tab title="Ref Vmags" v-if="sourceRunDetail.files.plots">
-              <a :href="sourceRunDetail.files.plots['reference-vmags']" target="_blank">
-                <b-img :src="sourceRunDetail.files.plots['reference-vmags']">
-                </b-img>
-              </a>
-            </b-tab>
-            <b-tab title="Files">
-              <ul>
-                <li v-for="file in sourceRunDetail.files">
-                  <a :href="file">{{ file }}</a>
-                </li>
-              </ul>
-            </b-tab>
-          </b-tabs>
-        </div>
-      </b-col>
-    </b-row>
-  </b-container>
+  <section class="section">
+    <div class="columns">
+      <div class="column is-two-thirds">
+        <PiaaList />
+      </div>
+      <div class="column">
+        <PSCPlot />
+      </div>
+    </div>
+    <div class="columns">
+      <div class="column">
+        <b-tabs
+          @change="switchTab"
+          type="is-toggle"
+          >
+          <b-tab-item label="Data">
+            <LightcurvePlot />
+            }
+          </b-tab-item>
+          <b-tab-item label="Raw Flux">
+            <RawCountPlot />
+          </b-tab-item>
+          <b-tab-item label="Ref Locations">
+            <ReferenceLocationsPlot />
+          </b-tab-item>
+    <!--         <b-tab-item label="Ref Distances" v-if="sourceRunDetail.files.plots">
+            <a :href="sourceRunDetail.files.plots['reference-pairplot']" target="_blank">
+              <b-img :src="sourceRunDetail.files.plots['reference-pairplot']"></b-img>
+            </a>
+          </b-tab-item>
+          <b-tab-item label="Coeffs" v-if="sourceRunDetail.files.plots">
+            <a :href="sourceRunDetail.files.plots['reference-scores']" target="_blank">
+              <b-img :src="sourceRunDetail.files.plots['reference-scores']"></b-img>
+            </a>
+            <a :href="sourceRunDetail.files.plots['reference-coeffs']" target="_blank">
+              <b-img :src="sourceRunDetail.files.plots['reference-coeffs']"></b-img>
+            </a>
+          </b-tab-item> -->
+          <b-tab-item label="Pixel Drift">
+            <PixelDriftPlot />
+          </b-tab-item>
+    <!--         <b-tab-item label="Ref Vmags" v-if="sourceRunDetail.files.plots">
+            <a :href="sourceRunDetail.files.plots['reference-vmags']" target="_blank">
+              <b-img :src="sourceRunDetail.files.plots['reference-vmags']">
+              </b-img>
+            </a>
+          </b-tab-item> -->
+          <b-tab-item label="Files" v-if="sourceRunDetail">
+            <ul>
+              <li v-for="file in sourceRunDetail.files">
+                <a :href="file">{{ file }}</a>
+              </li>
+            </ul>
+          </b-tab-item>
+        </b-tabs>
+      </div>
+    </div>
+  </section>
+
 </template>
 
 <script>
@@ -90,8 +67,9 @@ import LightcurvePlot from './SourceDetail/LightcurvePlot.vue'
 import RawCountPlot from './SourceDetail/RawCountPlot.vue'
 import PixelDriftPlot from './SourceDetail/PixelDriftPlot.vue'
 import ReferenceLocationsPlot from './SourceDetail/ReferenceLocationsPlot.vue'
+import PSCPlot from './SourceDetail/PSCPlot.vue'
 
-import ProcessingDetail from './SourceDetail/ProcessingDetail.vue'
+import PiaaList from './PiaaList.vue'
 
 export default {
   name: 'SourceDetail',
@@ -100,13 +78,10 @@ export default {
     RawCountPlot,
     PixelDriftPlot,
     ReferenceLocationsPlot,
-    ProcessingDetail
+    PSCPlot,
+    PiaaList
   },
   methods: {
-    selectRow: function(row) {
-      this.$store.dispatch('selectRow', row);
-
-    },
     roundVal : function(value) {
       return Number(value).toFixed(3);
     },
@@ -116,12 +91,24 @@ export default {
       while (s.length < (size || 2)) {s = "0" + s;}
       return s;
     },
+    switchTab: function(tabIndex){
+      switch(tabIndex){
+        case 0:
+          this.$store.dispatch('getLightcurve');
+          break;
+        case 1:
+          this.$store.dispatch('getRawCounts');
+          break
+        case 2:
+          this.$store.dispatch('getReferenceLocations');
+          break;
+        case 3:
+          this.$store.dispatch('getPixelDrift');
+          break;
+      }
+    },
     ...mapActions([
-      'getLightcurve',
-      'getReferenceLocations',
-      'getPixelDrift',
-      'getRawCounts',
-      'getPSC'
+      'setSource'
     ])
   },
   filters: {
@@ -137,25 +124,26 @@ export default {
   },
   computed: {
     ...mapState([
+      'picid',
       'observations',
       'sourceRecord',
       'sourceRunDetail',
       'piaaRecord',
       'locationData',
-      'lightcurveData',
       'rawData',
-      'pixelData'
+      'pixelData',
+      'frameIndex'
     ])
   },
   created () {
-    this.$store.dispatch('setSource', this.$route.params.picid);
+    // Check to see if store has the picid set.
+    if (this.picid === null){
+      this.setSource(this.$route.params.picid);
+    }
   },
   data () {
     return {
-      currentStamp: 1,
-      perPage: 1,
-      loading: true,
-      picid: this.$route.params.picid
+      loading: true
     }
   }
 }
