@@ -2,14 +2,20 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 
 import { SourcesService } from './services/SourcesService.js'
-
-const request = require('request');
-
 let sources = new SourcesService();
 
+const firebaseConfig = {
+  apiKey: "AIzaSyCObINzchGuOAauuzEX3nj6iNJU-YSM4Cg",
+  authDomain: "panoptes-exp.firebaseapp.com",
+  databaseURL: "https://panoptes-exp.firebaseio.com",
+  projectId: "panoptes-exp",
+  storageBucket: "panoptes-exp.appspot.com",
+  messagingSenderId: "21247607123",
+  appId: "1:21247607123:web:0605d362b8c98321e4e1a6"
+};
+firebase.initializeApp(firebaseConfig);
+
 Vue.use(Vuex)
-
-
 
 export default new Vuex.Store({
   state: {
@@ -182,6 +188,10 @@ export default new Vuex.Store({
           }
           commit('setSearching', false);
         });
+      },
+
+      getUnits: function({ commit, state }) {
+
       },
 
       searchSources: function({ commit, state } ){

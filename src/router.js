@@ -10,13 +10,13 @@ export default new Router({
   base: process.env.BASE_URL,
   routes: [
     {
-      path: '/',
-      name: 'home',
+      path: '/observations',
+      name: 'observations',
       component: Observations
     },
     {
-      path: '/piaa',
-      name: 'piaa',
+      path: '/stars',
+      name: 'stars',
       component: Sources
     },
     {
@@ -28,7 +28,7 @@ export default new Router({
       component: () => import(/* webpackChunkName: "about" */ './views/ObservationDetail.vue')
     },
     {
-      path: '/piaa/:picid',
+      path: '/stars/:picid',
       name: 'sourceDetail',
       // route level code-splitting
       // this generates a separate chunk (about.[hash].js) for this route

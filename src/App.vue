@@ -1,43 +1,96 @@
 <template>
-  <b-container fluid id="app">
-    <b-navbar>
-      <template slot="brand">
-        <b-navbar-item tag="router-link" :to="{ path: '/' }">
-          <img id="pan-logo" alt="PANOPTES logo" src="./assets/logo.png">
-        </b-navbar-item>
-      </template>
-      <template slot="start">
-        <b-navbar-item href="/observations">
-            Observations
-        </b-navbar-item>
-        <b-navbar-item href="/piaa">
-            Stars
-        </b-navbar-item>
-      </template>
-    </b-navbar>
-    <b-row id="content">
-      <b-col cols="12">
-        <router-view id="routerView"/>
-      </b-col>
-    </b-row>
-  </b-container>
+  <v-app id="inspire">
+    <v-navigation-drawer
+      v-model="drawer"
+      :clipped="$vuetify.breakpoint.lgAndUp"
+      app
+    >
+      <v-list dense>
+        <template v-for="item in items">
+          <v-list-item
+            :key="item.text"
+            link
+          >
+            <v-list-item-action>
+              <v-icon>{{ item.icon }}</v-icon>
+            </v-list-item-action>
+            <v-list-item-content>
+              <v-list-item-title>
+                <router-link
+                  :to="{ name: item.link }">
+                  {{ item.text }}
+                </router-link>
+              </v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </template>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-app-bar
+      :clipped-left="$vuetify.breakpoint.lgAndUp"
+      app
+      color="blue darken-3"
+      dark
+    >
+      <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
+      <v-toolbar-title
+        style="width: 300px"
+        class="ml-0 pl-4"
+      >
+        <span class="hidden-sm-and-down">{{ title }}</span>
+      </v-toolbar-title>
+      <v-text-field
+        flat
+        solo-inverted
+        hide-details
+        prepend-inner-icon="mdi-magnify"
+        label="Enter PICID, Observation ID, Image ID, etc."
+        class="hidden-sm-and-down"
+      />
+      <v-spacer />
+      <v-btn
+        icon
+        large
+      >
+        <v-avatar
+          size="32px"
+          item
+        >
+          <v-img
+            src="https://projectpanoptes.org/img/logo-white.png"
+            :alt="title"
+          /></v-avatar>
+      </v-btn>
+    </v-app-bar>
+    <v-content>
+      <v-container
+        fluid
+      >
+        <v-row
+          align="center"
+          justify="center"
+        >
+        <router-view></router-view>
+        </v-row>
+      </v-container>
+    </v-content>
+  </v-app>
 </template>
 
-<style lang="scss">
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-#nav {
-  text-align: center;
-  margin-top: 1em;
-}
-#routerView .container
- {
-  max-width: 98%;
-}
-#pan-logo {
-  height: 3.14159em;
-}
-</style>
+<script>
+  export default {
+    props: {
+      source: String,
+    },
+    data: () => ({
+      title: 'PANOPTES Data Explorer',
+      drawer: true,
+      items: [
+        { icon: 'mdi-robot', text: 'Units', link: 'units' },
+        { icon: 'mdi-star-box-multiple-outline', text: 'Observations', link: 'observations' },
+        { icon: 'mdi-star-face', text: 'Stars', link: 'stars' },
+      ],
+    }),
+  }
+</script>
