@@ -9,6 +9,7 @@
       :data="observations"
       :columns="columns"
       :narrowed=true
+      :striped=true
       :selected.sync="selected"
     >
         <template slot-scope="props">

@@ -18,6 +18,7 @@ export default new Vuex.Store({
       totalFrames: null,
       sources: sources,
       observations: [],
+      sourceRows: [],
       sourceRecord: null,
       sourceRunDetail: null,
       piaaRecord: null,
@@ -25,7 +26,17 @@ export default new Vuex.Store({
       stampData: {},
       lightcurveData: {},
       rawData: {},
-      pixelData: {}
+      pixelData: {},
+      fromSearch: false,
+      isSearching: false,
+      searchModel: {
+        vmagRange: [8, 10],
+        radiusUnits: 'Degree',
+        raRadius: null,
+        decRadius: null,
+        ra: null,
+        dec: null,
+    }
   },
   mutations: {
       setSource(state, picid) {
@@ -53,6 +64,8 @@ export default new Vuex.Store({
         }
       },
       setFrameSize(state, record) { state.totalFrames = record },
+      setSearchModel(state, model) { state.searchModel = model },
+      setSourceRows(state, rows) { state.sourceRows = rows },
       setSourceRecord(state, record) { state.sourceRecord = record },
       setRunDetail(state, record){ state.sourceRunDetail = record },
       setPiaaRecord(state, record){ state.piaaRecord = record },
@@ -62,7 +75,9 @@ export default new Vuex.Store({
       setPixelData(state, record){ state.pixelData = record },
       setRawCounts(state, record){ state.rawData = record },
       setObservations(state, records){ state.observations = records },
-      addObservationRun(state, data) { state.observations.push(data) }
+      addObservationRun(state, data) { state.observations.push(data) },
+      setSearching(state, isSearching) { state.isSearching = isSearching },
+      setFromSearch(state, fromSearch) { state.fromSearch = fromSearch }
   },
   actions: {
       setFrame({ commit, state }, newIndex ){ commit('setFrame', newIndex) },
@@ -157,6 +172,30 @@ export default new Vuex.Store({
             commit('setLocationData', response.data.ref_locations)
           }
         });
+      },
+
+      getRecentSources: function({ commit, state }) {
+        commit('setSearching', true);
+        state.sources.getRecent().then((response) => {
+          if (response.status == 200) {
+            commit('setSourceRows', response.data.picid);
+          }
+          commit('setSearching', false);
+        });
+      },
+
+      searchSources: function({ commit, state } ){
+        commit('setSearching', true);
+        state.sources.searchSources(state.searchModel).then((response) => {
+          if (response.status == 200){
+            commit('setSourceRows', response.data.picid);
+            commit('setFromSearch', true);
+          }
+          commit('setSearching', false);
+         }).catch((err) => {
+          console.log('Error getting documents', err);
+         });
+
       }
   }
 })

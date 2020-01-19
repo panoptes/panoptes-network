@@ -1,10 +1,8 @@
 <template>
-  <div class="observations">
-	<section class="section">
-	  <div class="container">
-	    <Observations />
-	  </div>
-	</section>    
+  <div class="columns">
+    <div class="column">
+  	    <Observations />
+    </div>
   </div>
 </template>
 

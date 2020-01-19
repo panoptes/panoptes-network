@@ -1,8 +1,8 @@
 <template>
   <div class="columns">
-	<column class="column">
-	    <Sources />
-	</column>
+  	<div class="column">
+  	    <Sources />
+  	</div>
   </div>
 </template>
 

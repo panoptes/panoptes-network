@@ -1,5 +1,6 @@
 <template>
     <div>
+      {{ imageTimes[frameIndex] }}
         <b-spinner v-if="loading" label="Loading..."></b-spinner>
       <Plotly
         v-if="!loading"
@@ -11,6 +12,7 @@
 
 <script>
 import { mapState, mapActions } from 'vuex'
+import moment from 'moment';
 
 import { Plotly } from 'vue-plotly'
 import { create, all } from 'mathjs'
@@ -23,19 +25,22 @@ export default {
     },
     methods: {
         loadData(data){
+          if (data.image_time && data.image_time.length > 0){
             this.imageTimes = data.image_time;
-            this.plotData[0]['x'] = data.image_time;
-            this.plotData[1]['x'] = data.image_time;
-            this.plotData[2]['x'] = data.image_time;
+            this.plotData[0]['x'] = this.imageTimes;
+            this.plotData[1]['x'] = this.imageTimes;
+            this.plotData[2]['x'] = this.imageTimes;
 
             this.plotData[0]['y'] = data.r;
             this.plotData[1]['y'] = data.g;
             this.plotData[2]['y'] = data.b;
 
-            this.layout.shapes[0]['x0'] = [data.image_time[this.frameIndex]];
-            this.layout.shapes[0]['x1'] = [data.image_time[this.frameIndex]];
+            // this.$nextTick();
+            // this.layout.shapes[0]['x0'] = [new Date(this.imageTimes[this.frameIndex])]
+            // this.layout.shapes[0]['x1'] = [new Date(this.imageTimes[this.frameIndex])]
 
             this.$nextTick();
+          }
         }
     },
     mounted: function() {
@@ -62,18 +67,21 @@ export default {
             layout: {
               title: 'Lightcurve ' + this.$store.state.picid,
               colors: ['red', 'green', 'blue'],
-              shapes: [
-                {
-                  x0: [],
-                  x1: [],
-                  y0: [.9],
-                  y1: [1.1],
-                  line: {
-                    color: 'rgb(55, 128, 191)',
-                    width: 3
-                  }
-                }
-              ],
+              // shapes: [
+              //   {
+              //     type: 'rect',
+              //     x0: [],
+              //     x1: [],
+              //     xref: 'x',
+              //     y0: [.9],
+              //     y1: [1.1],
+              //     yref: 'y',
+              //     line: {
+              //       color: 'rgb(55, 128, 191)',
+              //       width: 3
+              //     }
+              //   }
+              // ],
             },
             plotData: [
               {

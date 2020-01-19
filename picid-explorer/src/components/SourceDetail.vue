@@ -2,7 +2,11 @@
   <section class="section">
     <div class="columns">
       <div class="column is-two-thirds">
+        <div v-if="piaaRecord !== null">
+          <pre>{{ piaaRecord.rms }}</pre>
+        </div>
         <PiaaList />
+        }
       </div>
       <div class="column">
         <PSCPlot />
@@ -137,7 +141,7 @@ export default {
   },
   created () {
     // Check to see if store has the picid set.
-    if (this.picid === null){
+    if (this.picid === null || this.sourceRecord === null){
       this.setSource(this.$route.params.picid);
     }
   },

@@ -74,4 +74,11 @@ export class SourcesService {
         ref_locations: true
     })
   }
+
+  searchSources(model){
+    return axios.post(base_url, {
+      search_picid: true,
+      search_model: model
+    })
+  }
 };
