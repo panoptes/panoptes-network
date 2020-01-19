@@ -4,10 +4,10 @@ File Upload to Bucket Storage
 This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
 
 This function acknowledges a [PubSub](https://cloud.google.com/pubsub/) message
-that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/) 
+that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/)
 (see also the documentation about using [Storage Triggers](https://cloud.google.com/functions/docs/calling/storage)).
 
-Triggered when file is uploaded to bucket. 
+Triggered when file is uploaded to bucket.
 
 FITS: Set header variables and then forward to endpoint for adding headers
 	to the metadatabase.
@@ -31,11 +31,12 @@ gcloud functions deploy \
                  bucket-upload \
                  --entry-point bucket_upload \
                  --runtime python37 \
-                 --trigger-resource panoptes-survey \
+                 --trigger-resource "$TRIGGER_BUCKET" \
                  --trigger-event google.storage.object.finalize
 ```
 
-> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing. 
+> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing.
+
 ```bash
 ./deploy.sh
 ```

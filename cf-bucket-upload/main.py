@@ -5,7 +5,7 @@ import requests
 
 image_received_endpoint = os.getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/image-received'
+    'https://us-central1-panoptes-exp.cloudfunctions.net/image-received'
 )
 
 ALLOWED_EXTENSTIONS = ['.cr2', '.fits', '.fz']

@@ -4,10 +4,10 @@ Acknowledge FITS File Received
 This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
 
 This function acknowledges a [PubSub](https://cloud.google.com/pubsub/) message
-that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/) 
+that is sent when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/)
 (see also the documentation about using [Storage Triggers](https://cloud.google.com/functions/docs/calling/storage)).
 
-Triggered when file is uploaded to bucket. 
+Triggered when file is uploaded to bucket.
 
 FITS: Set header variables and then forward to endpoint for adding headers
 	to the metadatabase.
@@ -29,19 +29,19 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `ack-fits-received`
+name of the function in `main.py` that we want called and `image-received`
 is the name of the Cloud Function we want to create.
 
 ```bash
 gcloud functions deploy \
-                 ack-image-received \
-                 --entry-point ack_image_received \
+                 image-received \
+                 --entry-point image_received \
                  --runtime python37 \
-                 --trigger-resource panoptes-survey \
-                 --trigger-event google.storage.object.finalize
+                 --trigger-http
 ```
 
-> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing. 
+> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing.
+
 ```bash
 ./deploy.sh
 ```

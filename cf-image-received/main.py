@@ -6,12 +6,12 @@ import requests
 
 add_header_endpoint = os.getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/header-to-db'
+    'https://us-central1-panoptes-exp.cloudfunctions.net/header-to-db'
 )
 
 make_rgb_endpoint = os.getenv(
     'RGB_ENDPOINT',
-    'https://us-central1-panoptes-survey.cloudfunctions.net/make-rgb-fits'
+    'https://us-central1-panoptes-exp.cloudfunctions.net/make-rgb-fits'
 )
 
 
@@ -28,7 +28,7 @@ def image_received(request):
 
     Example file id:
 
-    panoptes-survey/PAN001/M42/14d3bd/20181011T134202/20181011T134333.fits.fz/1539272833023747
+    panoptes-raw-images/PAN001/14d3bd/20181011T134202/20181011T134333.fits.fz
 
     Args:
         data (dict): The Cloud Functions event payload.

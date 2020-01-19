@@ -1,42 +1,21 @@
 import os
-import orjson
 
 from flask import jsonify
 from google.cloud import storage
-from google.cloud import pubsub
+from google.cloud import firestore
 
-from psycopg2 import OperationalError
-from psycopg2.pool import SimpleConnectionPool
+try:
+    db = firestore.Client()
+except Exception as e:
+    print(f'Error getting firestore client: {e!r}')
 
-PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes-survey')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-PUB_TOPIC = os.getenv('PUB_TOPIC', 'solve-extract-match')
 
-publisher = pubsub.PublisherClient()
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+
 storage_client = storage.Client(project=PROJECT_ID)
 
 bucket = storage_client.get_bucket(BUCKET_NAME)
-
-CONNECTION_NAME = os.getenv(
-    'INSTANCE_CONNECTION_NAME',
-    'panoptes-survey:us-central1:panoptes-meta'
-)
-DB_USER = os.getenv('POSTGRES_USER', 'panoptes')
-DB_PASSWORD = os.getenv('POSTGRES_PASSWORD', None)
-DB_NAME = os.getenv('POSTGRES_DATABASE', 'metadata')
-
-pg_config = {
-    'user': DB_USER,
-    'password': DB_PASSWORD,
-    'dbname': DB_NAME
-}
-
-pubsub_topic = f'projects/{PROJECT_ID}/topics/{PUB_TOPIC}'
-
-
-# Connection pools reuse connections between invocations,
-# and handle dropped or expired connections automatically.
-pg_pool = None
 
 
 # Entry point
@@ -127,134 +106,96 @@ def add_header_to_db(header):
     Returns:
         str: The image_id.
     """
-    global pg_pool
 
-    # Initialize the pool lazily, in case SQL access isn't needed for this
-    # GCF instance. Doing so minimizes the number of active SQL connections,
-    # which helps keep your GCF instances under SQL connection limits.
-    if not pg_pool:
-        try:
-            __connect(f'/cloudsql/{CONNECTION_NAME}')
-        except OperationalError as e:
-            print(e)
-            # If production settings fail, use local development ones
-            __connect('localhost')
-
-    conn = pg_pool.getconn()
-    conn.set_isolation_level(0)
-    with conn.cursor() as cursor:
-
-        try:
-            unit_id = int(header.get('PANID').replace('PAN', ''))
-            seq_id = header.get('SEQID', '').strip()
-            img_id = header.get('IMAGEID', '').strip()
-            camera_id = header.get('INSTRUME', '').strip()
-
-            unit_data = {
-                'id': unit_id,
-                'name': header.get('OBSERVER', '').strip(),
-                'lat': float(header.get('LAT-OBS')),
-                'lon': float(header.get('LONG-OBS')),
-                'elevation': float(header.get('ELEV-OBS')),
-            }
-            meta_insert('units', cursor, **unit_data)
-
-            camera_data = {
-                'unit_id': unit_id,
-                'id': camera_id,
-            }
-            meta_insert('cameras', cursor, **camera_data)
-
-            seq_data = {
-                'id': seq_id,
-                'unit_id': unit_id,
-                'start_date': header.get('SEQID', None).split('_')[-1],
-                'exptime': header.get('EXPTIME'),
-                'pocs_version': header.get('CREATOR', ''),
-                'state': 'receiving_files',
-                'field': header.get('FIELD', ''),
-            }
-            print("Inserting sequence: {}".format(seq_data))
-
-            try:
-                meta_insert('sequences', cursor, **seq_data)
-            except Exception as e:
-                print("Can't insert sequence: {}".format(seq_id))
-                raise e
-
-            image_data = {
-                'id': img_id,
-                'sequence_id': seq_id,
-                'camera_id': camera_id,
-                'obstime': header.get('DATE-OBS'),
-                'ra_mnt': header.get('RA-MNT'),
-                'ha_mnt': header.get('HA-MNT'),
-                'dec_mnt': header.get('DEC-MNT'),
-                'exptime': header.get('EXPTIME'),
-                'file_path': header.get('FILENAME'),
-                'headers': orjson.dumps(header).decode('utf-8'),
-                'state': 'metadata_received'
-            }
-
-            meta_insert('images', cursor, **image_data)
-            print("Header added for SEQ={} IMG={}".format(seq_id, img_id))
-        except Exception as e:
-            update_state('image_metadata_failed', sequence_id=seq_id, image_id=img_id)
-            raise e
-        finally:
-            cursor.close()
-            pg_pool.putconn(conn)
-
-    return True
-
-
-def meta_insert(table, cursor, **kwargs):
-    """Inserts arbitrary key/value pairs into a table.
-
-    Args:
-        table (str): Table in which to insert.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-        **kwargs: List of key/value pairs corresponding to columns in the
-            table.
-
-    Returns:
-        tuple|None: Returns the inserted row or None.
-    """
-    col_names = list()
-    col_values = list()
-    for name, value in kwargs.items():
-        col_names.append(name)
-        col_values.append(value)
-
-    col_names_str = ','.join(col_names)
-    col_val_holders = ','.join(['%s' for _ in range(len(col_values))])
-
-    # Build update set
-    update_cols = list()
-    for col in col_names:
-        if col in ['id']:
-            continue
-        update_cols.append('{0} = EXCLUDED.{0}'.format(col))
-
-    insert_sql = '''INSERT INTO {} ({})
-                    VALUES ({})
-                    ON CONFLICT (id)
-                    DO UPDATE SET {}
-                    '''.format(
-        table,
-        col_names_str,
-        col_val_holders,
-        ', '.join(update_cols)
-    )
+    # Scrub all the entries
+    for k, v in header.items():
+        header[k] = v.strip()
 
     try:
-        cursor.execute(insert_sql, col_values)
-    except Exception as e:
-        print("Error in insert: " + e)
+        unit_id = int(header.get('PANID').replace('PAN', ''))
+        seq_id = header.get('SEQID', '')
+        sequence_time = header.get('SEQTIME')
+        img_id = header.get('IMAGEID', '')
+        img_time = img_id.split('_')[-1]
+        camera_id = header.get('INSTRUME', '')
 
-    return
+        seq_doc = db.document(f'observations/{seq_id}').get()
+
+        if not seq_doc.exists:
+            # If no sequence doc then probably no unit id. This is just to minimize
+            # the number of lookups that would be required if we looked up unit_id
+            # doc each time.
+            unit_data = {
+                'name': header.get('OBSERVER', ''),
+                'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
+                'elevation': float(header.get('ELEV-OBS')),
+            }
+            db.document(f'units/{unit_id}').set(unit_data, merge=True)
+
+            seq_data = {
+                'unit_id': unit_id,
+                'camera_id': camera_id,
+                'start_time': sequence_time,
+                'exptime': header.get('EXPTIME'),
+                'pocs_version': header.get('CREATOR', ''),
+                'field': header.get('FIELD', ''),
+                'origin': header.get('ORIGIN'),  # Project PANOPTES
+                'camera_filter': header.get('FILTER'),
+                'iso': header.get('ISO'),
+                'status': 'receiving_files'
+            }
+
+            try:
+                print("Inserting sequence: {}".format(seq_data))
+                seq_doc.reference.create(seq_data)
+            except Exception as e:
+                print(f"Can't insert sequence {seq_id}: {e!r}")
+                raise e
+
+        image_doc = db.document(f'images/{img_id}').get()
+
+        if not image_doc.exists:
+            print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
+            image_data = {
+                'sequence_id': seq_id,
+                'time': img_time,
+                'file_path': header.get('FILENAME'),
+                # Observation information
+                'airmass': header.get('AIRMASS'),
+                'exptime': header.get('EXPTIME'),
+                # Center coordinates of image
+                'crval1': header.get('CRVAL1'),
+                'crval2': header.get('CRVAL2'),
+                'moonfrac': header.get('MOONFRAC'),
+                'moonsep': header.get('MOONSEP'),
+                # Location information
+                'ha_mnt': header.get('HA-MNT'),
+                'ra_mnt': header.get('RA-MNT'),
+                'dec_mnt': header.get('DEC-MNT'),
+                # Camera properties
+                'measev': header.get('MEASEV'),
+                'measev2': header.get('MEASEV2'),
+                'measrggb': header.get('MEASRGGB'),
+                'camsn': header.get('CAMSN'),
+                'camtemp': header.get('CAMTEMP'),
+                'circconf': header.get('CIRCCONF'),
+                'colortmp': header.get('COLORTMP'),
+                'bluebal': header.get('BLUEBAL'),
+                'redbal': header.get('REDBAL'),
+                'whtlvln': header.get('WHTLVLN'),
+                'whtlvls': header.get('WHTLVLS'),
+                'status': 'received',
+            }
+            try:
+                image_doc.reference.create(image_data)
+            except Exception as e:
+                print(f"Can't insert image info {img_id}: {e!r}")
+
+    except Exception as e:
+        # update_state('image_metadata_failed', sequence_id=seq_id, image_id=img_id)
+        raise e
+
+    return True
 
 
 def lookup_fits_header(remote_path):
@@ -325,62 +266,3 @@ def lookup_fits_header(remote_path):
         i += 1
 
     return headers
-
-
-def update_state(state, sequence_id=None, image_id=None, cursor=None, **kwargs):
-    """Inserts arbitrary key/value pairs into a table.
-
-    Args:
-        table (str): Table in which to insert.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
-        **kwargs: List of key/value pairs corresponding to columns in the
-            table.
-
-    Returns:
-        tuple|None: Returns the inserted row or None.
-    """
-
-    if sequence_id is None and image_id is None:
-        raise ValueError('Need either a sequence_id or an image_id')
-
-    table = 'sequences'
-    field = sequence_id
-    if sequence_id is None:
-        table = 'images'
-        field = image_id
-
-    update_sql = f"""
-                UPDATE {table}
-                SET state=%s
-                WHERE id=%s
-                """
-
-    try:
-        cursor.execute(update_sql, [state, sequence_id])
-        cursor.connection.commit()
-        print(f'{field} set to state {state}')
-    except Exception:
-        try:
-            print(f'Updating of state ({field}={state}) failed, rolling back and trying again')
-            cursor.connection.rollback()
-            cursor.execute(update_sql, [state, sequence_id])
-            cursor.connection.commit()
-            print(f'{field} set to state {state}')
-        except Exception as e:
-            print(f"Error in insert (error): {e!r}")
-            print(f"Error in insert (sql): {update_sql}")
-            print(f"Error in insert (kwargs): {kwargs!r}")
-            return False
-
-    return True
-
-
-def __connect(host):
-    """
-    Helper function to connect to Postgres
-    """
-    global pg_pool
-    pg_config['host'] = host
-    pg_pool = SimpleConnectionPool(1, 1, **pg_config)

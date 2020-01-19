@@ -1,7 +1,4 @@
 Flask
-google-cloud-pubsub
+google-cloud-firestore
 google-cloud-storage
-orjson
-psycopg2-binary
-PyYAML
 requests
