@@ -1,0 +1,35 @@
+# Eclipse editor project files
+.project
+.pydevproject
+.settings
+
+# Pycharm editor project files
+.idea
+
+# Packages/installer info
+*.egg
+*.eggs
+*.cache
+*.egg-info
+dist
+build
+eggs
+parts
+var
+sdist
+develop-eggs
+.installed.cfg
+distribute-*.tar.gz
+
+# Other
+.*.swp
+
+# Mac OSX
+.DS_Store
+
+# Ignore IPython notebook (Jupyter) checkpoints.
+.ipynb_checkpoints
+notebooks/*
+
+.firebaserc
+node_modules/**
