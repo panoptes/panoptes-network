@@ -1,28 +1,34 @@
 <template>
-  <div>
-    <vue-good-table
-      :columns="fields"
-      :rows="rows"
-      :pagination-options="{
-        enabled: true,
-        mode: 'pages',
-        perPage: this.perPage
-      }"
-      styleClass="vgt-table striped bordered condensed"
+ <v-card>
+    <v-card-title>
+      <v-text-field
+        v-model="search"
+        append-icon="mdi-magnify"
+        label="Search"
+        single-line
+        hide-details
+      ></v-text-field>
+    </v-card-title>
+    <v-data-table
+      :headers="fields"
+      :items="rows"
+      :items-per-page="10"
+      :search="search"
+      class="elevation-1"
     >
-    <template slot="table-row" slot-scope="props">
-      <span v-if="props.column.field == 'id'">
-        <router-link
-          :to="{ name: 'observationDetail', params: { sequenceId: props.row.id, info: props.row }}">
-          {{ props.row.id }}
-        </router-link>
-      </span>
-      <span v-else>
-        {{props.formattedRow[props.column.field]}}
-      </span>
+    <template v-slot:item.unit_id="{ item }">
+      <!-- <router-link :to="{ name: 'unitDetail', params: { unitId: item.unit_id }}"> -->
+        {{ item.unit_id | formatUnitId }}
+      <!-- </router-link> -->
     </template>
-  </vue-good-table>
-  </div>
+    <template v-slot:item.id="{ item }">
+      <router-link
+        :to="{ name: 'observationDetail', params: { sequenceId: item.id }}">
+        {{ item.id }}
+      </router-link>
+    </template>
+    </v-data-table>
+  </v-card>
 </template>
 
 <script>
@@ -34,7 +40,7 @@ export default {
   name: 'Observations',
   components: {
   },
-  methods: {
+  filters: {
     formatUnitId: function (value) {
       // Silly formatting
       let unitId = 'PAN000'
@@ -55,60 +61,34 @@ export default {
   },
   data () {
     return {
+      search: '',
       perPage: 10,
       currentPage: 0,
       observations: observations,
-      filter: null,
       rows: [],
       fields: [
         {
-          label: 'Unit',
-          field: 'unit_id',
+          text: 'Unit',
+          value: 'unit_id',
           sortable: true,
-          formatFn: this.formatUnitId,
-          filterOptions: {
-            enabled: true,
-            filterDropdownItems: [
-              { value: 1, text: 'PAN001' },
-              { value: 6, text: 'PAN006' },
-              { value: 8, text: 'PAN008' },
-              { value: 10, text: 'PAN010' },
-              { value: 12, text: 'PAN012' },
-            ]
-          }
         },
         {
-          label: 'Sequence',
-          field: 'id',
+          text: 'Sequence',
+          value: 'id',
           sortable: true,
-          filterOptions: {
-            enabled: true
-          }
         },
         {
-          label: 'Field',
-          field: 'field',
+          text: 'Field',
+          value: 'field',
           sortable: true ,
-          filterOptions: {
-            enabled: true
-          }
         },
-        // { label: 'POCS Version', field: 'pocs_version', sortable: true },
         {
-          label: 'Date',
-          field: 'start_date',
+          text: 'Date',
+          value: 'start_date',
           sortable: true,
-          type: 'date',
-          type: 'date',
-          dateInputFormat: 'yyyy-MM-dd HH:mm:ss',
-          dateOutputFormat: 'yyyy-MM-dd HH:mm',
-          filterOptions: {
-            enabled: true
-          }
         },
-        { label: 'Exp Time', field: 'exptime', sortable: true, type: 'decimal' },
-        { label: 'Image Count', field: 'image_count', sortable: true, type: 'number' },
-        // { label: 'Status', field: 'piaa_state', sortable: true }
+        { text: 'Exp Time', value: 'exptime', sortable: true, type: 'decimal' },
+        { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
       ]
     }
   }

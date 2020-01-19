@@ -45,7 +45,7 @@
         solo-inverted
         hide-details
         prepend-inner-icon="mdi-magnify"
-        label="Enter PICID, Observation ID, Image ID, etc."
+        label="Enter PICID, Observation ID, Image ID, RA/Dec, etc."
         class="hidden-sm-and-down"
       />
       <v-spacer />
@@ -87,7 +87,7 @@
       title: 'PANOPTES Data Explorer',
       drawer: true,
       items: [
-        { icon: 'mdi-robot', text: 'Units', link: 'units' },
+        // { icon: 'mdi-robot', text: 'Units', link: 'units' },
         { icon: 'mdi-star-box-multiple-outline', text: 'Observations', link: 'observations' },
         { icon: 'mdi-star-face', text: 'Stars', link: 'stars' },
       ],
