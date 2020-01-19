@@ -82,6 +82,8 @@ def get_observations_data(request):
                 sequence_files[ext.replace('.', '')].append(blob.public_url)
 
             items['sequence_files'] = sequence_files
+    elif 'search_observations' in request_json:
+        items = search_sequences(request_json)
     else:
         items = get_sequences(request_json)
 
@@ -128,12 +130,79 @@ def get_sequences(params):
     conn.set_isolation_level(0)
 
     select_sql = f"""
-        SELECT t1.*, count(t2.id) as image_count
+        SELECT
+            t1.id,
+            t1.exptime,
+            t1.field,
+            t1.pocs_version,
+            t1.start_date,
+            t1.unit_id,
+            count(t2.id) as image_count
         FROM sequences t1, images t2
         WHERE t1.id=t2.sequence_id
             AND t1.start_date > CURRENT_DATE - interval '{num_days} days'
         GROUP BY t1.id
         HAVING count(t2.id) >= {min_image_count}
+        ORDER BY t1.start_date DESC
+        """
+
+    rows = list()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(select_sql)
+            rows = cursor.fetchall()
+            cursor.close()
+    finally:
+        pg_pool.putconn(conn)
+
+    return rows
+
+
+def search_sequences(params):
+    global pg_pool
+
+    ra_search = float(params['ra'])  # degrees
+    dec_search = float(params['dec'])  # degrees
+    search_radius = params.get('search_radius', 5)  # degrees
+
+    # Initialize the pool lazily, in case SQL access isn't needed for this
+    # GCF instance. Doing so minimizes the number of active SQL connections,
+    # which helps keep your GCF instances under SQL connection limits.
+    if not pg_pool:
+        try:
+            __connect('/cloudsql/{}'.format(CONNECTION_NAME))
+        except OperationalError as e:
+            print(e)
+            # If production settings fail, use local development ones
+            __connect('localhost')
+
+    conn = pg_pool.getconn()
+    conn.set_isolation_level(0)
+
+    select_sql = f"""
+        SELECT
+            t1.id,
+            t1.exptime,
+            t1.field,
+            t1.pocs_version,
+            t1.start_date,
+            t1.unit_id,
+            count(t2.id) as image_count
+        FROM sequences t1, images t2
+        WHERE t1.id=t2.sequence_id
+            AND t1.id IN (
+                SELECT distinct(sequence_id)
+                FROM sequences
+                WHERE
+                    ra_mnt >= {ra_search - search_radius}
+                    AND
+                    ra_mnt <= {ra_search + search_radius}
+                    AND
+                    dec_mnt >= {dec_search - search_radius}
+                    AND
+                    dec_mnt <= {dec_search + search_radius}
+            )
+        GROUP BY t1.id
         ORDER BY t1.start_date DESC
         """
 
