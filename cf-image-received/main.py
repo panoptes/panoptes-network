@@ -5,7 +5,7 @@ import requests
 
 add_header_endpoint = os.getenv(
     'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-exp.cloudfunctions.net/header-to-db'
+    'https://us-central1-panoptes-exp.cloudfunctions.net/record-image'
 )
 
 make_rgb_endpoint = os.getenv(
@@ -84,7 +84,7 @@ def process_fits(bucket_path, object_id):
     }
 
     # Send to add-header-to-db
-    print(f"Forwarding to add-header-to-db: {headers!r}")
+    print(f"Forwarding to record-image: {headers!r}")
     res = requests.post(add_header_endpoint, json={
         'headers': headers,
         'bucket_path': bucket_path,
@@ -92,7 +92,9 @@ def process_fits(bucket_path, object_id):
     })
 
     if res.ok:
-        print(f'Image forwarded to add-header-to-db')
+        print(f'Image forwarded to record-image')
+    else:
+        print(res.content)
 
 
 def process_cr2(bucket_path, object_id):
@@ -101,3 +103,5 @@ def process_cr2(bucket_path, object_id):
 
     if res.ok:
         print(f'RGB fits files made for {bucket_path}')
+    else:
+        print(res.content)
