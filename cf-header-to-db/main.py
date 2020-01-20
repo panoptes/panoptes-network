@@ -4,6 +4,8 @@ from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
 
+import requests
+
 try:
     db = firestore.Client()
 except Exception as e:
@@ -13,9 +15,12 @@ except Exception as e:
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 
-storage_client = storage.Client(project=PROJECT_ID)
+bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
 
-bucket = storage_client.get_bucket(BUCKET_NAME)
+plate_solve_endpoint = os.getenv(
+    'SOLVER_ENDPOINT',
+    'https://us-central1-panoptes-exp.cloudfunctions.net/plate-solver'
+)
 
 
 # Entry point
@@ -73,21 +78,23 @@ def header_to_db(request):
         add_header_to_db(header)
     except Exception as e:
         success = False
+        obj_data = None
         response_msg = f'Error adding header: {e!r}'
     else:
         # Send to plate-solver
-        print("Forwarding to plate-solver: {}".format(bucket_path))
-        data = {'sequence_id': seq_id,
-                'image_id': img_id,
-                'state': 'metadata_received',
-                'bucket_path': str(bucket_path),
-                'object_id': str(object_id)
-                }
-        publisher.publish(pubsub_topic, b'cf-header-to-db finished', **data)
+        print(f"Forwarding to plate-solver: {bucket_path}")
+        obj_data = {'sequence_id': seq_id,
+                    'image_id': img_id,
+                    'status': 'metadata_received',
+                    'bucket_path': str(bucket_path),
+                    'object_id': str(object_id)
+                    }
+        requests.post(plate_solve_endpoint, json=obj_data)
+
         success = True
         response_msg = f'Header added to DB for {bucket_path}'
 
-    return jsonify(success=success, msg=response_msg)
+    return jsonify(success=success, msg=response_msg, data=obj_data)
 
 
 def add_header_to_db(header):
@@ -164,11 +171,11 @@ def add_header_to_db(header):
                 'airmass': header.get('AIRMASS'),
                 'exptime': header.get('EXPTIME'),
                 # Center coordinates of image
-                'crval1': header.get('CRVAL1'),
-                'crval2': header.get('CRVAL2'),
                 'moonfrac': header.get('MOONFRAC'),
                 'moonsep': header.get('MOONSEP'),
                 # Location information
+                'ra_image': header.get('CRVAL1'),
+                'dec_image': header.get('CRVAL2'),
                 'ha_mnt': header.get('HA-MNT'),
                 'ra_mnt': header.get('RA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
@@ -192,7 +199,6 @@ def add_header_to_db(header):
                 print(f"Can't insert image info {img_id}: {e!r}")
 
     except Exception as e:
-        # update_state('image_metadata_failed', sequence_id=seq_id, image_id=img_id)
         raise e
 
     return True
