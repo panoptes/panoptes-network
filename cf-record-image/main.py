@@ -111,7 +111,7 @@ def add_header_to_db(header, bucket_path):
             header[k] = v.strip()
 
     try:
-        unit_id = int(header.get('PANID').replace('PAN', ''))
+        unit_id = header.get('PANID')
         seq_id = header.get('SEQID', '')
         sequence_time = header.get('SEQTIME')
         img_id = header.get('IMAGEID', '')
