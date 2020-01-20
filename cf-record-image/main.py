@@ -4,8 +4,6 @@ from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
 
-import requests
-
 try:
     db = firestore.Client()
 except Exception as e:
@@ -17,14 +15,9 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 
 bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
 
-plate_solve_endpoint = os.getenv(
-    'SOLVER_ENDPOINT',
-    'https://us-central1-panoptes-exp.cloudfunctions.net/plate-solver'
-)
-
 
 # Entry point
-def header_to_db(request):
+def record_image(request):
     """Add a FITS header to the datbase.
 
     This endpoint looks for two parameters, `headers` and `bucket_path`. If
@@ -82,12 +75,12 @@ def header_to_db(request):
         response_msg = f'Error adding header: {e!r}'
     else:
         # Send to plate-solver
-        print(f"Forwarding to plate-solver: {bucket_path}")
-        obj_data = {'image_id': img_id}
-        requests.post(plate_solve_endpoint, json=obj_data)
+        # print(f"Forwarding to plate-solver: {bucket_path}")
+        # obj_data = {'image_id': img_id}
+        # requests.post(plate_solve_endpoint, json=obj_data)
 
         success = True
-        response_msg = f'Header added to DB for {bucket_path}'
+        response_msg = f'New image: sequence_id={seq_id} image_id={img_id}'
 
     return jsonify(success=success, msg=response_msg, data=obj_data)
 
