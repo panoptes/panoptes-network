@@ -1,4 +1,5 @@
 import os
+from contextlib import suppress
 
 from flask import jsonify
 from google.cloud import storage
@@ -106,7 +107,8 @@ def add_header_to_db(header, bucket_path):
 
     # Scrub all the entries
     for k, v in header.items():
-        header[k] = v.strip()
+        with suppress(AttributeError):
+            header[k] = v.strip()
 
     try:
         unit_id = int(header.get('PANID').replace('PAN', ''))
