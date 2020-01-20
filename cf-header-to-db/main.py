@@ -75,7 +75,7 @@ def header_to_db(request):
 
     # Pass the parsed header information
     try:
-        add_header_to_db(header)
+        add_header_to_db(header, bucket_path)
     except Exception as e:
         success = False
         obj_data = None
@@ -97,7 +97,7 @@ def header_to_db(request):
     return jsonify(success=success, msg=response_msg, data=obj_data)
 
 
-def add_header_to_db(header):
+def add_header_to_db(header, bucket_path):
     """Add FITS image info to metadb.
 
     Note:
@@ -106,12 +106,13 @@ def add_header_to_db(header):
 
     Args:
         header (dict): FITS Header data from an observation.
-        conn (None, optional): DB connection, if None then `get_db_proxy_conn`
-            is used.
-        logger (None, optional): A logger.
+        bucket_path (str): Full path to the image in a Google Storage Bucket.
 
     Returns:
         str: The image_id.
+
+    Raises:
+        e: Description
     """
 
     # Scrub all the entries
@@ -166,7 +167,7 @@ def add_header_to_db(header):
             image_data = {
                 'sequence_id': seq_id,
                 'time': img_time,
-                'file_path': header.get('FILENAME'),
+                'bucket_path': bucket_path,
                 # Observation information
                 'airmass': header.get('AIRMASS'),
                 'exptime': header.get('EXPTIME'),
