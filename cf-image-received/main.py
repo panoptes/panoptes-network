@@ -1,5 +1,4 @@
 import os
-from flask import jsonify
 from contextlib import suppress
 
 import requests
@@ -15,7 +14,7 @@ make_rgb_endpoint = os.getenv(
 )
 
 
-def image_received(request):
+def image_received(data, context):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.
@@ -36,10 +35,8 @@ def image_received(request):
     Returns:
         None; the output is written to Stackdriver Logging
     """
-    request_json = request.get_json()
-
-    bucket_path = request_json.get('bucket_path')
-    object_id = request_json.get('object_id')
+    bucket_path = data['name']
+    object_id = data['id']
 
     if bucket_path is None:
         return f'No file requested'
@@ -56,8 +53,6 @@ def image_received(request):
 
     with suppress(KeyError):
         process_lookup[file_ext](bucket_path, object_id)
-
-    return jsonify(success=True, msg=f"Image processed: {bucket_path}")
 
 
 def process_fits(bucket_path, object_id):
@@ -91,11 +86,14 @@ def process_fits(bucket_path, object_id):
 
     # Send to add-header-to-db
     print(f"Forwarding to add-header-to-db: {headers!r}")
-    requests.post(add_header_endpoint, json={
+    res = requests.post(add_header_endpoint, json={
         'headers': headers,
         'bucket_path': bucket_path,
         'object_id': object_id,
     })
+
+    if res.ok:
+        print(f'Image forwarded to add-header-to-db')
 
 
 def process_cr2(bucket_path, object_id):

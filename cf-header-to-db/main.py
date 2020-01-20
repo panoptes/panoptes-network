@@ -83,12 +83,7 @@ def header_to_db(request):
     else:
         # Send to plate-solver
         print(f"Forwarding to plate-solver: {bucket_path}")
-        obj_data = {'sequence_id': seq_id,
-                    'image_id': img_id,
-                    'status': 'metadata_received',
-                    'bucket_path': str(bucket_path),
-                    'object_id': str(object_id)
-                    }
+        obj_data = {'image_id': img_id}
         requests.post(plate_solve_endpoint, json=obj_data)
 
         success = True
