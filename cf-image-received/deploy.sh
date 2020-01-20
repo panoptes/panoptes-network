@@ -9,4 +9,6 @@ gcloud functions deploy \
                  --entry-point image_received \
                  --runtime python37 \
                  --trigger-resource "${TRIGGER_BUCKET}" \
-                 --trigger-event google.storage.object.finalize
+                 --trigger-event google.storage.object.finalize \
+                 --service-account "${SERVICE_ACCOUNT}"
+
