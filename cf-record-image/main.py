@@ -76,12 +76,13 @@ def record_image(request):
     else:
         # Send to plate-solver
         # print(f"Forwarding to plate-solver: {bucket_path}")
-        # obj_data = {'image_id': img_id}
+        obj_data = {'image_id': img_id}
         # requests.post(plate_solve_endpoint, json=obj_data)
 
         success = True
         response_msg = f'New image: sequence_id={seq_id} image_id={img_id}'
 
+    print(response_msg)
     return jsonify(success=success, msg=response_msg, data=obj_data)
 
 

@@ -94,7 +94,7 @@ def process_fits(bucket_path, object_id):
     if res.ok:
         print(f'Image forwarded to record-image')
     else:
-        print(res.content)
+        print(res.text)
 
 
 def process_cr2(bucket_path, object_id):
@@ -104,4 +104,4 @@ def process_cr2(bucket_path, object_id):
     if res.ok:
         print(f'RGB fits files made for {bucket_path}')
     else:
-        print(res.content)
+        print(res.text)
