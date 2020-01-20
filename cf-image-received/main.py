@@ -62,7 +62,7 @@ def process_fits(bucket_path, object_id):
         bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
     """
     # Get some of the fields from the path.
-    unit_id, field, camera_id, seq_time, filename = bucket_path.split('/')
+    unit_id, camera_id, seq_time, filename = bucket_path.split('/')
 
     # Get the image time from the filename
     image_time = filename.split('.')[0]
@@ -73,7 +73,6 @@ def process_fits(bucket_path, object_id):
 
     headers = {
         'PANID': unit_id,
-        'FIELD': field,
         'INSTRUME': camera_id,
         'SEQTIME': seq_time,
         'IMGTIME': image_time,
