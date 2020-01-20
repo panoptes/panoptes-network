@@ -8,9 +8,9 @@ from google.cloud import storage
 
 from astropy.io import fits
 
-PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-survey')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-pretty-pictures')
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-processed-images')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 

@@ -8,16 +8,16 @@ one for each color channel.
 
 This endpoint looks for one parameter, `cr2_file`, which is the full path (minus)
 the bucket name) to the stored CR2 file. Additionally, the parameter `rawpy_options`
-can be passed that affects how the images are converted. 
+can be passed that affects how the images are converted.
 
 > :memo: Todo: Add `rawpy_options` documentation and examples.
 
 
-Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/make-rgb-fits
+Endpoint: https://us-central1-panoptes-exp.cloudfunctions.net/make-rgb-fits
 
-Payload: JSON message of the form: 
+Payload: JSON message of the form:
 	```json
-	{ 
+	{
 		'cr2_file': str,
 		'rawpy_options': dict,
 	}
@@ -29,7 +29,7 @@ Example
 Using [httpie](https://httpie.org/):
 
 ```bash
-http https://us-central1-panoptes-survey.cloudfunctions.net/make-rgb-fits \
+http https://us-central1-panoptes-exp.cloudfunctions.net/make-rgb-fits \
 	cr2_file=PAN001/46Pwirtanen/14d3bd/20181216T075740/20181216T080457.cr2
 
 ```
@@ -40,7 +40,7 @@ Deploy
 [Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
 
 From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `header-to-metadb`
+name of the function in `main.py` that we want called and `make-rgb-fits`
 is the name of the Cloud Function we want to create.
 
 ```bash
