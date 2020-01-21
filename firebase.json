@@ -31,7 +31,7 @@
       "port": 5001
     },
     "firestore": {
-      "port": 8080
+      "port": 9080
     },
     "database": {
       "port": 9000
@@ -40,7 +40,7 @@
       "port": 5000
     },
     "pubsub": {
-      "port": 8085
+      "port": 9085
     }
   }
 }

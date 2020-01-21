@@ -2,6 +2,7 @@
 .project
 .pydevproject
 .settings
+*.code-workspace
 
 # Pycharm editor project files
 .idea
@@ -23,6 +24,7 @@ distribute-*.tar.gz
 
 # Other
 .*.swp
+*.log
 
 # Mac OSX
 .DS_Store
