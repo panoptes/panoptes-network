@@ -189,7 +189,7 @@ def add_header_to_db(header, bucket_path):
             }
             try:
                 image_doc.reference.create(image_data)
-                seq_doc.reference.set({'num_images': Increment(1)})
+                seq_doc.reference.set({'num_images': Increment(1)}, merge=True)
             except Exception as e:
                 print(f"Can't insert image info {img_id}: {e!r}")
 
