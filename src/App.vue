@@ -40,17 +40,7 @@
       >
         <span class="hidden-sm-and-down">{{ title }}</span>
       </v-toolbar-title>
-      <v-text-field
-        flat
-        solo-inverted
-        hide-details
-        prepend-inner-icon="mdi-magnify"
-        label="Enter PICID, Observation ID, Image ID, RA/Dec, etc."
-        class="hidden-sm-and-down"
-      />
-      <v-btn class="ma-2" color="primary" @click="toggleSearchForm">
-        <v-icon dark left>mdi-table-search</v-icon> Advanced Search
-      </v-btn>
+      <SourcesSearch></SourcesSearch>
       <v-spacer />
       <v-btn
         icon
@@ -67,23 +57,7 @@
       </v-btn>
     </v-app-bar>
     <v-content>
-      <v-container
-        fluid
-      >
-        <v-row
-          align="center"
-          justify="center"
-        >
-        <b-modal :active.sync="showSearch"
-                 has-modal-card
-                 trap-focus
-                 aria-role="dialog"
-                 aria-modal>
-            <SourcesSearch></SourcesSearch>
-        </b-modal>
-        <router-view></router-view>
-        </v-row>
-      </v-container>
+      <router-view></router-view>
     </v-content>
   </v-app>
 </template>
@@ -102,7 +76,7 @@
     computed: {
       ...mapState([
         'isSearching',
-        'searchModalActive'
+        'searchModalActive',
       ])
     },
     methods: {

@@ -1,5 +1,5 @@
 <template>
- <v-card>
+ <v-card outlined>
     <v-card-title>
       <v-text-field
         v-model="search"
@@ -12,22 +12,25 @@
     <v-data-table
       :dense="dense"
       :headers="fields"
-      :items="rows"
+      :items="observations"
       :items-per-page="perPage"
       :search="search"
-      :loadig="isSearching"
+      :loading="isSearching"
       class="elevation-1"
     >
     <template v-slot:item.unit_id="{ item }">
       <!-- <router-link :to="{ name: 'unitDetail', params: { unitId: item.unit_id }}"> -->
-        {{ item.unit_id | formatUnitId }}
+        {{ item.unit_id  }}
       <!-- </router-link> -->
     </template>
-    <template v-slot:item.id="{ item }">
+    <template v-slot:item.sequence_id="{ item }">
       <router-link
-        :to="{ name: 'observationDetail', params: { sequenceId: item.id }}">
-        {{ item.id }}
+        :to="{ name: 'observationDetail', params: { sequenceId: item.sequence_id }}">
+        {{ item.sequence_id }}
       </router-link>
+    </template>
+    <template v-slot:item.time="{ item }">
+        {{ item.time | moment('YYYY-MM-DD HH:mm:ss ZZ') }}
     </template>
     </v-data-table>
   </v-card>
@@ -36,14 +39,8 @@
 <script>
 import { mapState, mapActions } from 'vuex'
 
-import { ObservationsService } from '../services/ObservationsService.js'
-
-let observations = new ObservationsService()
-
 export default {
   name: 'Observations',
-  components: {
-  },
   filters: {
     formatUnitId: function (value) {
       // Silly formatting
@@ -54,22 +51,20 @@ export default {
       return unitId
     }
   },
-  created () {
-    this.observations.getAllObservations().then(response => {
-      this.rows = response.data.items
-    })
-      .catch(error => {
-        console.log(error)
-      })
-      .finally(() => (this.loading = false))
-  },
   computed: {
     ...mapState([
+      'units',
       'fromSearch',
       'sourceRows',
       'searchModel',
+      'observations',
       'isSearching'
     ])
+  },
+  mounted: function () {
+    this.$nextTick(function () {
+      this.$store.dispatch('getRecent');
+    })
   },
   props: [
     'perPage',
@@ -78,8 +73,6 @@ export default {
   data () {
     return {
       search: '',
-      currentPage: 0,
-      observations: observations,
       rows: [],
       fields: [
         {
@@ -89,21 +82,30 @@ export default {
         },
         {
           text: 'Sequence',
-          value: 'id',
+          value: 'sequence_id',
           sortable: true,
         },
         {
           text: 'Field',
-          value: 'field',
+          value: 'field_name',
           sortable: true ,
         },
         {
           text: 'Date',
-          value: 'start_date',
+          value: 'time',
           sortable: true,
         },
-        { text: 'Exp Time', value: 'exptime', sortable: true, type: 'decimal' },
-        { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
+        {
+          text: 'Exp Time',
+          value: 'exptime',
+          sortable: true
+        },
+        {
+          text: 'Status',
+          value: 'status',
+          sortable: true
+        },
+        // { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
       ]
     }
   }

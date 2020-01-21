@@ -104,47 +104,54 @@
 </template>
 
 <script>
-import { ObservationsService } from '../services/ObservationsService.js'
+import { mapState, mapActions } from 'vuex'
+
 import ObservationSummary from '@/components/ObservationSummary'
 
 const baseUrl = 'https://storage.googleapis.com/panoptes-survey'
-
-let observations = new ObservationsService()
 
 export default {
   name: 'ObservationDetail',
   components: {
     ObservationSummary
   },
-  methods: {
+  computed: {
+    ...mapState([
+      'units',
+      'fromSearch',
+      'sourceRows',
+      'searchModel',
+      'observations',
+      'isSearching'
+    ])
   },
-  created () {
-    this.observations.getObservation(this.sequenceId).then(response => {
-      this.info = response.data.items
+  // created () {
+  //   this.observations.getObservation(this.sequenceId).then(response => {
+  //     this.info = response.data.items
 
-      this.sequence = this.info.sequence
-      this.sequenceDir = this.info.sequence_dir
-      this.images = this.info.images
+  //     this.sequence = this.info.sequence
+  //     this.sequenceDir = this.info.sequence_dir
+  //     this.images = this.info.images
 
-      this.files = this.info.sequence_files
-      if (this.files !== undefined) {
-        if (this.files.jpg){
-          this.jpg_files = this.files.jpg
-          this.thumbUrl = this.files.jpg[0]
-        }
-        this.timelapseUrl = ''
-        if (this.files.mp4) {
-          this.timelapseUrl = this.files.mp4[0]
-        }
-      } else {
-        this.files = []
-      }
-    })
-      .catch(error => {
-        this.$router.replace({ name: 'home' })
-      })
-      .finally(() => (this.loading = false))
-  },
+  //     this.files = this.info.sequence_files
+  //     if (this.files !== undefined) {
+  //       if (this.files.jpg){
+  //         this.jpg_files = this.files.jpg
+  //         this.thumbUrl = this.files.jpg[0]
+  //       }
+  //       this.timelapseUrl = ''
+  //       if (this.files.mp4) {
+  //         this.timelapseUrl = this.files.mp4[0]
+  //       }
+  //     } else {
+  //       this.files = []
+  //     }
+  //   })
+  //     .catch(error => {
+  //       this.$router.replace({ name: 'home' })
+  //     })
+  //     .finally(() => (this.loading = false))
+  // },
   filters: {
     roundVal : function(value) {
       return Number(value).toFixed(3);

@@ -1,5 +1,5 @@
 <template>
- <v-card>
+ <v-card outlined>
     <v-card-title>
       <v-text-field
         v-model="search"
@@ -72,10 +72,6 @@ export default {
       this.$router.push({ name: 'sourceDetail', params: { picid: this.gotoPicid }});
     }
   },
-  created () {
-    // Look up the most recent sources.
-    this.$store.dispatch('getRecentSources');
-  },
   props: [
     'perPage',
     'dense'
@@ -89,7 +85,7 @@ export default {
       fields: [
         {
           text: 'PICID',
-          value: 'id',
+          value: 'picid',
           sortable: true
         },
         {

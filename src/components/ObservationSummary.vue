@@ -2,7 +2,7 @@
 <div>
   <dl class="row">
     <dt class="col-sm-3">PANID</dt>
-    <dd class="col-sm-9">{{ sequence.unit_id | unitId }}</dd>
+    <dd class="col-sm-9">{{ sequence.unit_id }}</dd>
 
     <dt class="col-sm-3">Field</dt>
     <dd class="col-sm-9">{{ sequence.field }}</dd>
@@ -14,49 +14,40 @@
     <dd class="col-sm-9">{{ sequence.exptime }}</dd>
 
     <dt class="col-sm-3">POCS Version</dt>
-    <dd class="col-sm-9">{{ sequence.pocs_version }}</dd>    
+    <dd class="col-sm-9">{{ sequence.pocs_version }}</dd>
 
     <dt class="col-sm-3">Images</dt>
-    <dd class="col-sm-9">{{ sequence.image_count }}</dd>            
+    <dd class="col-sm-9">{{ sequence.image_count }}</dd>
 
     <dt class="col-sm-3">Bucket Path</dt>
-    <dd class="col-sm-9">{{ sequenceDir }}</dd>    
+    <dd class="col-sm-9">{{ sequenceDir }}</dd>
   </dl>
 </div>
 </template>
 
 <script>
-import { ObservationsService } from '../services/ObservationsService.js'
+import { mapState, mapActions } from 'vuex'
 
 const baseUrl = 'https://storage.googleapis.com/panoptes-survey'
 
-let observations = new ObservationsService()
-
 export default {
   name: 'ObservationSummary',
-  components: {
-  },
   props: {
     sequence: Object,
     sequenceDir: ''
   },
-  filters: {
-    unitId: function (value) {
-      // Silly formatting
-      let unitId = 'PAN000'
-      if (value !== undefined) {
-        let l = -1 * value.toFixed(0).length
-        unitId = unitId.slice(0, l)
-        unitId += value
-      } else {
-        unitId = value
-      }
-      return unitId      
-    }
-  },  
+  computed: {
+    ...mapState([
+      'units',
+      'fromSearch',
+      'sourceRows',
+      'searchModel',
+      'observations',
+      'isSearching'
+    ])
+  },
   data () {
     return {
-      observations: observations
     }
   }
 }
