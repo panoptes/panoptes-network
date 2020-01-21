@@ -48,6 +48,9 @@
         label="Enter PICID, Observation ID, Image ID, RA/Dec, etc."
         class="hidden-sm-and-down"
       />
+      <v-btn class="ma-2" color="primary" @click="toggleSearchForm">
+        <v-icon dark left>mdi-table-search</v-icon> Advanced Search
+      </v-btn>
       <v-spacer />
       <v-btn
         icon
@@ -71,6 +74,13 @@
           align="center"
           justify="center"
         >
+        <b-modal :active.sync="showSearch"
+                 has-modal-card
+                 trap-focus
+                 aria-role="dialog"
+                 aria-modal>
+            <SourcesSearch></SourcesSearch>
+        </b-modal>
         <router-view></router-view>
         </v-row>
       </v-container>
@@ -79,18 +89,44 @@
 </template>
 
 <script>
+  import { mapState, mapActions } from 'vuex'
+  import SourcesSearch from '@/components/SourcesSearch'
+
   export default {
+    components: {
+      SourcesSearch
+    },
     props: {
       source: String,
     },
+    computed: {
+      ...mapState([
+        'isSearching',
+        'searchModalActive'
+      ])
+    },
+    methods: {
+      'toggleSearchForm': function() {
+        this.$store.commit('toggleSearchForm');
+        this.showSearch = this.searchModalActive;
+      },
+    },
     data: () => ({
       title: 'PANOPTES Data Explorer',
+      showSearch: false,
       drawer: true,
       items: [
         // { icon: 'mdi-robot', text: 'Units', link: 'units' },
+        { icon: 'mdi-home', text: 'Home', link: 'home' },
         { icon: 'mdi-star-box-multiple-outline', text: 'Observations', link: 'observations' },
         { icon: 'mdi-star-face', text: 'Stars', link: 'stars' },
       ],
     }),
   }
 </script>
+
+<style scoped="">
+.button {
+  margin-bottom: 15px;
+}
+</style>

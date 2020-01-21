@@ -35,6 +35,7 @@ export default new Vuex.Store({
       pixelData: {},
       fromSearch: false,
       isSearching: false,
+      searchModalActive: false,
       searchModel: {
         vmagRange: [8, 10],
         radiusUnits: 'Degree',
@@ -83,7 +84,8 @@ export default new Vuex.Store({
       setObservations(state, records){ state.observations = records },
       addObservationRun(state, data) { state.observations.push(data) },
       setSearching(state, isSearching) { state.isSearching = isSearching },
-      setFromSearch(state, fromSearch) { state.fromSearch = fromSearch }
+      setFromSearch(state, fromSearch) { state.fromSearch = fromSearch },
+      toggleSearchForm(state, model) { state.searchModalActive = !state.searchModalActive }
   },
   actions: {
       setFrame({ commit, state }, newIndex ){ commit('setFrame', newIndex) },

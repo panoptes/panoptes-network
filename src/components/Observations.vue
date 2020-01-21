@@ -4,16 +4,18 @@
       <v-text-field
         v-model="search"
         append-icon="mdi-magnify"
-        label="Search"
+        label="Filter Observations"
         single-line
         hide-details
       ></v-text-field>
     </v-card-title>
     <v-data-table
+      :dense="dense"
       :headers="fields"
       :items="rows"
-      :items-per-page="10"
+      :items-per-page="perPage"
       :search="search"
+      :loadig="isSearching"
       class="elevation-1"
     >
     <template v-slot:item.unit_id="{ item }">
@@ -32,6 +34,8 @@
 </template>
 
 <script>
+import { mapState, mapActions } from 'vuex'
+
 import { ObservationsService } from '../services/ObservationsService.js'
 
 let observations = new ObservationsService()
@@ -59,10 +63,21 @@ export default {
       })
       .finally(() => (this.loading = false))
   },
+  computed: {
+    ...mapState([
+      'fromSearch',
+      'sourceRows',
+      'searchModel',
+      'isSearching'
+    ])
+  },
+  props: [
+    'perPage',
+    'dense'
+  ],
   data () {
     return {
       search: '',
-      perPage: 10,
       currentPage: 0,
       observations: observations,
       rows: [],
