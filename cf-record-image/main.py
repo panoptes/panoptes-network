@@ -5,6 +5,7 @@ from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
 from google.cloud.firestore_v1 import Increment
+from dateutil.parser import parse as parse_date
 
 try:
     db = firestore.Client()
@@ -114,14 +115,17 @@ def add_header_to_db(header, bucket_path):
     try:
         unit_id = header.get('PANID')
         seq_id = header.get('SEQID', '')
-        sequence_time = header.get('SEQTIME')
+        sequence_time = parse_date(header.get('SEQTIME'))
         img_id = header.get('IMAGEID', '')
-        img_time = img_id.split('_')[-1]
+        img_time = parse_date(img_id.split('_')[-1])
         camera_id = header.get('INSTRUME', '')
 
         seq_doc = db.document(f'observations/{seq_id}').get()
 
-        if not seq_doc.exists:
+        # Only process sequence if in a certain state.
+        valid_status = ['metadata_received', 'receiving_files']
+
+        if not seq_doc.exists or seq_doc.get('status') in valid_status:
             # If no sequence doc then probably no unit id. This is just to minimize
             # the number of lookups that would be required if we looked up unit_id
             # doc each time.
@@ -129,6 +133,8 @@ def add_header_to_db(header, bucket_path):
                 'name': header.get('OBSERVER', ''),
                 'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
                 'elevation': float(header.get('ELEV-OBS')),
+                'num_observations': Increment(1),
+                'status': 'active'  # Assuming we are active since we received files.
             }
             db.document(f'units/{unit_id}').set(unit_data, merge=True)
 
@@ -142,13 +148,13 @@ def add_header_to_db(header, bucket_path):
                 'origin': header.get('ORIGIN'),  # Project PANOPTES
                 'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
+                'num_images': Increment(1),
                 'status': 'receiving_files',
-                'num_images': 0
             }
 
             try:
                 print("Inserting sequence: {}".format(seq_data))
-                seq_doc.reference.create(seq_data)
+                seq_doc.reference.set(seq_data, merge=True)
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
                 raise e
@@ -157,6 +163,9 @@ def add_header_to_db(header, bucket_path):
 
         if not image_doc.exists:
             print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
+
+            measrggb = header.get('MEASRGGB').split(' ')
+
             image_data = {
                 'sequence_id': seq_id,
                 'time': img_time,
@@ -176,20 +185,22 @@ def add_header_to_db(header, bucket_path):
                 # Camera properties
                 'measev': header.get('MEASEV'),
                 'measev2': header.get('MEASEV2'),
-                'measrggb': header.get('MEASRGGB'),
+                'measr': int(measrggb[0]),
+                'measg': int(measrggb[1]),
+                'measg2': int(measrggb[2]),
+                'measb': int(measrggb[3]),
                 'camsn': header.get('CAMSN'),
-                'camtemp': header.get('CAMTEMP'),
-                'circconf': header.get('CIRCCONF'),
+                'camtemp': float(header.get('CAMTEMP').split(' ')[0]),
+                'circconf': float(header.get('CIRCCONF').split(' ')[0]),
                 'colortmp': header.get('COLORTMP'),
                 'bluebal': header.get('BLUEBAL'),
                 'redbal': header.get('REDBAL'),
                 'whtlvln': header.get('WHTLVLN'),
                 'whtlvls': header.get('WHTLVLS'),
-                'status': 'received',
+                'status': 'uploaded',
             }
             try:
-                image_doc.reference.create(image_data)
-                seq_doc.reference.set({'num_images': Increment(1)}, merge=True)
+                image_doc.reference.set(image_data, merge=True)
             except Exception as e:
                 print(f"Can't insert image info {img_id}: {e!r}")
 
