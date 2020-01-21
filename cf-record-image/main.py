@@ -4,6 +4,7 @@ from contextlib import suppress
 from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
+from google.cloud.firestore_v1 import Increment
 
 try:
     db = firestore.Client()
@@ -141,7 +142,8 @@ def add_header_to_db(header, bucket_path):
                 'origin': header.get('ORIGIN'),  # Project PANOPTES
                 'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
-                'status': 'receiving_files'
+                'status': 'receiving_files',
+                'num_images': 0
             }
 
             try:
@@ -187,6 +189,7 @@ def add_header_to_db(header, bucket_path):
             }
             try:
                 image_doc.reference.create(image_data)
+                seq_doc.reference.set({'num_images': Increment(1)})
             except Exception as e:
                 print(f"Can't insert image info {img_id}: {e!r}")
 
