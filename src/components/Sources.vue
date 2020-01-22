@@ -33,13 +33,13 @@
               </router-link>
             </td>
             <td>
-              {{ item.ra.toFixed(3) }}
+              {{ item.ra }}
             </td>
             <td>
-              {{ item.dec.toFixed(3) }}
+              {{ item.dec }}
             </td>
             <td v-if="fromSearch">
-              {{ item.distance.toFixed(3) }}
+              {{ item.distance }}
             </td>
             <td>
               {{ item.lumclass | removeNan }}
@@ -56,6 +56,13 @@
         </tbody>
       </template>
     </v-data-table>
+
+    <v-card-actions align="right" v-if="allowDownloads">
+      <v-spacer></v-spacer>
+      <v-btn small :disabled="!selectedStars.length">
+        <v-icon>mdi-table</v-icon> Get CSV
+      </v-btn>
+    </v-card-actions>
   </v-card>
 </template>
 
@@ -66,11 +73,13 @@ export default {
   name: 'Sources',
   computed: {
     ...mapState([
+      'searchModel',
       'fromSearch',
       'sources',
-      'searchModel',
-      'isSearching'
     ]),
+    isSearching: function() {
+      return this.searchModel.isSearching['stars'];
+    }
   },
   methods: {
     submitForm: function() {
@@ -95,6 +104,8 @@ export default {
       currentPage: 1,
       loading: false,
       gotoPicid: null,
+      selectedStars: [],
+      allowDownloads: false,
       search: '',
       fields: [
         {

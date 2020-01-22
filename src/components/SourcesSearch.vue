@@ -39,10 +39,24 @@
 
       <v-card>
         <v-card-title
-          class="headline primary lighten-2"
+          class="headline primary dark white--text"
           primary-title
         >
-          Search the stars...
+          <v-toolbar-title>
+            <v-row no-gutters>
+              <v-col cols="3" class="text-left">
+                <v-icon color="white">mdi-star</v-icon>
+              </v-col>
+
+              <v-col cols="6" class="text-center">
+                Search the stars...
+              </v-col>
+
+              <v-col cols="3" class="text-right">
+                <v-icon color="white">mdi-star</v-icon>
+              </v-col>
+            </v-row>
+          </v-toolbar-title>
         </v-card-title>
 
         <v-card-text>
@@ -119,7 +133,8 @@
             <v-row>
               <v-col>
                 <v-combobox
-                  v-model="searchModel.selectedUnits"
+                  v-model="selectedUnits"
+                  disabled
                   :items="units"
                   label="PANOPTES Units"
                   item-key="unit_id"
@@ -143,6 +158,7 @@
                 >
                   <template v-slot:activator="{ on }">
                     <v-text-field
+                      disabled
                       v-model="searchModel.startDate"
                       label="Start Date"
                       prepend-icon="mdi-calendar"
@@ -170,6 +186,7 @@
                   <template v-slot:activator="{ on }">
                     <v-text-field
                       v-model="searchModel.endDate"
+                      disabled
                       label="End Date"
                       prepend-icon="mdi-calendar"
                       readonly
@@ -235,7 +252,7 @@ export default {
     },
     isSearching: function(val) {
       this.haveCoords = val;
-    }
+    },
   },
   mounted: function () {
     this.$nextTick(function () {
@@ -245,6 +262,7 @@ export default {
   methods: {
     submitForm: function() {
       // Fetch the results
+      this.$store.dispatch('searchObservations');
       this.$store.dispatch('searchSources');
       this.modalActive = false;
     },
@@ -258,6 +276,7 @@ export default {
     },
     reset () {
       this.$refs.form.reset();
+      this.$store.dispatch('getRecent');
 
     },
     resetValidation () {
@@ -266,6 +285,7 @@ export default {
   },
   data: () => ({
     search: null,
+    selectedUnits: [],
     startPickerMenu: false,
     endPickerMenu: false,
     modalActive: false,

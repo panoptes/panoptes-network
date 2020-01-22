@@ -79,16 +79,9 @@
         'searchModalActive',
       ])
     },
-    methods: {
-      'toggleSearchForm': function() {
-        this.$store.commit('toggleSearchForm');
-        this.showSearch = this.searchModalActive;
-      },
-    },
     data: () => ({
       title: 'PANOPTES Data Explorer',
-      showSearch: false,
-      drawer: true,
+      drawer: false,
       items: [
         // { icon: 'mdi-robot', text: 'Units', link: 'units' },
         { icon: 'mdi-home', text: 'Home', link: 'home' },

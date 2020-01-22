@@ -1,16 +1,31 @@
 <template>
-    <v-container>
-        <v-row>
-            <v-col>
-                <Observations :perPage="5" :dense="true" />
-            </v-col>
-        </v-row>
-        <v-row>
-            <v-col>
-                <Sources :perPage="5" :dense="true" />
-            </v-col>
-        </v-row>
-    </v-container>
+  <v-expansion-panels
+    accordion
+    flat
+    multiple
+    :value="openPanels"
+  >
+    <!-- Observations -->
+    <v-expansion-panel>
+      <v-expansion-panel-header>
+        Observations ({{ observations.length }})
+      </v-expansion-panel-header>
+      <v-expansion-panel-content>
+        <Observations :perPage="5" :dense="true" />
+      </v-expansion-panel-content>
+    </v-expansion-panel>
+
+        <!-- Observations -->
+    <v-expansion-panel>
+      <v-expansion-panel-header>
+        Sources ({{ sources.length }})
+      </v-expansion-panel-header>
+      <v-expansion-panel-content>
+        <Sources :perPage="5" :dense="true" />
+      </v-expansion-panel-content>
+    </v-expansion-panel>
+
+  </v-expansion-panels>
 </template>
 
 <script>
@@ -25,15 +40,18 @@ export default {
   computed: {
     ...mapState([
       'units',
+      'sources',
+      'observations',
       'fromSearch',
       'searchModel',
-      'observations',
-      'isSearching'
-    ])
+    ]),
   },
   components: {
     Observations,
     Sources
-  }
+  },
+  data: () => ({
+    openPanels: [0, 1]
+  }),
 }
 </script>

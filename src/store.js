@@ -26,6 +26,24 @@ const base_url = 'https://us-central1-panoptes-exp.cloudfunctions.net';
 
 Vue.use(Vuex)
 
+function formatObservationRow(data) {
+    data['time'] = moment(data['time'].toDate());
+
+    data['ra'] = data['field_ra'].toFixed(3);
+    data['dec'] = data['field_dec'].toFixed(3);
+
+    return data;
+}
+
+function  formatSourceRow(data) {
+    data['time'] = moment(data['last_process_time'].toDate());
+
+    data['ra'] = data['ra'].toFixed(3);
+    data['dec'] = data['dec'].toFixed(3);
+
+    return data;
+}
+
 export default new Vuex.Store({
   state: {
       picid: null,
@@ -41,18 +59,19 @@ export default new Vuex.Store({
       lightcurveData: {},
       rawData: {},
       pixelData: {},
-      fromSearch: false,
       isSearching: false,
       units: [],
       searchModel: {
+        hasResults: false,
         modalActive: false,
         isSearching: {
           'observations': false,
-          'picid': false,
+          'images': false,
+          'stars': false,
           'general': false,
         },
         vmagRange: [8, 10],
-        radiusUnits: ['Degree', 'Arcmin', 'Arcsec'],
+        radiusUnits: ['Degree'],
         radiusUnit: 'Degree',
         searchRadius: 5,
         searchString: 'M42',
@@ -116,7 +135,7 @@ export default new Vuex.Store({
       addObservationRun(state, data) { state.observations.push(data) },
       addUnit(state, data) { state.units.push(data) },
 
-      setFromSearch(state, fromSearch) { state.fromSearch = fromSearch },
+      sethasResults(state, hasResults) { state.searchModel.hasResults = hasResults },
 
       setSearching(state, loadingType, is_loading) {
         state.searchModel.isSearching[loadingType] = is_loading;
@@ -234,7 +253,7 @@ export default new Vuex.Store({
             querySnapshot.forEach((doc) => {
                 let data = doc.data();
                 data['sequence_id'] = doc.id;
-                data['time'] = moment(data['time'].toDate());
+                data = formatObservationRow(data);
                 rows.push(data);
             });
             commit('setObservations', rows);
@@ -250,8 +269,9 @@ export default new Vuex.Store({
             let rows = [];
             querySnapshot.forEach((doc) => {
                 let data = doc.data();
+
                 data['picid'] = doc.id;
-                data['last_process_time'] = moment(data['last_process_time'].toDate());
+                data = formatSourceRow(data);
                 rows.push(data);
             });
             commit('setSources', rows);
@@ -291,47 +311,61 @@ export default new Vuex.Store({
       searchObservations: function({ commit, state } ){
         commit('setObservations', []);
         commit('setSearching', 'observations', true);
+
+        let dec_min = parseFloat(state.searchModel.dec) - parseFloat(state.searchModel.searchRadius);
+        let dec_max = parseFloat(state.searchModel.dec) + parseFloat(state.searchModel.searchRadius);
+        let ra_min = parseFloat(state.searchModel.ra) - parseFloat(state.searchModel.searchRadius);
+        let ra_max = parseFloat(state.searchModel.ra) + parseFloat(state.searchModel.searchRadius);
+
         db.collection('observations')
-          .where('field_dec', '>=', state.searchModel.dec - state.searchModel.searchRadius)
-          .where('field_dec', '<=', state.searchModel.dec + state.searchModel.searchRadius)
-          .orderBy('dec')
+          .where('field_dec', '<=', dec_max)
+          .where('field_dec', '>=', dec_min)
+          .orderBy('field_dec')
           .orderBy('time', 'desc')
           .get().then(querySnapshot => {
+            let rows = [];
             querySnapshot.docs.forEach((doc) => {
               let data = doc.data();
+              data = formatObservationRow(data);
               data['sequence_id'] = doc.id;
-              if (data.ra >= state.searchModel.ra - state.searchModel.searchRadius){
+
+              if (data.ra >= ra_max){
                 return false;
               }
-              if (data.ra <= state.searchModel.ra + state.searchModel.searchRadius){
+              if (data.ra <= ra_min){
                 return false;
               }
 
               // Todo: filter date here.
+              data['distance'] = ((
+                  (data['ra'] - state.searchModel.searchRadius)**2 +
+                  (data['dec'] - state.searchModel.searchRadius)**2
+              )**(0.5)).toFixed(3);
 
-              data['time'] = moment(data['time'].toDate());
-              data['distance'] = (
-                  (data['ra'] - ra_search)**2 +
-                  (data['dec'] - dec_search)**2
-              )**(0.5);
-
-              commit('addObservationRun', data);
-              commit('setFromSearch', true);
+               rows.push(data);
             });
+            commit('setObservations', rows);
+            commit('sethasResults', true);
           }).catch(err => {
             console.log('Error searching observations', err)
-            commit('setFromSearch', false);
+            commit('sethasResults', false);
           }).finally(() => {
             commit('setSearching', 'observations', false);
           });
       },
 
       searchSources: function({ commit, state } ){
-        commit('setSearching', 'picid', true);
+        commit('setSearching', 'stars', true);
         commit('setSources', []);
+
+        let dec_min = parseFloat(state.searchModel.dec) - parseFloat(state.searchModel.searchRadius);
+        let dec_max = parseFloat(state.searchModel.dec) + parseFloat(state.searchModel.searchRadius);
+        let ra_min = parseFloat(state.searchModel.ra) - parseFloat(state.searchModel.searchRadius);
+        let ra_max = parseFloat(state.searchModel.ra) + parseFloat(state.searchModel.searchRadius);
+
         db.collection('picid')
-          .where('dec', '>=', state.searchModel.dec - state.searchModel.searchRadius)
-          .where('dec', '<=', state.searchModel.dec + state.searchModel.searchRadius)
+          .where('dec', '<=', dec_max)
+          .where('dec', '>=', dec_min)
           .orderBy('dec')
           .orderBy('last_process_time', 'desc')
           .limit(500)
@@ -340,30 +374,31 @@ export default new Vuex.Store({
             querySnapshot.docs.forEach((doc) => {
               let data = doc.data();
               data['picid'] = doc.id;
-              if (data.ra >= state.searchModel.ra - state.searchModel.searchRadius){
+
+              if (data.ra >= ra_max){
                 return false;
               }
-              if (data.ra <= state.searchModel.ra + state.searchModel.searchRadius){
+              if (data.ra <= ra_min){
                 return false;
               }
 
               // Todo: filter date here.
-              data['time'] = moment(data['last_process_time'].toDate());
-              data['distance'] = (
-                  (data['ra'] - ra_search)**2 +
-                  (data['dec'] - dec_search)**2
-              )**(0.5);
+              data['distance'] = ((
+                  (data['ra'] - state.searchModel.searchRadius)**2 +
+                  (data['dec'] - state.searchModel.searchRadius)**2
+              )**(0.5)).toFixed(3);
 
+              data = formatSourceRow(data);
               rows.push(data);
             });
-            console.log(rows);
             commit('setSources', rows);
           }).catch(err => {
             console.log('Error searching images', err)
-            commit('setFromSearch', false);
+            commit('sethasResults', false);
           }).finally(() => {
-            commit('setSearching', 'picid', false);
+            commit('setSearching', 'stars', false);
           });
       }
   }
 })
+

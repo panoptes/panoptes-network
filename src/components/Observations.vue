@@ -9,6 +9,7 @@
         hide-details
       ></v-text-field>
     </v-card-title>
+
     <v-data-table
       :dense="dense"
       :headers="fields"
@@ -16,23 +17,32 @@
       :items-per-page="perPage"
       :search="search"
       :loading="isSearching"
+      v-model="selectedObservations"
       class="elevation-1"
     >
-    <template v-slot:item.unit_id="{ item }">
-      <!-- <router-link :to="{ name: 'unitDetail', params: { unitId: item.unit_id }}"> -->
-        {{ item.unit_id  }}
-      <!-- </router-link> -->
-    </template>
     <template v-slot:item.sequence_id="{ item }">
       <router-link
         :to="{ name: 'observationDetail', params: { sequenceId: item.sequence_id }}">
         {{ item.sequence_id }}
       </router-link>
     </template>
+    <template v-slot:item.ra="{ item }">
+        {{ item.ra | roundVal }}
+    </template>
+    <template v-slot:item.dec="{ item }">
+        {{ item.dec | roundVal }}
+    </template>
     <template v-slot:item.time="{ item }">
         {{ item.time | moment('YYYY-MM-DD HH:mm:ss ZZ') }}
     </template>
     </v-data-table>
+
+    <v-card-actions align="right" v-if="allowDownloads">
+      <v-spacer></v-spacer>
+      <v-btn small :disabled="!selectedObservations.length">
+        <v-icon>mdi-table</v-icon> Get CSV
+      </v-btn>
+    </v-card-actions>
   </v-card>
 </template>
 
@@ -49,17 +59,20 @@ export default {
       unitId = unitId.slice(0, l)
       unitId += value
       return unitId
+    },
+    roundVal: function(value) {
+      return parseFloat(value).toFixed(3);
     }
   },
   computed: {
     ...mapState([
       'units',
-      'fromSearch',
-      'sourceRows',
       'searchModel',
       'observations',
-      'isSearching'
-    ])
+    ]),
+    isSearching: function() {
+      return this.searchModel.isSearching['observations'];
+    }
   },
   mounted: function () {
     this.$nextTick(function () {
@@ -73,6 +86,8 @@ export default {
   data () {
     return {
       search: '',
+      selectedObservations: [],
+      allowDownloads: false,
       rows: [],
       fields: [
         {
@@ -88,6 +103,16 @@ export default {
         {
           text: 'Field',
           value: 'field_name',
+          sortable: true ,
+        },
+        {
+          text: 'RA',
+          value: 'ra',
+          sortable: true ,
+        },
+        {
+          text: 'Dec',
+          value: 'dec',
           sortable: true ,
         },
         {
