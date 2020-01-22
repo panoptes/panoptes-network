@@ -144,13 +144,15 @@ def add_header_to_db(header, bucket_path):
             seq_data = {
                 'unit_id': unit_id,
                 'camera_id': camera_id,
-                'start_time': sequence_time,
+                'time': sequence_time,
                 'exptime': header.get('EXPTIME'),
                 'pocs_version': header.get('CREATOR', ''),
-                'field': header.get('FIELD', ''),
-                'origin': header.get('ORIGIN'),  # Project PANOPTES
+                'field_name': header.get('FIELD', ''),
+                'software_version': header.get('ORIGIN'),  # Project PANOPTES
                 'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
+                'ra': header.get('CRVAL1'),
+                'dec': header.get('CRVAL2'),
                 'status': 'receiving_files',
             }
 
