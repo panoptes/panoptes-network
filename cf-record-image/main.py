@@ -4,7 +4,6 @@ from contextlib import suppress
 from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
-from google.cloud.firestore_v1 import Increment
 from dateutil.parser import parse as parse_date
 
 try:
@@ -132,18 +131,15 @@ def add_header_to_db(header, bucket_path):
             unit_doc_ref = db.document(f'units/{unit_id}')
 
             try:
-                unit_doc_ref.update({
-                    'num_observations': Increment(1)
-                })
-            except Exception:
                 unit_data = {
                     'name': header.get('OBSERVER', ''),
                     'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
                     'elevation': float(header.get('ELEV-OBS')),
-                    'num_observations': 1,
                     'status': 'active'  # Assuming we are active since we received files.
                 }
-                unit_doc_ref.create(unit_data)
+                unit_doc_ref.set(unit_data)
+            except Exception:
+                pass
 
             seq_data = {
                 'unit_id': unit_id,
@@ -155,16 +151,14 @@ def add_header_to_db(header, bucket_path):
                 'origin': header.get('ORIGIN'),  # Project PANOPTES
                 'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
-                'num_images': Increment(1),
                 'status': 'receiving_files',
             }
 
             try:
                 print("Inserting sequence: {}".format(seq_data))
-                seq_doc.reference.set(seq_data, merge=True)
+                seq_doc.reference.set(seq_data)
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
-                raise e
 
         image_doc = db.document(f'images/{img_id}').get()
 
