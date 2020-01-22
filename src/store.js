@@ -252,7 +252,6 @@ export default new Vuex.Store({
                 let data = doc.data();
                 data['picid'] = doc.id;
                 data['last_process_time'] = moment(data['last_process_time'].toDate());
-                console.log(data);
                 rows.push(data);
             });
             commit('setSources', rows);
@@ -295,6 +294,8 @@ export default new Vuex.Store({
         db.collection('observations')
           .where('field_dec', '>=', state.searchModel.dec - state.searchModel.searchRadius)
           .where('field_dec', '<=', state.searchModel.dec + state.searchModel.searchRadius)
+          .orderBy('dec')
+          .orderBy('time', 'desc')
           .get().then(querySnapshot => {
             querySnapshot.docs.forEach((doc) => {
               let data = doc.data();
@@ -331,6 +332,7 @@ export default new Vuex.Store({
         db.collection('picid')
           .where('dec', '>=', state.searchModel.dec - state.searchModel.searchRadius)
           .where('dec', '<=', state.searchModel.dec + state.searchModel.searchRadius)
+          .orderBy('dec')
           .orderBy('last_process_time', 'desc')
           .limit(500)
           .get().then(querySnapshot => {
@@ -346,7 +348,6 @@ export default new Vuex.Store({
               }
 
               // Todo: filter date here.
-
               data['time'] = moment(data['last_process_time'].toDate());
               data['distance'] = (
                   (data['ra'] - ra_search)**2 +
@@ -355,6 +356,7 @@ export default new Vuex.Store({
 
               rows.push(data);
             });
+            console.log(rows);
             commit('setSources', rows);
           }).catch(err => {
             console.log('Error searching images', err)

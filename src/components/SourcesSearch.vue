@@ -216,7 +216,6 @@ export default {
     ...mapState([
       'units',
       'searchModel',
-      'searchModalActive',
       'isSearching',
       'fromSearch'
     ]),

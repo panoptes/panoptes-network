@@ -12,42 +12,48 @@
     <v-data-table
       :dense="dense"
       :headers="fields"
-      :items="sourceRows"
+      :items="sources"
       :items-per-page="perPage"
       :search="search"
       :loading="isSearching"
       class="elevation-1"
     >
-      <template v-slot:item.id="{ item }">
-        <template slot="header" slot-scope="{ column }">
-          <b-tooltip label="PANOPTES Input Catalog ID" dashed>
-          {{ column.label }}
-          </b-tooltip>
-        </template>
-        <router-link
-          :to="{ name: 'sourceDetail', params: { picid: item.id }}">
-        {{ item.id }}
-        </router-link>
-      </template>
-      <template v-slot:item.ra="{ item }">
-        {{ item.ra.toFixed(3) }}
-      </template>
-      <template v-slot:item.dec="{ item }">
-        {{ item.dec.toFixed(3) }}
-      </template>
-      <template v-if="fromSearch" v-slot:item.distance="{ item }">
-        {{ item.distance.toFixed(3) }}
-      </template>
-      <template v-slot:item.lumclass="{ item }">
-        {{ item.lumclass }}
-      </template>
-      <template v-slot:item.vmag="{ item }">
-        {{ item.vmag.toFixed(2) }}
-      </template>
-      <template v-slot:item.picid="{ item }">
-        <a v-bind:href="'https://exofop.ipac.caltech.edu/tess/target.php?id=' + item.id" target="_blank">
-          ExoFOP
-        </a>
+      <template v-slot:body="{ items }">
+        <tbody>
+          <tr v-for="item in items" :key="item.picid">
+            <td>
+              <template slot="header" slot-scope="{ column }">
+                <b-tooltip label="PANOPTES Input Catalog ID" dashed>
+                {{ item.picid }}
+                </b-tooltip>
+              </template>
+              <router-link
+                :to="{ name: 'sourceDetail', params: { picid: item.picid }}">
+              {{ item.picid }}
+              </router-link>
+            </td>
+            <td>
+              {{ item.ra.toFixed(3) }}
+            </td>
+            <td>
+              {{ item.dec.toFixed(3) }}
+            </td>
+            <td v-if="fromSearch">
+              {{ item.distance.toFixed(3) }}
+            </td>
+            <td>
+              {{ item.lumclass | removeNan }}
+            </td>
+            <td>
+              {{ item.vmag.toFixed(2) }}
+            </td>
+            <td>
+              <a v-bind:href="'https://exofop.ipac.caltech.edu/tess/target.php?id=' + item.picid" target="_blank">
+                ExoFOP
+              </a>
+            </td>
+          </tr>
+        </tbody>
       </template>
     </v-data-table>
   </v-card>
@@ -61,7 +67,7 @@ export default {
   computed: {
     ...mapState([
       'fromSearch',
-      'sourceRows',
+      'sources',
       'searchModel',
       'isSearching'
     ]),
@@ -70,6 +76,14 @@ export default {
     submitForm: function() {
       this.$store.dispatch('setSource', this.gotoPicid);
       this.$router.push({ name: 'sourceDetail', params: { picid: this.gotoPicid }});
+    }
+  },
+  filters: {
+    removeNan: function(val){
+      if (typeof(val) === 'number'){
+        val = '';
+      }
+      return val;
     }
   },
   props: [
@@ -115,7 +129,7 @@ export default {
           sortable: true
         },
         {
-          text: '',
+          text: 'Links',
           value: 'picid',
           sortable: true
         }
