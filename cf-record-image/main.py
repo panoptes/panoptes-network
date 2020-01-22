@@ -129,14 +129,21 @@ def add_header_to_db(header, bucket_path):
             # If no sequence doc then probably no unit id. This is just to minimize
             # the number of lookups that would be required if we looked up unit_id
             # doc each time.
-            unit_data = {
-                'name': header.get('OBSERVER', ''),
-                'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
-                'elevation': float(header.get('ELEV-OBS')),
-                'num_observations': Increment(1),
-                'status': 'active'  # Assuming we are active since we received files.
-            }
-            db.document(f'units/{unit_id}').set(unit_data, merge=True)
+            unit_doc_ref = db.document(f'units/{unit_id}')
+
+            try:
+                unit_doc_ref.update({
+                    'num_observations': Increment(1)
+                })
+            except Exception:
+                unit_data = {
+                    'name': header.get('OBSERVER', ''),
+                    'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
+                    'elevation': float(header.get('ELEV-OBS')),
+                    'num_observations': 1,
+                    'status': 'active'  # Assuming we are active since we received files.
+                }
+                unit_doc_ref.create(unit_data)
 
             seq_data = {
                 'unit_id': unit_id,
