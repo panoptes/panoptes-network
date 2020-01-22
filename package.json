@@ -1,6 +1,6 @@
 {
-  "name": "observations-explorer",
-  "version": "0.1.0",
+  "name": "panoptes-data-explorer",
+  "version": "0.0.5",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve --mode development",
@@ -8,12 +8,8 @@
     "test:unit": "vue-cli-service test:unit"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^1.2.5",
-    "@fortawesome/free-solid-svg-icons": "^5.4.0",
-    "@fortawesome/vue-fontawesome": "^0.1.9",
     "@google-cloud/firestore": "^3.4.0",
     "axios": "^0.18.1",
-    "bootstrap-vue": "^2.1.0",
     "buefy": "^0.8.8",
     "dns": "^0.2.2",
     "firebase": "^7.7.0",
@@ -21,9 +17,7 @@
     "mathjs": "^6.2.5",
     "vue": "^2.5.17",
     "vue-axios": "^2.1.5",
-    "vue-good-table": "^2.18.1",
     "vue-moment": "^4.1.0",
-    "vue-plotly": "^1.0.1",
     "vue-rangedate-picker": "^0.3.4",
     "vue-router": "^3.0.1",
     "vuetify": "^2.1.0",
