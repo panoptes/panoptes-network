@@ -35,34 +35,33 @@ def record_image(request):
         `make_response <http://flask.pocoo.org/docs/0.12/api/#flask.Flask.make_response>`.
     """
     request_json = request.get_json()
-
-    header = dict()
+    print(f"Received: {request_json!r}")
 
     bucket_path = request_json.get('bucket_path')
     object_id = request_json.get('object_id')
-    header = request_json.get('headers')
+    header = request_json.get('headers', dict())
 
-    if not bucket_path and not header:
-        return 'No headers or bucket_path, nothing to do!'
+    if not bucket_path:
+        return jsonify(success=False, msg='No bucket_path, nothing to do!')
 
-    print(f"File: {bucket_path}")
-    print(f"Header: {header!r}")
+    print("Looking up header for file: ", bucket_path)
+    storage_blob = bucket.get_blob(bucket_path)
+    if storage_blob:
+        file_headers = lookup_fits_header(storage_blob)
+        file_headers.update(header)
 
-    if bucket_path:
-        print("Looking up header for file: ", bucket_path)
-        storage_blob = bucket.get_blob(bucket_path)
-        if storage_blob:
-            file_headers = lookup_fits_header(storage_blob)
-            file_headers.update(header)
-            file_headers['FILENAME'] = storage_blob.public_url
+        # Change filename to public url of file.
+        file_headers['FILENAME'] = storage_blob.public_url
 
-            if object_id is None:
-                object_id = storage_blob.id
-                file_headers['FILEID'] = object_id
+        # This includes full generation information for storage
+        # See https://cloud.google.com/storage/docs/object-versioning
+        if object_id is None:
+            object_id = storage_blob.id
+            file_headers['FILEID'] = object_id
 
-            header.update(file_headers)
-        else:
-            return f"Nothing found in storage bucket for {bucket_path}"
+        header.update(file_headers)
+    else:
+        return f"Nothing found in storage bucket for {bucket_path}"
 
     seq_id = header['SEQID']
     img_id = header['IMAGEID']
@@ -146,9 +145,9 @@ def add_header_to_db(header, bucket_path):
                 'camera_id': camera_id,
                 'time': sequence_time,
                 'exptime': header.get('EXPTIME'),
-                'pocs_version': header.get('CREATOR', ''),
+                'project': header.get('ORIGIN'),  # Project PANOPTES
+                'software_version': header.get('CREATOR', ''),
                 'field_name': header.get('FIELD', ''),
-                'software_version': header.get('ORIGIN'),  # Project PANOPTES
                 'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
                 'ra': header.get('CRVAL1'),
@@ -192,7 +191,6 @@ def add_header_to_db(header, bucket_path):
                 'measg': int(measrggb[1]),
                 'measg2': int(measrggb[2]),
                 'measb': int(measrggb[3]),
-                'camsn': header.get('CAMSN'),
                 'camtemp': float(header.get('CAMTEMP').split(' ')[0]),
                 'circconf': float(header.get('CIRCCONF').split(' ')[0]),
                 'colortmp': header.get('COLORTMP'),
