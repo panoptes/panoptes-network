@@ -161,9 +161,12 @@ def add_header_to_db(header, bucket_path):
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
+        valid_status = ['metadata_received', 'uploaded']
         image_doc = db.document(f'images/{img_id}').get()
 
-        if not image_doc.exists:
+        image_status = image_doc.get('status')
+
+        if not image_doc.exists or image_status in valid_status:
             print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
 
             measrggb = header.get('MEASRGGB').split(' ')
@@ -204,6 +207,8 @@ def add_header_to_db(header, bucket_path):
                 image_doc.reference.set(image_data, merge=True)
             except Exception as e:
                 print(f"Can't insert image info {img_id}: {e!r}")
+        else:
+            print(f'Image exists with status={image_status} so not updating record details')
 
     except Exception as e:
         raise e
