@@ -8,6 +8,11 @@ add_header_endpoint = os.getenv(
     'https://us-central1-panoptes-exp.cloudfunctions.net/record-image'
 )
 
+fits_packer_endpoint = os.getenv(
+    'FPACK_ENDPOINT',
+    'https://fits-packer-cezgvr32ga-uc.a.run.app/'
+)
+
 make_rgb_endpoint = os.getenv(
     'RGB_ENDPOINT',
     'https://us-central1-panoptes-exp.cloudfunctions.net/make-rgb-fits'
@@ -45,7 +50,7 @@ def image_received(data, context):
 
     process_lookup = {
         '.fits': process_fits,
-        '.fz': process_fits,
+        '.fz': process_fz,
         '.cr2': process_cr2,
     }
 
@@ -55,7 +60,7 @@ def image_received(data, context):
         process_lookup[file_ext](bucket_path, object_id)
 
 
-def process_fits(bucket_path, object_id):
+def process_fz(bucket_path, object_id):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
     Args:
@@ -93,6 +98,21 @@ def process_fits(bucket_path, object_id):
 
     if res.ok:
         print(f'Image forwarded to record-image')
+    else:
+        print(res.text)
+
+
+def process_fits(bucket_path, object_id):
+    """ Forward the headers to the -add-header-to-db Cloud Function.
+
+    Args:
+        bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
+    """
+    print(f"Forwarding FITS to fits-packer")
+    res = requests.post(make_rgb_endpoint, json=dict(bucket_path=bucket_path))
+
+    if res.ok:
+        print(f'FITS file packed: {res.json()!r}')
     else:
         print(res.text)
 
