@@ -61,8 +61,11 @@ def entry_point(pubsub_message, context):
             print(f'error: {e}')
             return f'Bad Request: {msg}', 400
 
+        attributes = pubsub_message.get('attributes', dict())
+
         try:
-            process_topic(data)
+            print(f'Processing: data={data!r} attributes={attributes!r}')
+            process_topic(data, attributes)
             # Flush the stdout to avoid log buffering.
             sys.stdout.flush()
             return ('', 204)  # 204 is no-content success
@@ -74,14 +77,19 @@ def entry_point(pubsub_message, context):
     return ('', 500)
 
 
-def process_topic(data):
+def process_topic(data, attributes=None):
     """Add a FITS header to the database.
 
     Args:
-        data (dict): A dictionary that should contain the `bucket_path` corresponding to location within the storage bucket.
+        data (dict): A dictionary that should contain the `bucket_path`
+            corresponding to location within the storage bucket.
+        attributes (dict|None, optional): Attributes from the pubsub message.
 
-    Returns:
+    No Longer Returned:
         dict: json status description.
+
+    Raises:
+        Exception: If anything goes wrong.
     """
 
     bucket_path = data.get('bucket_path')
