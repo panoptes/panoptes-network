@@ -1,17 +1,15 @@
-Acknowledge FITS File Received
+Image Uploaded Acknowledgement
 ==============================
 
-This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
-
-This function is triggered  when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/)
+This service is triggered  when a file is placed in our [Storage Bucket](https://cloud.google.com/storage/)
 (see also the documentation about using [Storage Triggers](https://cloud.google.com/functions/docs/calling/storage)).
 
-FITS: Set header variables and then forward to endpoint for adding headers
-	to the metadatabase.
-CR2: Trigger the creation of the RGB fits images, pretty JPG/PNG images for viewing,
-	and timelapse videos.
+The service will receive a PubSub message in a json format. Based on the file
+type that was uploaded various actions will be taken:
 
-> :memo: Todo: Trigger timelapse and pretty image creation from here.
+FITS.FZ: Forward to the `record-image` service.
+FITS: Forward to the `fits-packer` service.
+CR2: Forward to the `make-rgb-fits` service.
 
 Endpoint: No public endpoint
 
@@ -19,22 +17,10 @@ Endpoint: No public endpoint
 Deploy
 ------
 
-[Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
+The service is run on [Google Cloud Run](https://cloud.google.com/run/docs/). The
+deployment script will build a docker image and then set up a new revision of
+the cloud run service. See `cloudbuild.yaml` for details.
 
-From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `image-received`
-is the name of the Cloud Function we want to create.
-
-```bash
-gcloud functions deploy \
-                 image-received \
-                 --entry-point image_received \
-                 --runtime python37 \
-                 --trigger-resource "${TRIGGER_BUCKET}" \
-                 --trigger-event google.storage.object.finalize
-```
-
-> :bulb: There is also a small convenience script called `deploy.sh` that does the same thing.
 
 ```bash
 ./deploy.sh

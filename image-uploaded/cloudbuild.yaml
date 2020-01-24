@@ -4,7 +4,7 @@ steps:
   id: 'base'
   args:
   - 'build'
-  - '--tag=gcr.io/${PROJECT_ID}/image-received:latest'
+  - '--tag=gcr.io/${PROJECT_ID}/image-uploaded:latest'
   - '.'
   waitFor: ['-']
 
@@ -13,7 +13,7 @@ steps:
   id: 'push-base'
   args:
   - 'push'
-  - 'gcr.io/${PROJECT_ID}/image-received:latest'
+  - 'gcr.io/${PROJECT_ID}/image-uploaded:latest'
   waitFor: ['base']
 
 # Deploy
@@ -21,9 +21,9 @@ steps:
   args:
   - 'run'
   - 'deploy'
-  - 'image-received'
+  - 'image-uploaded'
   - '--image'
-  - 'gcr.io/${PROJECT_ID}/image-received:latest'
+  - 'gcr.io/${PROJECT_ID}/image-uploaded:latest'
   - '--region'
   - 'us-central1'
   - '--platform'
@@ -38,4 +38,4 @@ steps:
   waitFor: ['push-base']
 
 images:
-- 'gcr.io/${PROJECT_ID}/image-received:latest'
+- 'gcr.io/${PROJECT_ID}/image-uploaded:latest'

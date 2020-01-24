@@ -6,24 +6,18 @@ from flask import Flask
 from flask import request
 from contextlib import suppress
 
-import requests
+from google.cloud import pubsub
+
+publisher = pubsub.PublisherClient()
+
+project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+pubsub_base = f'projects/{project_id}/topics'
 
 app = Flask(__name__)
 
-add_header_endpoint = os.getenv(
-    'HEADER_ENDPOINT',
-    'https://us-central1-panoptes-exp.cloudfunctions.net/record-image'
-)
-
-fits_packer_endpoint = os.getenv(
-    'FPACK_ENDPOINT',
-    'https://fits-packer-cezgvr32ga-uc.a.run.app/'
-)
-
-make_rgb_endpoint = os.getenv(
-    'RGB_ENDPOINT',
-    'https://us-central1-panoptes-exp.cloudfunctions.net/make-rgb-fits'
-)
+add_header_topic = os.getenv('HEADER_topic', 'record-image')
+fits_packer_topic = os.getenv('FPACK_topic', 'pack-fits')
+make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 
 @app.route('/', methods=['POST'])
@@ -61,7 +55,7 @@ def index():
             return f'Bad Request: {msg}', 400
 
         try:
-            image_received(data)
+            image_uploaded(data)
             # Flush the stdout to avoid log buffering.
             sys.stdout.flush()
             return ('', 204)
@@ -73,7 +67,7 @@ def index():
     return ('', 500)
 
 
-def image_received(data):
+def image_uploaded(data):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.
@@ -96,7 +90,6 @@ def image_received(data):
     """
 
     bucket_path = data['name']
-    object_id = data['id']
 
     if bucket_path is None:
         return f'No file requested'
@@ -112,10 +105,10 @@ def image_received(data):
     print(f"Processing {bucket_path}")
 
     with suppress(KeyError):
-        process_lookup[file_ext](bucket_path, object_id)
+        process_lookup[file_ext](bucket_path)
 
 
-def process_fz(bucket_path, object_id):
+def process_fz(bucket_path):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
     Args:
@@ -139,47 +132,39 @@ def process_fz(bucket_path, object_id):
         'SEQID': sequence_id,
         'IMAGEID': image_id,
         'FILENAME': bucket_path,
-        'FILEID': object_id,
         'PSTATE': 'fits_received'
     }
 
     # Send to add-header-to-db
-    print(f"Forwarding to record-image: {headers!r}")
-    res = requests.post(add_header_endpoint, json={
+    send_to(add_header_topic, {
         'headers': headers,
         'bucket_path': bucket_path,
-        'object_id': object_id,
     })
 
-    if res.ok:
-        print(f'Image forwarded to record-image')
-    else:
-        print(res.text)
+
+def send_to(topic, data):
+    print(f"Sending message to {topic}: {data!r}")
+    data = json.dump().encode()
+
+    def callback(future):
+        message_id = future.result()
+        print(f'Pubsub message to {topic} received: {message_id}')
+
+    future = pubsub.publish(f'{pubsub_base}/{topic}', data)
+    future.add_done_callback(callback)
 
 
-def process_fits(bucket_path, object_id):
-    """ Forward the headers to the -add-header-to-db Cloud Function.
+def process_fits(bucket_path):
+    """ Publish a message on the topic to trigger fits packing.
 
     Args:
         bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
     """
-    print(f"Forwarding FITS to fits-packer")
-    res = requests.post(make_rgb_endpoint, json=dict(bucket_path=bucket_path))
-
-    if res.ok:
-        print(f'FITS file packed: {res.json()!r}')
-    else:
-        print(res.text)
+    send_to(fits_packer_topic, dict(bucket_path=bucket_path))
 
 
-def process_cr2(bucket_path, object_id):
-    print(f"Forwarding CR2 to make-rgb-fits")
-    res = requests.post(make_rgb_endpoint, json=dict(cr2_file=bucket_path))
-
-    if res.ok:
-        print(f'RGB fits files made for {bucket_path}')
-    else:
-        print(res.text)
+def process_cr2(bucket_path):
+    send_to(make_rgb_topic, dict(cr2_file=bucket_path))
 
 
 if __name__ == '__main__':
