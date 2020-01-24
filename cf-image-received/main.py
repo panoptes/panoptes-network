@@ -1,7 +1,14 @@
 import os
+import sys
+import base64
+import json
+from flask import Flask
+from flask import request
 from contextlib import suppress
 
 import requests
+
+app = Flask(__name__)
 
 add_header_endpoint = os.getenv(
     'HEADER_ENDPOINT',
@@ -19,7 +26,54 @@ make_rgb_endpoint = os.getenv(
 )
 
 
-def image_received(data, context):
+@app.route('/', methods=['POST'])
+def index():
+    envelope = request.get_json()
+    if not envelope:
+        msg = 'no Pub/Sub message received'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
+
+    if not isinstance(envelope, dict) or 'message' not in envelope:
+        msg = 'invalid Pub/Sub message format'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
+
+    # Decode the Pub/Sub message.
+    pubsub_message = envelope['message']
+
+    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
+        try:
+            data = json.loads(
+                base64.b64decode(pubsub_message['data']).decode())
+
+        except Exception as e:
+            msg = ('Invalid Pub/Sub message: '
+                   'data property is not valid base64 encoded JSON')
+            print(f'error: {e}')
+            return f'Bad Request: {msg}', 400
+
+        # Validate the message is a Cloud Storage event.
+        if not data["name"] or not data["bucket"]:
+            msg = ('Invalid Cloud Storage notification: '
+                   'expected name and bucket properties')
+            print(f'error: {msg}')
+            return f'Bad Request: {msg}', 400
+
+        try:
+            image_received(data)
+            # Flush the stdout to avoid log buffering.
+            sys.stdout.flush()
+            return ('', 204)
+
+        except Exception as e:
+            print(f'error: {e}')
+            return ('', 500)
+
+    return ('', 500)
+
+
+def image_received(data):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.
@@ -40,6 +94,7 @@ def image_received(data, context):
     Returns:
         None; the output is written to Stackdriver Logging
     """
+
     bucket_path = data['name']
     object_id = data['id']
 
@@ -125,3 +180,11 @@ def process_cr2(bucket_path, object_id):
         print(f'RGB fits files made for {bucket_path}')
     else:
         print(res.text)
+
+
+if __name__ == '__main__':
+    PORT = int(os.getenv('PORT')) if os.getenv('PORT') else 8080
+
+    # This is used when running locally. Gunicorn is used to run the
+    # application on Cloud Run. See entrypoint in Dockerfile.
+    app.run(host='127.0.0.1', port=PORT, debug=True)

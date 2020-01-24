@@ -1,0 +1,41 @@
+steps:
+# Build
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'base'
+  args:
+  - 'build'
+  - '--tag=gcr.io/${PROJECT_ID}/image-received:latest'
+  - '.'
+  waitFor: ['-']
+
+# Push
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-base'
+  args:
+  - 'push'
+  - 'gcr.io/${PROJECT_ID}/image-received:latest'
+  waitFor: ['base']
+
+# Deploy
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - 'run'
+  - 'deploy'
+  - 'image-received'
+  - '--image'
+  - 'gcr.io/${PROJECT_ID}/image-received:latest'
+  - '--region'
+  - 'us-central1'
+  - '--platform'
+  - 'managed'
+  - '--no-allow-unauthenticated'
+  - '--timeout'
+  - '10m'
+  - '--memory'
+  - '1G'
+  - '--update-env-vars'
+  - 'LOCAL_USER_ID=1000'
+  waitFor: ['push-base']
+
+images:
+- 'gcr.io/${PROJECT_ID}/image-received:latest'
