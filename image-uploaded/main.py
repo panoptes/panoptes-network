@@ -1,6 +1,5 @@
 import os
 import sys
-import base64
 import json
 
 from google.cloud import pubsub
@@ -15,60 +14,27 @@ fits_packer_topic = os.getenv('FPACK_topic', 'pack-fits')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 
-def entry_point(request):
-    """Receive the main request.
+def entry_point(data, context):
+    """Background Cloud Function to be triggered by Cloud Storage.
+
+    This will send a pubsub message to a certain topic depending on
+    what type of file was uploaded. The servies responsible for those
+    topis do all the processing.
 
     Args:
-        request (`flask.Request`): A flask request object.
-
+        data (dict): The Cloud Functions event payload.
+        context (google.cloud.functions.Context): Metadata of triggering event.
     Returns:
-        tuple: A tuple with the message and return code.
+        None; the output is written to Stackdriver Logging
     """
-    envelope = request.get_json()
-    if not envelope:
-        msg = 'no Pub/Sub message received'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
+    try:
+        print(f"Received: {data!r}")
+        process_topic(data)
+        # Flush the stdout to avoid log buffering.
+        sys.stdout.flush()
 
-    if not isinstance(envelope, dict) or 'message' not in envelope:
-        msg = 'invalid Pub/Sub message format'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
-
-    print(f'Envelope received: {envelope!r}')
-
-    # Decode the Pub/Sub message.
-    pubsub_message = envelope['message']
-
-    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
-        try:
-            data = json.loads(
-                base64.b64decode(pubsub_message['data']).decode())
-
-        except Exception as e:
-            msg = ('Invalid Pub/Sub message: '
-                   'data property is not valid base64 encoded JSON')
-            print(f'error: {e}')
-            return f'Bad Request: {msg}', 400
-
-        # Validate the message is a Cloud Storage event.
-        if not data["name"] or not data["bucket"]:
-            msg = ('Invalid Cloud Storage notification: '
-                   'expected name and bucket properties')
-            print(f'error: {msg}')
-            return f'Bad Request: {msg}', 400
-
-        try:
-            process_topic(data)
-            # Flush the stdout to avoid log buffering.
-            sys.stdout.flush()
-            return ('', 204)  # 204 is no-content success
-
-        except Exception as e:
-            print(f'error: {e}')
-            return ('', 500)
-
-    return ('', 500)
+    except Exception as e:
+        print(f'error: {e}')
 
 
 def process_topic(data):
@@ -92,8 +58,6 @@ def process_topic(data):
     Returns:
         None; the output is written to Stackdriver Logging
     """
-    print(f"Received: {data!r}")
-
     bucket_path = data['name']
 
     if bucket_path is None:
@@ -117,13 +81,13 @@ def process_topic(data):
 
 def send_to(topic, data):
     print(f"Sending message to {topic}: {data!r}")
-    data = json.dump(data).encode()
+    data = json.dumps(data).encode()
 
     def callback(future):
         message_id = future.result()
         print(f'Pubsub message to {topic} received: {message_id}')
 
-    future = pubsub.publish(f'{pubsub_base}/{topic}', data)
+    future = publisher.publish(f'{pubsub_base}/{topic}', data)
     future.add_done_callback(callback)
 
 

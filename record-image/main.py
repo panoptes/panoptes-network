@@ -20,21 +20,69 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
 
 
+def entry_point(pubsub_message, context):
+    """Receive and process main request for topic.
+
+    The arriving `pubsub_message` will be in a `PubSubMessage` format:
+
+    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
+
+    ```
+        pubsub_message = {
+          "data": string,
+          "attributes": {
+            string: string,
+            ...
+        }
+        context = {
+          "messageId": string,
+          "publishTime": string
+        }
+    ```
+
+    Args:
+         pubsub_message (dict):  The dictionary with data specific to this type of
+            pubsub_message. The `data` field contains the PubsubMessage message. The
+            `attributes` field will contain custom attributes if there are any.
+        context (google.cloud.functions.Context): The Cloud Functions pubsub_message
+            metadata. The `event_id` field contains the Pub/Sub message ID. The
+            `timestamp` field contains the publish time.
+    """
+    print(f'Function triggered with: {pubsub_message!r} {context!r}')
+
+    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
+        try:
+            data = json.loads(
+                base64.b64decode(pubsub_message['data']).decode())
+
+        except Exception as e:
+            msg = ('Invalid Pub/Sub message: '
+                   'data property is not valid base64 encoded JSON')
+            print(f'error: {e}')
+            return f'Bad Request: {msg}', 400
+
+        try:
+            process_topic(data)
+            # Flush the stdout to avoid log buffering.
+            sys.stdout.flush()
+            return ('', 204)  # 204 is no-content success
+
+        except Exception as e:
+            print(f'error: {e}')
+            return ('', 500)
+
+    return ('', 500)
+
+
 def process_topic(data):
     """Add a FITS header to the database.
-
-
 
     Args:
         data (dict): A dictionary that should contain the `bucket_path` corresponding to location within the storage bucket.
 
     Returns:
         dict: json status description.
-
-
-
     """
-    print(f"Received: {data!r}")
 
     bucket_path = data.get('bucket_path')
     object_id = data.get('object_id')
@@ -280,78 +328,3 @@ def lookup_fits_header(remote_path):
         i += 1
 
     return headers
-
-
-def entry_point(request):
-    """Receive and process main request for topic.
-
-    The arriving `event` will be in a `PubSubMessage` format:
-
-    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
-
-    ```
-        event = {
-          "data": string,
-          "attributes": {
-            string: string,
-            ...
-        }
-        context = {
-          "messageId": string,
-          "publishTime": string
-        }
-    ```
-
-    Args:
-         event (dict):  The dictionary with data specific to this type of
-            event. The `data` field contains the PubsubMessage message. The
-            `attributes` field will contain custom attributes if there are any.
-        context (google.cloud.functions.Context): The Cloud Functions event
-            metadata. The `event_id` field contains the Pub/Sub message ID. The
-            `timestamp` field contains the publish time.
-    """
-    envelope = request.get_json()
-    if not envelope:
-        msg = 'no Pub/Sub message received'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
-
-    if not isinstance(envelope, dict) or 'message' not in envelope:
-        msg = 'invalid Pub/Sub message format'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
-
-    print(f'Envelope received: {envelope!r}')
-
-    # Decode the Pub/Sub message.
-    pubsub_message = envelope['message']
-
-    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
-        try:
-            data = json.loads(
-                base64.b64decode(pubsub_message['data']).decode())
-
-        except Exception as e:
-            msg = ('Invalid Pub/Sub message: '
-                   'data property is not valid base64 encoded JSON')
-            print(f'error: {e}')
-            return f'Bad Request: {msg}', 400
-
-        # Validate the message is a Cloud Storage event.
-        if not data["name"] or not data["bucket"]:
-            msg = ('Invalid Cloud Storage notification: '
-                   'expected name and bucket properties')
-            print(f'error: {msg}')
-            return f'Bad Request: {msg}', 400
-
-        try:
-            process_topic(data)
-            # Flush the stdout to avoid log buffering.
-            sys.stdout.flush()
-            return ('', 204)  # 204 is no-content success
-
-        except Exception as e:
-            print(f'error: {e}')
-            return ('', 500)
-
-    return ('', 500)
