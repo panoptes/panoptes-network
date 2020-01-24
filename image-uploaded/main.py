@@ -6,7 +6,7 @@ from google.cloud import pubsub
 
 publisher = pubsub.PublisherClient()
 
-project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 pubsub_base = f'projects/{project_id}/topics'
 
 add_header_topic = os.getenv('HEADER_topic', 'record-image')
@@ -79,7 +79,7 @@ def process_topic(data):
         raise Exception(f'No handling for {file_ext}')
 
 
-def send_to(topic, data):
+def send_pubsub_message(topic, data):
     print(f"Sending message to {topic}: {data!r}")
     data = json.dumps(data).encode()
 
@@ -87,8 +87,7 @@ def send_to(topic, data):
         message_id = future.result()
         print(f'Pubsub message to {topic} received: {message_id}')
 
-    future = publisher.publish(f'{pubsub_base}/{topic}', data)
-    future.add_done_callback(callback)
+    publisher.publish(f'{pubsub_base}/{topic}', data)
 
 
 def process_fz(bucket_path):
@@ -119,7 +118,7 @@ def process_fz(bucket_path):
     }
 
     # Send to add-header-to-db
-    send_to(add_header_topic, {
+    send_pubsub_message(add_header_topic, {
         'headers': headers,
         'bucket_path': bucket_path,
     })
@@ -131,11 +130,11 @@ def process_fits(bucket_path):
     Args:
         bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
     """
-    send_to(fits_packer_topic, dict(bucket_path=bucket_path))
+    send_pubsub_message(fits_packer_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
-    send_to(make_rgb_topic, dict(cr2_file=bucket_path))
+    send_pubsub_message(make_rgb_topic, dict(cr2_file=bucket_path))
 
 
 if __name__ == '__main__':
