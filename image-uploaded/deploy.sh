@@ -1,5 +1,5 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: image-uploaded"
+echo "Deploying service: image-uploaded"
 
 gcloud builds submit .
