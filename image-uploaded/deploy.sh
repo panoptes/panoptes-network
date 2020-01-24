@@ -1,7 +1,12 @@
 #!/bin/bash -e
 
-SERVICE_NAME=${1:-image-uploaded}
+TOPIC=${1:-image-uploaded}
 
-echo "Deploying service: ${SERVICE_NAME}"
+echo "Deploying service for topic: ${TOPIC}"
 
-gcloud builds submit --substitutions SERVICE_NAME="${SERVICE_NAME}" .
+gcloud functions deploy \
+                 "${TOPIC}" \
+                 --entry-point entry_point \
+                 --runtime python37 \
+                 --no-allow-unauthenticated \
+                 --trigger-topic "${TOPIC}"

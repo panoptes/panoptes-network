@@ -1,7 +1,9 @@
 import os
+import sys
+import json
+import base64
 from contextlib import suppress
 
-from flask import jsonify
 from google.cloud import storage
 from google.cloud import firestore
 from dateutil.parser import parse as parse_date
@@ -18,31 +20,28 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
 
 
-# Entry point
-def record_image(request):
-    """Add a FITS header to the datbase.
+def process_topic(data):
+    """Add a FITS header to the database.
 
-    This endpoint looks for two parameters, `headers` and `bucket_path`. If
-    `bucket_path` is present then the header information will be pull from the file
-    itself. Additionally, any `headers` will be used to update the header information
-    from the file. If no `bucket_path` is found then only the `headers` will be used.
+
 
     Args:
-        request (flask.Request): HTTP request object.
-    Returns:
-        The response text or any set of values that can be turned into a
-        Response object using
-        `make_response <http://flask.pocoo.org/docs/0.12/api/#flask.Flask.make_response>`.
-    """
-    request_json = request.get_json()
-    print(f"Received: {request_json!r}")
+        data (dict): A dictionary that should contain the `bucket_path` corresponding to location within the storage bucket.
 
-    bucket_path = request_json.get('bucket_path')
-    object_id = request_json.get('object_id')
-    header = request_json.get('headers', dict())
+    Returns:
+        dict: json status description.
+
+
+
+    """
+    print(f"Received: {data!r}")
+
+    bucket_path = data.get('bucket_path')
+    object_id = data.get('object_id')
+    header = data.get('headers', dict())
 
     if not bucket_path:
-        return jsonify(success=False, msg='No bucket_path, nothing to do!')
+        raise Exception('No bucket_path, nothing to do!')
 
     print("Looking up header for file: ", bucket_path)
     storage_blob = bucket.get_blob(bucket_path)
@@ -61,7 +60,7 @@ def record_image(request):
 
         header.update(file_headers)
     else:
-        return f"Nothing found in storage bucket for {bucket_path}"
+        raise Exception(f"Nothing found in storage bucket for {bucket_path}")
 
     seq_id = header['SEQID']
     img_id = header['IMAGEID']
@@ -71,20 +70,17 @@ def record_image(request):
     try:
         add_header_to_db(header, bucket_path)
     except Exception as e:
-        success = False
-        obj_data = None
+        # obj_data = None
         response_msg = f'Error adding header: {e!r}'
     else:
         # Send to plate-solver
         # print(f"Forwarding to plate-solver: {bucket_path}")
-        obj_data = {'image_id': img_id}
+        # obj_data = {'image_id': img_id}
         # requests.post(plate_solve_endpoint, json=obj_data)
 
-        success = True
         response_msg = f'New image: sequence_id={seq_id} image_id={img_id}'
 
     print(response_msg)
-    return jsonify(success=success, msg=response_msg, data=obj_data)
 
 
 def add_header_to_db(header, bucket_path):
@@ -284,3 +280,78 @@ def lookup_fits_header(remote_path):
         i += 1
 
     return headers
+
+
+def entry_point(request):
+    """Receive and process main request for topic.
+
+    The arriving `event` will be in a `PubSubMessage` format:
+
+    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
+
+    ```
+        event = {
+          "data": string,
+          "attributes": {
+            string: string,
+            ...
+        }
+        context = {
+          "messageId": string,
+          "publishTime": string
+        }
+    ```
+
+    Args:
+         event (dict):  The dictionary with data specific to this type of
+            event. The `data` field contains the PubsubMessage message. The
+            `attributes` field will contain custom attributes if there are any.
+        context (google.cloud.functions.Context): The Cloud Functions event
+            metadata. The `event_id` field contains the Pub/Sub message ID. The
+            `timestamp` field contains the publish time.
+    """
+    envelope = request.get_json()
+    if not envelope:
+        msg = 'no Pub/Sub message received'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
+
+    if not isinstance(envelope, dict) or 'message' not in envelope:
+        msg = 'invalid Pub/Sub message format'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
+
+    print(f'Envelope received: {envelope!r}')
+
+    # Decode the Pub/Sub message.
+    pubsub_message = envelope['message']
+
+    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
+        try:
+            data = json.loads(
+                base64.b64decode(pubsub_message['data']).decode())
+
+        except Exception as e:
+            msg = ('Invalid Pub/Sub message: '
+                   'data property is not valid base64 encoded JSON')
+            print(f'error: {e}')
+            return f'Bad Request: {msg}', 400
+
+        # Validate the message is a Cloud Storage event.
+        if not data["name"] or not data["bucket"]:
+            msg = ('Invalid Cloud Storage notification: '
+                   'expected name and bucket properties')
+            print(f'error: {msg}')
+            return f'Bad Request: {msg}', 400
+
+        try:
+            process_topic(data)
+            # Flush the stdout to avoid log buffering.
+            sys.stdout.flush()
+            return ('', 204)  # 204 is no-content success
+
+        except Exception as e:
+            print(f'error: {e}')
+            return ('', 500)
+
+    return ('', 500)

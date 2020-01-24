@@ -1,9 +1,12 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: cf-record-image"
+TOPIC=${1:-record-image}
+
+echo "Deploying service for topic: ${TOPIC}"
 
 gcloud functions deploy \
-                 record-image \
-                 --entry-point record_image \
+                 "${TOPIC}" \
+                 --entry-point entry_point \
                  --runtime python37 \
-                 --trigger-http
+                 --no-allow-unauthenticated \
+                 --trigger-topic "${TOPIC}"

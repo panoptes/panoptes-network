@@ -2,7 +2,6 @@ import os
 import sys
 import base64
 import json
-from contextlib import suppress
 
 from google.cloud import pubsub
 
@@ -17,6 +16,14 @@ make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 
 def entry_point(request):
+    """Receive the main request.
+
+    Args:
+        request (`flask.Request`): A flask request object.
+
+    Returns:
+        tuple: A tuple with the message and return code.
+    """
     envelope = request.get_json()
     if not envelope:
         msg = 'no Pub/Sub message received'
@@ -52,10 +59,10 @@ def entry_point(request):
             return f'Bad Request: {msg}', 400
 
         try:
-            image_uploaded(data)
+            process_topic(data)
             # Flush the stdout to avoid log buffering.
             sys.stdout.flush()
-            return ('', 204)
+            return ('', 204)  # 204 is no-content success
 
         except Exception as e:
             print(f'error: {e}')
@@ -64,7 +71,7 @@ def entry_point(request):
     return ('', 500)
 
 
-def image_uploaded(data):
+def process_topic(data):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket.
@@ -85,11 +92,12 @@ def image_uploaded(data):
     Returns:
         None; the output is written to Stackdriver Logging
     """
+    print(f"Received: {data!r}")
 
     bucket_path = data['name']
 
     if bucket_path is None:
-        return f'No file requested'
+        raise Exception(f'No file requested')
 
     _, file_ext = os.path.splitext(bucket_path)
 
@@ -101,8 +109,10 @@ def image_uploaded(data):
 
     print(f"Processing {bucket_path}")
 
-    with suppress(KeyError):
+    try:
         process_lookup[file_ext](bucket_path)
+    except KeyError:
+        raise Exception(f'No handling for {file_ext}')
 
 
 def send_to(topic, data):
