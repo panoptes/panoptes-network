@@ -2,8 +2,6 @@ import os
 import sys
 import base64
 import json
-from flask import Flask
-from flask import request
 from contextlib import suppress
 
 from google.cloud import pubsub
@@ -13,15 +11,12 @@ publisher = pubsub.PublisherClient()
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
 pubsub_base = f'projects/{project_id}/topics'
 
-app = Flask(__name__)
-
 add_header_topic = os.getenv('HEADER_topic', 'record-image')
 fits_packer_topic = os.getenv('FPACK_topic', 'pack-fits')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 
-@app.route('/', methods=['POST'])
-def index():
+def entry_point(request):
     envelope = request.get_json()
     if not envelope:
         msg = 'no Pub/Sub message received'
@@ -32,6 +27,8 @@ def index():
         msg = 'invalid Pub/Sub message format'
         print(f'error: {msg}')
         return f'Bad Request: {msg}', 400
+
+    print(f'Envelope received: {envelope!r}')
 
     # Decode the Pub/Sub message.
     pubsub_message = envelope['message']

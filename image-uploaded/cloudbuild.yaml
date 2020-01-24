@@ -4,7 +4,7 @@ steps:
   id: 'base'
   args:
   - 'build'
-  - '--tag=gcr.io/${PROJECT_ID}/image-uploaded:latest'
+  - '--tag=gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:latest'
   - '.'
   waitFor: ['-']
 
@@ -13,7 +13,7 @@ steps:
   id: 'push-base'
   args:
   - 'push'
-  - 'gcr.io/${PROJECT_ID}/image-uploaded:latest'
+  - 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:latest'
   waitFor: ['base']
 
 # Deploy
@@ -21,21 +21,15 @@ steps:
   args:
   - 'run'
   - 'deploy'
-  - 'image-uploaded'
+  - '${_SERVICE_NAME}'
   - '--image'
-  - 'gcr.io/${PROJECT_ID}/image-uploaded:latest'
+  - 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:latest'
   - '--region'
   - 'us-central1'
   - '--platform'
   - 'managed'
   - '--no-allow-unauthenticated'
-  - '--timeout'
-  - '10m'
-  - '--memory'
-  - '1G'
-  - '--update-env-vars'
-  - 'LOCAL_USER_ID=1000'
   waitFor: ['push-base']
 
 images:
-- 'gcr.io/${PROJECT_ID}/image-uploaded:latest'
+- 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:latest'

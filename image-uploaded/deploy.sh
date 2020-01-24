@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
-echo "Deploying service: image-uploaded"
+SERVICE_NAME=${1:-image-uploaded}
 
-gcloud builds submit .
+echo "Deploying service: ${SERVICE_NAME}"
+
+gcloud builds submit --substitutions SERVICE_NAME="${SERVICE_NAME}" .
