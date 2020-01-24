@@ -1,0 +1,12 @@
+#!/bin/bash -e
+
+if [ -z "$1" ]
+  then
+    echo "Must supply service name as parameter"
+fi
+
+TOPIC=${1}
+
+echo "Deploying service: ${TOPIC}"
+
+bash "${TOPIC}/deploy.sh" "${TOPIC}"

@@ -3,8 +3,6 @@
 TOPIC=${1:-image-uploaded}
 BUCKET_NAME="panoptes-raw-images"
 
-echo "Deploying service for topic: ${TOPIC}"
-
 gcloud functions deploy \
                  "${TOPIC}" \
                  --entry-point entry_point \
