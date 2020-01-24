@@ -108,6 +108,18 @@ def image_uploaded(data):
         process_lookup[file_ext](bucket_path)
 
 
+def send_to(topic, data):
+    print(f"Sending message to {topic}: {data!r}")
+    data = json.dump(data).encode()
+
+    def callback(future):
+        message_id = future.result()
+        print(f'Pubsub message to {topic} received: {message_id}')
+
+    future = pubsub.publish(f'{pubsub_base}/{topic}', data)
+    future.add_done_callback(callback)
+
+
 def process_fz(bucket_path):
     """ Forward the headers to the -add-header-to-db Cloud Function.
 
@@ -140,18 +152,6 @@ def process_fz(bucket_path):
         'headers': headers,
         'bucket_path': bucket_path,
     })
-
-
-def send_to(topic, data):
-    print(f"Sending message to {topic}: {data!r}")
-    data = json.dump().encode()
-
-    def callback(future):
-        message_id = future.result()
-        print(f'Pubsub message to {topic} received: {message_id}')
-
-    future = pubsub.publish(f'{pubsub_base}/{topic}', data)
-    future.add_done_callback(callback)
 
 
 def process_fits(bucket_path):
