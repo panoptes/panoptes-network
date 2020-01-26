@@ -19,7 +19,6 @@ export const getUnits = functions.https.onCall((data, context) => {
   return db.collection("units").get()
   .then((querySnapshot:FirebaseFirestore.QuerySnapshot) => {
     querySnapshot.forEach((doc:FirebaseFirestore.QueryDocumentSnapshot) => {
-        console.log(`${doc.id} => ${doc.data()}`);
         const unitData = doc.data();
         unitData['unit_id'] = doc.id;
         units.push(unitData);
