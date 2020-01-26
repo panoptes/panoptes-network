@@ -188,7 +188,7 @@ def add_header_to_db(header, bucket_path):
                     'elevation': float(header.get('ELEV-OBS')),
                     'status': 'active'  # Assuming we are active since we received files.
                 }
-                unit_doc_ref.set(unit_data)
+                unit_doc_ref.set(unit_data, merge=True)
             except Exception:
                 pass
 
@@ -209,7 +209,7 @@ def add_header_to_db(header, bucket_path):
 
             try:
                 print("Inserting sequence: {}".format(seq_data))
-                seq_doc.reference.set(seq_data)
+                seq_doc.reference.set(seq_data, merge=True)
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
