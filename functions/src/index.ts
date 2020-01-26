@@ -13,122 +13,108 @@ const db = admin.firestore();
 const increment = admin.firestore.FieldValue.increment(1);
 const decrement = admin.firestore.FieldValue.increment(-1);
 
-exports.updateImageCounts = functions.firestore
+
+export const getUnits = functions.https.onCall((data, context) => {
+  const units:any[] = [];
+  db.collection("units").get().then((querySnapshot:FirebaseFirestore.QuerySnapshot) => {
+    querySnapshot.forEach((doc:FirebaseFirestore.QueryDocumentSnapshot) => {
+        console.log(`${doc.id} => ${doc.data()}`);
+        let data = doc.data();
+        data['unit_id'] = doc.id;
+        units.push(data);
+    });
+  })
+  .catch((err:any) => {
+    console.error(err);
+  });
+  return units;
+ });
+
+
+exports.imagesCountIncrement = functions.firestore
     .document('images/{imageId}')
     .onCreate((snap, context) => {
-      const newValue = snap.data();
+      // Get the unit_id from the image id.
+      const unitId = context.params.imageId.split('_')[0];
+      const observationId:string = snap.get('sequence_id');
 
-      if (newValue !== undefined){
-          // Get the unit_id from the image id.
-          const unitId = context.params.imageId.split('_')[0];
-          const observationId:string = newValue.sequence_id;
-
-          if (observationId > '') {
-            // Update image count for observations.
-            const obsRef = db.collection('observations').doc(observationId);
-            obsRef.update({ num_images: increment })
-            .then(function() {
-                  console.log('Unit image count incremented');
-              })
-              .catch(function(error:any) {
-                  console.error(error);
-              });
-              
-              // Update image count for unit.
-            const unitRef = db.collection('units').doc(unitId);
-            unitRef.update({ num_images: increment })
-            .then(function() {
-                  console.log('Unit image count incremented');
-             })
-             .catch(function(error:any) {
-                  console.error(error);
-             });
-          } else {
-            console.log('Image ID does not contain a valid unit_id');
-          }
-      }
+      const unitRef = db.collection('units').doc(unitId);
+      const obsRef = db.collection('observations').doc(observationId);
+  
+      db.runTransaction((transaction:any) => {
+        transaction.get(unitRef).then(() => {
+          transaction.update(unitRef, {
+            num_images: increment,
+          });
+          transaction.update(obsRef, {
+            num_images: increment,
+          });          
+        });
+      })
+      .then(() => console.log('Image count incremented') )
+      .catch((err:any) => { console.log(err) });
     });
 
-exports.updateImageCounts = functions.firestore
+exports.imagesCountDecrement = functions.firestore
     .document('images/{imageId}')
-    .onDelete((snap, context) => {
-      const oldValue = snap.data();
-
-      if (oldValue !== undefined){
-          // Get the unit_id from the image id.
-          const unitId = context.params.imageId.split('_')[0];
-          const observationId:string = oldValue.sequence_id;
-
-          if (observationId > '') {
-            // Update image count for observations.
-            const obsRef = db.collection('observations').doc(observationId);
-            obsRef.update({ num_images: decrement })
-            .then(function() {
-                  console.log('Unit image count decremented');
-              })
-              .catch(function(error:any) {
-                  console.error(error);
-              });
-              
-              // Update image count for unit.
-            const unitRef = db.collection('units').doc(unitId);
-            unitRef.update({ num_images: decrement })
-            .then(function() {
-                  console.log('Unit image count decremented');
-             })
-             .catch(function(error:any) {
-                  console.error(error);
-             });
-          } else {
-            console.log('Image ID does not contain a valid unit_id');
-          }
-      }
-    });
-
-exports.updateObservationCounts = functions.firestore
-    .document('observations/{observationId}')
     .onCreate((snap, context) => {
-      const newValue = snap.data();
+      // Get the unit_id from the image id.
+      const unitId = context.params.imageId.split('_')[0];
+      const observationId:string = snap.get('sequence_id');
 
-      if (newValue !== undefined){
-          const unitId:string = newValue.unit_id;
-
-          if (unitId > ''){
-            // Update image count for unit.
-            const unitRef = db.collection('units').doc(unitId);
-            unitRef.update({ num_observations: increment })
-            .then(function() {
-                  console.log('Unit observation count incremented');
-             })
-             .catch(function(error:any) {
-                  console.error(error);
-             });
-          } else {
-            console.log('Observation does not contain a valid unit_id');
-          }
-      }
-    });
-    
-exports.updateObservationCounts = functions.firestore
-    .document('observations/{observationId}')
-    .onDelete((snap, context) => {
-      const oldValue = snap.data();
-
-      if (oldValue !== undefined){
-          const unitId:string = oldValue.unit_id;
-
-          if (unitId > ''){
-            // Update image count for unit.
-            const unitRef = db.collection('units').doc(unitId);
-            unitRef.update({ num_observations: decrement })
-            .then(function() {
-                  console.log('Unit observation count decremented');
-             })
-             .catch(function(error:any) {
-                  console.error(error);
-             });
-          } else {
-            console.log('Observation does not contain a valid unit_id');
-          }
-      }
+      const unitRef = db.collection('units').doc(unitId);
+      const obsRef = db.collection('observations').doc(observationId);
+  
+      db.runTransaction((transaction:any) => {
+        transaction.get(unitRef).then(() => {
+          transaction.update(unitRef, {
+            num_images: decrement,
+          });
+          transaction.update(obsRef, {
+            num_images: decrement,
+          });          
+        });
+      })
+      .then(() => console.log('Image count decremented') )
+      .catch((err:any) => { console.log(err) });
     });    
+
+exports.obsevationsCountIncrement = functions.firestore
+  .document('observations/{observationId}')
+  .onCreate((snap, context) => {
+    // Get a reference to the unit
+    const unitId:string = snap.get('unit_id');
+    const unitRef = db.collection('units').doc(unitId);
+
+    // Update aggregations in a transaction
+    db.runTransaction((transaction:any) => {
+      transaction.get(unitRef).then(() => {
+        // increment count
+        transaction.update(unitRef, {
+          num_observations: increment,
+        });
+      });
+    })
+    .then(() => console.log('Observation count incremented') )
+    .catch((err:any) => { console.log(err) });
+  });
+
+exports.obsevationsCountDecrement = functions.firestore
+    .document('observations/{observationId}')
+    .onDelete((snap, context) => {
+      // Get a reference to the unit
+      const unitId:string = snap.get('unit_id');
+      const unitRef = db.collection('units').doc(unitId);
+
+      // Update aggregations in a transaction
+      db.runTransaction((transaction:any) => {
+        transaction.get(unitRef).then(() => {
+          // decrement count
+          transaction.update(unitRef, {
+            num_observations: decrement,
+          });
+        });
+      })
+      .then(() => console.log('Observation count decremented') )
+      .catch((err:any) => { console.log(err) });
+    });
