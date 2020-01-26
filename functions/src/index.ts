@@ -23,7 +23,7 @@ exports.updateImageCounts = functions.firestore
           const observationId = newValue.unit_id;
     
           // Update image count for observations.
-          const obsRef = db.doc('observations/' + observationId);
+          const obsRef = db.collection('observations').doc(observationId);
           obsRef.update({ num_images: increment })
           .then(function() {
                 console.log('Unit image count updated');
@@ -33,7 +33,7 @@ exports.updateImageCounts = functions.firestore
             });
             
             // Update image count for unit.
-          const unitRef = db.doc('units/' + unitId);
+          const unitRef = db.collection('units').doc(unitId);
           unitRef.update({ num_images: increment })
           .then(function() {
                 console.log('Unit image count updated');
@@ -55,7 +55,7 @@ exports.updateObservationCounts = functions.firestore
           const unitId = newValue.unit_id;
     
           // Update image count for unit.
-          const unitRef = db.doc('units/' + unitId);
+          const unitRef = db.collection('units').doc(unitId);
           unitRef.update({ num_observations: increment })
           .then(function() {
                 console.log('Unit observation count updated');
