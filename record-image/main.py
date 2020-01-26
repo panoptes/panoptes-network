@@ -173,7 +173,7 @@ def add_header_to_db(header, bucket_path):
         seq_doc = db.document(f'observations/{seq_id}').get()
 
         # Only process sequence if in a certain state.
-        valid_status = ['metadata_received', 'receiving_files']
+        valid_status = ['metadata_received']
 
         if not seq_doc.exists or seq_doc.get('status') in valid_status:
             # If no sequence doc then probably no unit id. This is just to minimize
