@@ -30,8 +30,7 @@ export const getUnits = functions.https.onCall((data, context) => {
   });
  });
 
-
-exports.imagesCountIncrement = functions.firestore
+export const imagesCountIncrement = functions.firestore
     .document('images/{imageId}')
     .onCreate((snap, context) => {
       // Get the unit_id from the image id.
@@ -55,7 +54,7 @@ exports.imagesCountIncrement = functions.firestore
       .catch((err:any) => { console.log(err) });
     });
 
-exports.imagesCountDecrement = functions.firestore
+export const imagesCountDecrement = functions.firestore
     .document('images/{imageId}')
     .onCreate((snap, context) => {
       // Get the unit_id from the image id.
@@ -79,7 +78,7 @@ exports.imagesCountDecrement = functions.firestore
       .catch((err:any) => { console.log(err) });
     });    
 
-exports.obsevationsCountIncrement = functions.firestore
+export const obsevationsCountIncrement = functions.firestore
   .document('observations/{observationId}')
   .onCreate((snap, context) => {
     // Get a reference to the unit
@@ -99,7 +98,7 @@ exports.obsevationsCountIncrement = functions.firestore
     .catch((err:any) => { console.log(err) });
   });
 
-exports.obsevationsCountDecrement = functions.firestore
+export const obsevationsCountDecrement = functions.firestore
     .document('observations/{observationId}')
     .onDelete((snap, context) => {
       // Get a reference to the unit
