@@ -1,86 +1,39 @@
 # PANOPTES Network
 
 Software related to the wider PANOPTES network that ties the individual units together.
-This is a repository to host the various Google Cloud Environment techonologies,
-such as the Cloud Funcitions (CF) and any AppEngine definitions.
+This is a repository to host the various Google Cloud Platform services.
 
-Each subfolder defines a different serivce and the services should be used from
-their respective directories. Each directory has a specific README.
-
-Services are prefixed with the technology they use:
-
-`cf`: cloud function
-`gce`: Google compute engine
-`kube`: Kuberentes cluster
+Each subfolder defines a different service. Services communicate with each other
+via [PubSub](https://cloud.google.com/pubsub/) messages. See the README for a
+specific service for more details.
 
 ## Pipeline
 
-Any image that is uploaded to the Google storage bucket will automatically trigger
-the pipeline and cause a series of basic cleaning and reduction steps to happen.
+Any file that is uploaded to the Google storage bucket will automatically trigger
+a series of of basic cleaning and reduction steps to prepare for submitting to
+the PANOPTES pipeline, as well as to make available for public consumption.
 
 The services defined in this repo control the different "nodes" of the pipeline,
 which is currently spread across a variety of technologies.
 
 ![PIAA Diagram](resources/PIAA_diagram.png)
 
-### Receive Image
+### Services
 
-Images are uploaded into a google bucket. Alternatively a message can be sent directly to the `cf-image-received` endpoint.
+| Service                                    | Description |
+|--------------------------------------------|--------------|
+| [`record-image`](record-image/README.md)   |
+| [`compress-fits`](compress-fits/README.md) |
+| [`make-rgb-fits`](make-rgb-fits/README.md) |
 
-#### Bucket Upload
+#### Deploying services
 
-**Service:** `cf-bucket-upload`
-[README](cf-bucket-upload/README.md)
+You can deploy any service using `bin/deploy` from the top level directory. The
+command takes the service name as a parameter:
 
-A cloud function that receives a message each time an image (CR2 or FITS) is upload.
-Simply forwards the request on to the `cf-image-received` service.
-
-#### Image Received
-
-**Service:** `cf-image-received`
-[README](cf-image-received/README.md)
-
-Triggers an action depending on the image type. If a FITS image, send to `cf-header-to-db`
-to read the FITS headers into a metadatabase. If CR2, convert to FITS (todo), make timelapse (todo),
-make jpgs for display (todo), and make separate RGB fits files for processing.
-
-### Process Image
-
-#### CR2
-
-Forwards to `cf-make-rgb-fits` [README](cf-make-rgb-fits/README.md)
-
-##### FITS
-
-Todo - Currently done on units.
-
-##### RGB FITS
-
-**Service:** `cf-make-rgb-fits`
-[README](cf-make-rgb-fits/README.md)
-
-Create separate FITS images for each of the color channels. These images are interpolated
-and should not be used for science but can be used for image processing.
-
-##### Timelapse
-
-Todo - Currently done on units.
-
-##### Pretty images
-
-Todo - Currently done on units.
-
-#### FITS
-
-##### Headers
-
-**Service:** `cf-header-to-db`
-[README](cf-header-to-db/README.md)
-
-The FITS headers are read from each file and added to the a Firestore database.
-
-After successful reading of FITS headers the image is forwarded to the `gce-plate-solver` via
-a PubSub message.
+```bash
+$ bin/deploy record-image
+```
 
 ##### Plate Solve & Source Extraction
 **Service:** `gce-plate-solver`
@@ -96,17 +49,62 @@ file will attempt to:
 5. Do a catalog match with the detected sources and the TESS catalog.
 6. Generate data stamps for each of the detected and matched sources and add to Cloud SQL database.
 
-## POE - PANOPTES Observations Explorer
-<a id="observations-explorer"></a>
 
-A simple table display of the Observations. This reads JSON files that are provided
-via the [Observations Data CF](#observations-data)
 
-See [README](observations-explorer/README.md).
 
-## Observations Data
-<a id="observatons-data"></a>
+## Todo
 
-A JSON service for the observations data.
+* On `image-received`:
+    ✓ `fits.fz`:
+        * forward to `record-image`
+    ✓ `fits`:
+        * fpack the file, delete original `gcp-fits-packer`
+    * `cr2`:
+        * extract the jpg
+        * convert to raw fits
+        ✓ forward to `cf-make-rgb-fits`
+    * other: move to different bucket?
 
-See [README](observations-data/README.md).
+✓ On `cf-make-rgb-fits`:
+    ✓ convert to 3 interpolated fits files for rgb
+    ✓ uploaded fits files to `panoptes-rgb-images`
+
+* On `record-image`:
+    ✓ record image metadata in firestore.
+    * Forward to `subtract-background`.
+
+* On `subtract-background`:
+    * subtract background.
+        * save background to `panoptes-backgrounds`.
+    * update image metadata.
+    * forward to `plate-solve`.
+
+* On `plate-solve`:
+    * plate-solve.
+        * save processed image to `panoptes-processed-images`.
+    * update image metadata.
+
+
+Todo regarding above:
+
+* Process `fits` in `panoptes-raw-images`.
+* Process `cr2` in `panoptes-raw-images`.
+
+### Todo for export metadata observations:
+
+* Find unsolved files in `panoptes-raw-images` and solve them.
+    * Update `ra_image` and `dec_image` in images collection.
+    * Change `status` to `solved`.
+
+* Remove `camsn` from `images` collection.
+* Remove `POINTING` keyword from `observations` with status `metadata_received`.
+
+### Todo for processing:
+
+* Add gaia dr2 id to document?
+
+
+## With O & P:
+
+* Extract `lookup_fits_header` from `cf-record-image` into separate cf.
+* cf to update basic `observations` and `units` stats in firestore.
