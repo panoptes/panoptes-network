@@ -16,7 +16,7 @@ const decrement = admin.firestore.FieldValue.increment(-1);
 
 export const getUnits = functions.https.onCall((data, context) => {
   const units:any[] = [];
-  db.collection("units").get()
+  return db.collection("units").get()
   .then((querySnapshot:FirebaseFirestore.QuerySnapshot) => {
     querySnapshot.forEach((doc:FirebaseFirestore.QueryDocumentSnapshot) => {
         console.log(`${doc.id} => ${doc.data()}`);
@@ -24,11 +24,11 @@ export const getUnits = functions.https.onCall((data, context) => {
         unitData['unit_id'] = doc.id;
         units.push(unitData);
     });
+    return units;
   })
   .catch((err:any) => {
     console.error(err);
   });
-  return units;
  });
 
 
