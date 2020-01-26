@@ -180,17 +180,20 @@ def add_header_to_db(header, bucket_path):
             # the number of lookups that would be required if we looked up unit_id
             # doc each time.
             unit_doc_ref = db.document(f'units/{unit_id}')
+            unit_doc = unit_doc_ref.get()
 
-            try:
-                unit_data = {
-                    'name': header.get('OBSERVER', ''),
-                    'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
-                    'elevation': float(header.get('ELEV-OBS')),
-                    'status': 'active'  # Assuming we are active since we received files.
-                }
-                unit_doc_ref.set(unit_data, merge=True)
-            except Exception:
-                pass
+            # Add a units doc if it doesn't exist.
+            if not unit_doc.exists:
+                try:
+                    unit_data = {
+                        'name': header.get('OBSERVER', ''),
+                        'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
+                        'elevation': float(header.get('ELEV-OBS')),
+                        'status': 'active'  # Assuming we are active since we received files.
+                    }
+                    unit_doc_ref.set(unit_data, merge=True)
+                except Exception:
+                    pass
 
             seq_data = {
                 'unit_id': unit_id,
