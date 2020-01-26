@@ -8,12 +8,8 @@ from flask import request
 from flask import jsonify
 
 from google.cloud import storage
-import google.cloud.logging
 
 from panoptes.utils.images import fits as fits_utils
-
-logging_client = google.cloud.logging.Client()
-logging_client.setup_logging()
 
 app = Flask(__name__)
 

@@ -1,6 +1,5 @@
 -e git+git://github.com/panoptes/panoptes-utils.git#egg=panoptes-utils
-Flask
-google-cloud-logging
 google-cloud-storage
-gunicorn
-json-logging-py
+Flask==1.1.1
+pytest==5.3.2
+gunicorn==20.0.4

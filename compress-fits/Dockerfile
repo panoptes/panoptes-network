@@ -5,12 +5,7 @@ COPY ./requirements.txt /requirements.txt
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc git pkg-config build-essential && \
-    # Conda install first
-    conda install --yes \
-        Flask gunicorn google-cloud-storage && \
-    pip install --no-cache-dir -r /requirements.txt && \
-    # Clean conda
-    conda clean --all --yes && \
+    /opt/conda/bin/pip install --no-cache-dir -r /requirements.txt && \
     # Cleanup apt.
     apt-get autoremove --purge -y \
         gcc pkg-config build-essential && \
@@ -21,5 +16,5 @@ RUN apt-get update && \
 COPY . /app
 WORKDIR /app
 
-ENTRYPOINT ["gunicorn"]
-CMD ["--bind :$PORT", "--workers 1", "--threads 8", "main:app"]
+ENTRYPOINT []
+CMD ["/opt/conda/bin/gunicorn", "-b", ":$PORT", "-w", "1", "-   -threads", "8", "main:app"]
