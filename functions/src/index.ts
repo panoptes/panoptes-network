@@ -18,31 +18,34 @@ exports.updateImageCounts = functions.firestore
       const newValue = snap.data();
 
       if (newValue !== undefined){
-          // access a particular field as you would any JS property
-          const unitId = newValue.unit_id;
-          const observationId = newValue.unit_id;
-    
-          // Update image count for observations.
-          const obsRef = db.collection('observations').doc(observationId);
-          obsRef.update({ num_images: increment })
-          .then(function() {
-                console.log('Unit image count updated');
-            })
-            .catch(function(error:any) {
-                console.error(error);
-            });
-            
-            // Update image count for unit.
-          const unitRef = db.collection('units').doc(unitId);
-          unitRef.update({ num_images: increment })
-          .then(function() {
-                console.log('Unit image count updated');
-           })
-           .catch(function(error:any) {
-                console.error(error);
-           });
-      }
+          // Get the unit_id from the image id.
+          const unitId = context.params.imageId.split('_')[0];
+          const observationId:string = newValue.sequence_id;
 
+          if (observationId > '') {
+            // Update image count for observations.
+            const obsRef = db.collection('observations').doc(observationId);
+            obsRef.update({ num_images: increment })
+            .then(function() {
+                  console.log('Unit image count updated');
+              })
+              .catch(function(error:any) {
+                  console.error(error);
+              });
+              
+              // Update image count for unit.
+            const unitRef = db.collection('units').doc(unitId);
+            unitRef.update({ num_images: increment })
+            .then(function() {
+                  console.log('Unit image count updated');
+             })
+             .catch(function(error:any) {
+                  console.error(error);
+             });
+          } else {
+            console.log('Image ID does not contain a valid unit_id');
+          }
+      }
     });
 
 exports.updateObservationCounts = functions.firestore
@@ -51,18 +54,20 @@ exports.updateObservationCounts = functions.firestore
       const newValue = snap.data();
 
       if (newValue !== undefined){
-          // access a particular field as you would any JS property
-          const unitId = newValue.unit_id;
-    
-          // Update image count for unit.
-          const unitRef = db.collection('units').doc(unitId);
-          unitRef.update({ num_observations: increment })
-          .then(function() {
-                console.log('Unit observation count updated');
-           })
-           .catch(function(error:any) {
-                console.error(error);
-           });
-      }
+          const unitId:string = newValue.unit_id;
 
+          if (unitId > ''){
+            // Update image count for unit.
+            const unitRef = db.collection('units').doc(unitId);
+            unitRef.update({ num_observations: increment })
+            .then(function() {
+                  console.log('Unit observation count updated');
+             })
+             .catch(function(error:any) {
+                  console.error(error);
+             });
+          } else {
+            console.log('Observation does not contain a valid unit_id');
+          }
+      }
     });    
