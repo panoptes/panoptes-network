@@ -16,12 +16,13 @@ const decrement = admin.firestore.FieldValue.increment(-1);
 
 export const getUnits = functions.https.onCall((data, context) => {
   const units:any[] = [];
-  db.collection("units").get().then((querySnapshot:FirebaseFirestore.QuerySnapshot) => {
+  db.collection("units").get()
+  .then((querySnapshot:FirebaseFirestore.QuerySnapshot) => {
     querySnapshot.forEach((doc:FirebaseFirestore.QueryDocumentSnapshot) => {
         console.log(`${doc.id} => ${doc.data()}`);
-        let data = doc.data();
-        data['unit_id'] = doc.id;
-        units.push(data);
+        const unitData = doc.data();
+        unitData['unit_id'] = doc.id;
+        units.push(unitData);
     });
   })
   .catch((err:any) => {
