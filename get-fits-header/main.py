@@ -86,7 +86,8 @@ def lookup_fits_header(remote_path):
         # Get a header card
         start_byte = 2880 * (i - 1)
         end_byte = (2880 * i) - 1
-        b_string = remote_path.download_as_string(start=start_byte, end=end_byte)
+        b_string = remote_path.download_as_string(start=start_byte,
+                                                  end=end_byte)
 
         # Loop over 80-char lines
         for j in range(0, len(b_string), 80):
