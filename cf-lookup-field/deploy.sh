@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: lookup-field"
+TOPIC=${1:-get-fits-header}
 
-gcloud functions deploy lookup-field \
-	--entry-point lookup_field \
-	--runtime python37 \
-	--trigger-http
+gcloud functions deploy \
+                 "${TOPIC}" \
+                 --entry-point entry_point \
+                 --runtime python37 \
+                 --no-allow-unauthenticated \
+                 --trigger-http

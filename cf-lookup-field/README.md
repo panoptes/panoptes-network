@@ -3,26 +3,15 @@ Lookup Field
 
 This folder defines a [Google Cloud Function](https://cloud.google.com/functions/).
 
-This is essentially a thin-wrapper around `astropy.coordinates.SkyCoord.from_name`.
+This function is a thin-wrapper around [`astropy.coordinates.SkyCoord.from_name`](https://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord.from_name).
 
-Endpoint: https://us-central1-panoptes-exp.cloudfunctions.net/lookup-field
+Endpoint: `/lookup-field`
 
-Payload: JSON message of the form:
-	```json
+Payload: 
+```json
 	{
 		'search_string': str,
 	}
-	```
-
-Example
--------
-
-Using [httpie](https://httpie.org/):
-
-```bash
-http https://us-central1-panoptes-exp.cloudfunctions.net/lookup-field \
-	search_string="m42"
-
 ```
 
 Deploy
