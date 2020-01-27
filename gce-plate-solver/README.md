@@ -5,19 +5,12 @@ images. It is designed to be run as a Flask service inside a Docker container
 that is run on a Google Cloud Engine instance.
 
 * **app.py**: Flask service the defines two endpoints:
-	* '/echo':
-		__params__:
-			`echo`: Any string.
-		__returns__:
-			`echo` Same as param.
-
-		A simple echo service.
-	* '/solve':
-		__params__: 
+	* `/solve`:
+		* __params__: 
 			`filename`: A string that specifies the path to the FITS file as
 			it is stored in the Google storage bucket. The path should not include
 			the name of the bucket.
-		__returns__:
+		* __returns__:
 			`status`: "sources_extracted"
 			`filename`: The name that will be used to store the plate-solved FITS
 			file in the storage bucket. This is most likely the same as the input
