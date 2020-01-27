@@ -13,8 +13,11 @@ RUN apt-get update && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/*
 
+ARG port=8080
+ENV PORT $port
+
 COPY . /app
 WORKDIR /app
 
 ENTRYPOINT []
-CMD ["/opt/conda/bin/gunicorn", "-b", ":$PORT", "-w", "1", "-   -threads", "8", "main:app"]
+CMD ["sh", "-c", "/opt/conda/bin/gunicorn -b :${PORT} -w 1 --threads 8 main:app"]

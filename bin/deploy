@@ -3,10 +3,14 @@
 if [ -z "$1" ]
   then
     echo "Must supply service name as parameter"
+    exit 1;
 fi
 
 TOPIC=${1}
+shift
 
 echo "Deploying service: ${TOPIC}"
 
-bash "${TOPIC}/deploy.sh" "${TOPIC}"
+cd "${TOPIC}"
+bash ./deploy.sh "${TOPIC}" "$@"
+cd ..
