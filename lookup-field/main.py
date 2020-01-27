@@ -28,18 +28,23 @@ def entry_point(request):
         }
 
         return ('', 204, headers)
+    elif request.method == 'GET':
+        params = request.args
+    elif request.method == 'POST':
+        params = request.get_json()
 
-    request_json = request.get_json()
-    if request.args and 'search_string' in request.args:
-        search_string = request.args.get('search_string')
-    elif request_json and 'search_string' in request_json:
-        search_string = request_json['search_string']
+    search_string = params.get('search_string')
 
     try:
         coord = SkyCoord.from_name(search_string)
-        data = dict(ra=coord.ra.value, dec=coord.dec.value)
+        data = dict(
+            ra=coord.ra.value,
+            dec=coord.dec.value,
+            search_string=search_string
+        )
         success = True
-    except Exception:
+    except Exception as e:
+        print(f'Error in lookup-field: {e!r}')
         data = dict()
         success = False
 
