@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-TOPIC=${1:-get-fits-header}
+TOPIC=${1:-lookup-field}
 
 gcloud functions deploy \
                  "${TOPIC}" \
