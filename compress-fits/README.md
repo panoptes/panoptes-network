@@ -15,8 +15,4 @@ as a json document in a regular POST request. See the documentation for
 
 ### Deploy
 
-From the `panoptes-network` root directory:
-
-```bash
-bin/deploy compress-fits
-```
+See [Deployment](../README.md#deploy) in main README for preferred deployment method.

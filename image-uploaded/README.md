@@ -14,14 +14,6 @@ CR2: Forward to the `make-rgb-fits` service.
 Endpoint: No public endpoint
 
 
-Deploy
-------
+### Deploy
 
-The service is run on [Google Cloud Run](https://cloud.google.com/run/docs/). The
-deployment script will build a docker image and then set up a new revision of
-the cloud run service. See `cloudbuild.yaml` for details.
-
-
-```bash
-./deploy.sh
-```
+See [Deployment](../README.md#deploy) in main README for preferred deployment method.

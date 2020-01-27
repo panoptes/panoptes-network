@@ -30,6 +30,7 @@ which is currently spread across a variety of technologies.
 | [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.
 
 #### Deploying services
+<a href="#" id="deploy"></a>
 
 You can deploy any service using `bin/deploy` from the top level directory. The
 command takes the service name as a parameter:
