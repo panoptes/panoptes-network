@@ -35,21 +35,3 @@ command takes the service name as a parameter:
 ```bash
 $ bin/deploy record-image
 ```
-
-##### Plate Solve & Source Extraction
-**Service:** `gce-plate-solver`
-[README](gce-plate-solver/README.md)
-
-Listens for PubSub messages on the `gce-plate-solver` subscription and for each received
-file will attempt to:
-
-1. Download the image from the storage bucket.
-2. Plate-solve the field with astrometry.net.
-3. Upload newly solved file back to storage bucket.
-4. Perform source extraction with `sextractor`.
-5. Do a catalog match with the detected sources and the TESS catalog.
-6. Generate data stamps for each of the detected and matched sources and add to Cloud SQL database.
-
-
-
-
