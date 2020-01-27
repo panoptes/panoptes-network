@@ -10,9 +10,8 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 
 
-
 # Entry point
-def get_fits_header(request):
+def entry_point(request):
     """Return the FITS header from a file.
 
     This endpoint looks for one parameters, `bucket_path`. If `bucket_path` 

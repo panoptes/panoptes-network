@@ -1,9 +1,10 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: cf-get-fits-header"
+TOPIC=${1:-record-image}
 
 gcloud functions deploy \
-                 get-fits-header \
-                 --entry-point get_fits_header \
+                 "${TOPIC}" \
+                 --entry-point entry_point \
                  --runtime python37 \
-                 --trigger-http
+                 --no-allow-unauthenticated \
+                 --trigger-topic "${TOPIC}"

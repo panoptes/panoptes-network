@@ -31,12 +31,12 @@ is the name of the Cloud Function we want to create.
 ```bash
 gcloud functions deploy \
                  get-fits-header \
-                 --entry-point get_fits_header \
+                 --entry-point entry_point \
                  --runtime python37 \
                  --trigger-http
 ```
 
-> :bulb: There is also a small convenience script called `deploy.sh` that
+:bulb: There is also a small convenience script called `deploy.sh` that
 does the same thing.
 ```bash
 ./deploy.sh
