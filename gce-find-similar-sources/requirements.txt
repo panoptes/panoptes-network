@@ -1,5 +1,0 @@
-gcsfs
-google-cloud-pubsub
-google-cloud-storage
-pandas
-requests

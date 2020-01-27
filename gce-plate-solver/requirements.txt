@@ -1,6 +1,0 @@
-astropy
-google-cloud-pubsub
-google-cloud-storage
-numpy
-requests
-photutils
