@@ -14,7 +14,20 @@ const increment = admin.firestore.FieldValue.increment(1);
 const decrement = admin.firestore.FieldValue.increment(-1);
 
 export const getRecentObservations = functions.https.onCall((data, context) => {
-
+  const limit = data.limit;
+  const observationList: any[] = [];
+  return db.collection("observations").orderBy('time').limit(limit).get()
+    .then((querySnapshot: FirebaseFirestore.QuerySnapshot) => {
+      querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+        const obsData = doc.data();
+        obsData['sequence_id'] = doc.id;
+        observationList.push(obsData);
+      });
+      return observationList;
+    })
+    .catch((err: any) => {
+      console.error(err);
+    });  
 });
 
 export const getUnits = functions.https.onCall((data, context) => {
@@ -44,7 +57,7 @@ export const imagesCountIncrement = functions.firestore
     const obsRef = db.collection('observations').doc(observationId);
 
     return db.runTransaction((transaction) => {
-      transaction.get(unitRef).then(() => {
+      return transaction.get(unitRef).then(() => {
         transaction.update(unitRef, {
           num_images: increment,
         });
@@ -67,8 +80,8 @@ export const imagesCountDecrement = functions.firestore
     const unitRef = db.collection('units').doc(unitId);
     const obsRef = db.collection('observations').doc(observationId);
 
-    db.runTransaction((transaction: any) => {
-      transaction.get(unitRef).then(() => {
+    return db.runTransaction((transaction) => {
+      return transaction.get(unitRef).then(() => {
         transaction.update(unitRef, {
           num_images: decrement,
         });
@@ -89,8 +102,8 @@ export const obsevationsCountIncrement = functions.firestore
     const unitRef = db.collection('units').doc(unitId);
 
     // Update aggregations in a transaction
-    db.runTransaction((transaction: any) => {
-      transaction.get(unitRef).then(() => {
+    return db.runTransaction((transaction) => {
+      return transaction.get(unitRef).then(() => {
         // increment count
         transaction.update(unitRef, {
           num_observations: increment,
@@ -109,8 +122,8 @@ export const obsevationsCountDecrement = functions.firestore
     const unitRef = db.collection('units').doc(unitId);
 
     // Update aggregations in a transaction
-    db.runTransaction((transaction: any) => {
-      transaction.get(unitRef).then(() => {
+    return db.runTransaction((transaction) => {
+      return transaction.get(unitRef).then(() => {
         // decrement count
         transaction.update(unitRef, {
           num_observations: decrement,
