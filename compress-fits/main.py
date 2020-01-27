@@ -10,6 +10,7 @@ from flask import jsonify
 from google.cloud import storage
 
 from panoptes.utils.images import fits as fits_utils
+from panoptes.utils.serializers import from_json
 
 app = Flask(__name__)
 
@@ -42,7 +43,7 @@ def main():
 
     data = dict()
     if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
-        data = base64.b64decode(pubsub_message['data']).decode('utf-8').strip()
+        data = from_json(base64.b64decode(pubsub_message['data']).decode('utf-8').strip())
 
     print(f'Received {data!r}')
     process_topic(data)
