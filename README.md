@@ -1,8 +1,9 @@
-# PANOPTES Network
+PANOPTES Network
+================
 
 - [PANOPTES Network](#panoptes-network)
-  - [Services](#services)
-    - [Deploying services](#deploying-services)
+- [Services](#services)
+  - [Deploying services](#deploying-services)
 
 
 Software related to the wider PANOPTES network that ties the individual units together.
@@ -14,10 +15,9 @@ Each service is either a [Cloud Function](https://cloud.google.com/functions) or
 
 Most services do not allow unauthenticated requests. Services largely communicate with each other via [PubSub](https://cloud.google.com/pubsub/) messages.
 
-
 See the README for a specific service for more details. See the [Services](#services) section for a list of services.
 
-## Services
+# Services
 <a href="#" id="services"></a>
 
 There are a few different categories of services that are in use on the panoptes-network.
@@ -31,7 +31,8 @@ There are a few different categories of services that are in use on the panoptes
 | [`lookup-field`](lookup-field/README.md)       | Http    | A simple service to lookup astronomical sources by search term. |
 | [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.                      |
 
-### Deploying services
+## Deploying services
+<a href="#" id="deploying-services"></a>
 <a href="#" id="deploy"></a>
 
 You can deploy any service using `bin/deploy` from the top level directory. The
