@@ -2,7 +2,7 @@ from astropy.coordinates import SkyCoord
 from panoptes.utils.serializers import to_json
 
 
-def lookup_field(request):
+def entry_point(request):
     """Responds to any HTTP request.
 
     Notes:
