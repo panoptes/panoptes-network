@@ -1,9 +1,10 @@
 #!/bin/bash -e
 
-echo "Deploying cloud function: get-piaa-details"
+TOPIC=${1:-get-fits-header}
 
-gcloud functions deploy get-piaa-details \
-	--entry-point get_piaa_details \
-	--runtime python37 \
-	--memory 512MB \
-	--trigger-http
+gcloud functions deploy \
+                 "${TOPIC}" \
+                 --entry-point entry_point \
+                 --runtime python37 \
+                 --no-allow-unauthenticated \
+                 --trigger-http

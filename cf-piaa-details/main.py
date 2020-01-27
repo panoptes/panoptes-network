@@ -13,7 +13,7 @@ except Exception as e:
     print(f'Error getting firestore client: {e!r}')
 
 
-def get_piaa_details(request):
+def entry_point(request):
     """Responds to any HTTP request.
 
     Notes:
@@ -39,31 +39,54 @@ def get_piaa_details(request):
         }
 
         return ('', 204, headers)
+    elif request.method == 'GET':
+        params = request.args
+    elif request.method == 'POST':
+        params = request.get_json()
 
-    request_json = request.get_json()
-    if request_json is None:
-        request_json = request.args
+    print(f'Received: {params!r}')
 
-    should_get_recent_list = request_json.get('recent_picid', False)
-    should_search_picid = request_json.get('search_picid', False)
+    try:
+        data = process(params)
+        success = True
+    except Exception as e:
+        print(f'Error in lookup-field: {e!r}')
+        data = dict()
+        success = False
 
-    picid = request_json.get('picid', None)
-    picid_doc_id = request_json.get('picid_doc_id', None)
+    # CORS
+    headers = {
+        'Content-Type': "application/json",
+        'Access-Control-Allow-Origin': "*",
+    }
+
+    response_body = to_json({'success': success, **data})
+
+    return (response_body, headers)
+
+
+def process(data):
+    """Responds to any HTTP request."""
+    should_get_recent_list = data.get('recent_picid', False)
+    should_search_picid = data.get('search_picid', False)
+
+    picid = data.get('picid', None)
+    picid_doc_id = data.get('picid_doc_id', None)
 
     # Data types to get
-    should_get_source_doc = request_json.get('source_info', False)
-    should_get_piaa_runs = request_json.get('piaa_runs', False)
+    should_get_source_doc = data.get('source_info', False)
+    should_get_piaa_runs = data.get('piaa_runs', False)
 
-    should_get_piaa_doc = request_json.get('piaa_document', False)
+    should_get_piaa_doc = data.get('piaa_document', False)
 
-    should_get_metadata = request_json.get('metadata', False)
+    should_get_metadata = data.get('metadata', False)
     should_get_metadata = False  # For now
 
-    should_get_lightcurve = request_json.get('lightcurve', False)
-    should_get_psc = request_json.get('psc', False)
-    should_get_counts = request_json.get('counts', False)
-    should_get_pixel_drift = request_json.get('pixel_drift', False)
-    should_get_ref_locations = request_json.get('ref_locations', False)
+    should_get_lightcurve = data.get('lightcurve', False)
+    should_get_psc = data.get('psc', False)
+    should_get_counts = data.get('counts', False)
+    should_get_pixel_drift = data.get('pixel_drift', False)
+    should_get_ref_locations = data.get('ref_locations', False)
 
     if picid:
         # Get the document for the star.
@@ -96,7 +119,7 @@ def get_piaa_details(request):
 
         if should_search_picid:
             try:
-                search_model = request_json['search_model']
+                search_model = data['search_model']
             except KeyError:
                 response_body = to_json({'Error': f'Missing search parameters'})
 
