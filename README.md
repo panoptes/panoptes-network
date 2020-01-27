@@ -20,12 +20,14 @@ which is currently spread across a variety of technologies.
 
 ### Services
 
-| Service                                      | Trigger | Description |
-|----------------------------------------------|---------|--------------|
-| [`image-uploaded`](image-uploaded/README.md) | Bucket Upload | Simple foward to next service based on file type.
-| [`compress-fits`](compress-fits/README.md)   | PubSub | Compresses all `.fits` to `.fits.fz`.
-| [`make-rgb-fits`](make-rgb-fits/README.md)   | PubSub | Makes interpolated RGB images from `.CR2` file.
-| [`record-image`](record-image/README.md)     | PubSub |  Records header and metadata from `.fits.fz` files.
+| Service                                        | Trigger | Description |
+|------------------------------------------------|---------|--------------|
+| [`image-uploaded`](image-uploaded/README.md)   | Bucket  | Simple foward to next service based on file type.
+| [`compress-fits`](compress-fits/README.md)     | PubSub  | Compresses all `.fits` to `.fits.fz`.
+| [`make-rgb-fits`](make-rgb-fits/README.md)     | PubSub  | Makes interpolated RGB `.fits` from `.CR2` file.
+| [`record-image`](record-image/README.md)       | PubSub  | Records header and metadata from `.fits.fz` files.
+| [`lookup-field`](lookup-field/README.md)       | Http    | A simple service to lookup astronomical sources by search term.
+| [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.
 
 #### Deploying services
 
