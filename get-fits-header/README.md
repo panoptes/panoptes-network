@@ -10,34 +10,28 @@ This endpoint looks for one parameters, `bucket_path`. If
 and returned as a json document.
 
 
-Endpoint: https://us-central1-panoptes-survey.cloudfunctions.net/get-fits-header
+Endpoint: `/get-fits-header`
 
-Payload: JSON message of the form:
-	```json
-	{
-		'bucket_path': str,
-	}
-	```
+Payload: 
+JSON message of the form:
 
-Deploy
-------
-
-[Google Documentation](https://cloud.google.com/functions/docs/deploying/filesystem)
-
-From the directory containing the cloud function. The `entry_point` is the
-name of the function in `main.py` that we want called and `get-fits-header`
-is the name of the Cloud Function we want to create.
-
-```bash
-gcloud functions deploy \
-                 get-fits-header \
-                 --entry-point entry_point \
-                 --runtime python37 \
-                 --trigger-http
+```json
+{
+	bucket_path: str,
+}
 ```
 
-:bulb: There is also a small convenience script called `deploy.sh` that
-does the same thing.
-```bash
-./deploy.sh
+Response:
+
+The JSON response will contain the `success` flag as well as all of the FITS headers as key/value pairs.
+
+```json
+{
+	success: <bool>,
+	<key>: <any>
+}
 ```
+
+### Deploy
+
+See [Deployment](../README.md#deploy) in main README for preferred deployment method.
