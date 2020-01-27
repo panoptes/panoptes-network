@@ -23,12 +23,14 @@ JSON message of the form:
 
 Response:
 
-The JSON response will contain the `success` flag as well as all of the FITS headers as key/value pairs.
+The JSON response will contain the `success` flag as well as the FITS headers as key/value pairs.
 
 ```json
 {
 	success: <bool>,
-	<key>: <any>
+	header: {
+		<FITSHEAD>: <any>
+	}
 }
 ```
 
