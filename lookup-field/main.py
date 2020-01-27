@@ -33,15 +33,10 @@ def entry_point(request):
     elif request.method == 'POST':
         params = request.get_json()
 
-    search_string = params.get('search_string')
+    print(f'Received: {params!r}')
 
     try:
-        coord = SkyCoord.from_name(search_string)
-        data = dict(
-            ra=coord.ra.value,
-            dec=coord.dec.value,
-            search_string=search_string
-        )
+        data = process(params)
         success = True
     except Exception as e:
         print(f'Error in lookup-field: {e!r}')
@@ -57,3 +52,16 @@ def entry_point(request):
     response_body = to_json({'success': success, **data})
 
     return (response_body, headers)
+
+
+def process(data):
+    search_string = params.get('search_string')
+
+    coord = SkyCoord.from_name(search_string)
+    data = dict(
+        ra=coord.ra.value,
+        dec=coord.dec.value,
+        search_string=search_string
+    )
+
+    return data
