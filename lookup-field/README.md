@@ -10,7 +10,17 @@ Endpoint: `/lookup-field`
 Payload: 
 ```json
 {
-	'search_string': str,
+	search_string: <str>,
+}
+```
+
+Response:
+```json
+{
+	ra: <float>,
+	dec: <float>,
+	search_string: <str>,
+	success: <bool>,
 }
 ```
 
