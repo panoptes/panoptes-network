@@ -45,6 +45,7 @@ def main():
         data = base64.b64decode(pubsub_message['data']).decode('utf-8').strip()
 
     print(f'Received {data!r}')
+    process_topic(data)
 
     # Flush the stdout to avoid log buffering.
     sys.stdout.flush()
