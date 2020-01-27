@@ -20,11 +20,12 @@ which is currently spread across a variety of technologies.
 
 ### Services
 
-| Service                                    | Description |
-|--------------------------------------------|--------------|
-| [`record-image`](record-image/README.md)   |
-| [`compress-fits`](compress-fits/README.md) |
-| [`make-rgb-fits`](make-rgb-fits/README.md) |
+| Service                                      | Trigger | Description |
+|----------------------------------------------|---------|--------------|
+| [`image-uploaded`](image-uploaded/README.md) | Bucket Upload | Simple foward to next service based on file type.
+| [`compress-fits`](compress-fits/README.md)   | PubSub | Compresses all `.fits` to `.fits.fz`.
+| [`make-rgb-fits`](make-rgb-fits/README.md)   | PubSub | Makes interpolated RGB images from `.CR2` file.
+| [`record-image`](record-image/README.md)     | PubSub |  Records header and metadata from `.fits.fz` files.
 
 #### Deploying services
 
@@ -52,59 +53,3 @@ file will attempt to:
 
 
 
-## Todo
-
-* On `image-received`:
-    ✓ `fits.fz`:
-        * forward to `record-image`
-    ✓ `fits`:
-        * fpack the file, delete original `gcp-fits-packer`
-    * `cr2`:
-        * extract the jpg
-        * convert to raw fits
-        ✓ forward to `cf-make-rgb-fits`
-    * other: move to different bucket?
-
-✓ On `cf-make-rgb-fits`:
-    ✓ convert to 3 interpolated fits files for rgb
-    ✓ uploaded fits files to `panoptes-rgb-images`
-
-* On `record-image`:
-    ✓ record image metadata in firestore.
-    * Forward to `subtract-background`.
-
-* On `subtract-background`:
-    * subtract background.
-        * save background to `panoptes-backgrounds`.
-    * update image metadata.
-    * forward to `plate-solve`.
-
-* On `plate-solve`:
-    * plate-solve.
-        * save processed image to `panoptes-processed-images`.
-    * update image metadata.
-
-
-Todo regarding above:
-
-* Process `fits` in `panoptes-raw-images`.
-* Process `cr2` in `panoptes-raw-images`.
-
-### Todo for export metadata observations:
-
-* Find unsolved files in `panoptes-raw-images` and solve them.
-    * Update `ra_image` and `dec_image` in images collection.
-    * Change `status` to `solved`.
-
-* Remove `camsn` from `images` collection.
-* Remove `POINTING` keyword from `observations` with status `metadata_received`.
-
-### Todo for processing:
-
-* Add gaia dr2 id to document?
-
-
-## With O & P:
-
-* Extract `lookup_fits_header` from `cf-record-image` into separate cf.
-* cf to update basic `observations` and `units` stats in firestore.
