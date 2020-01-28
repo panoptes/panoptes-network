@@ -3,7 +3,6 @@ PANOPTES Network
 
 - [PANOPTES Network](#panoptes-network)
 - [Data Model](#data-model)
-    - [Data Input](#data-input)
     - [Data Descriptions](#data-descriptions)
       - [Unit](#unit)
       - [Observation](#observation)
@@ -52,7 +51,6 @@ processed_observations
 lightcurves
 ```
 
-### Data Input
 <a href="#" id="data-input"></a>
 
 | collection               | key           | key example                     | description                                                                               |
@@ -71,9 +69,8 @@ Unlike a traditional database, this means that there is no guarantee that a cert
 
 #### Unit
 
-The unit information is organized by `unit_id`, (e.g., `PAN010`).
-
-
+Collection: `units`  
+Document ID: `unit_id`
 
 ```json
 {
@@ -100,6 +97,9 @@ Observations are organized by a `sequence_id` of the form:
 
 `<UNIT_ID>_<CAMERA_ID>_<SEQUENCE_START_TIME>`.
 
+Collection: `observations`  
+Document ID: `sequence_id`
+
 ```json
 {
     PAN001_14d3bd_20180216T110623: {
@@ -122,6 +122,9 @@ An image corresponds to a single image from a single camera.
 Images are organized by an `image_id` of the form: 
 
 `<UNIT_ID>_<CAMERA_ID>_<IMAGE_START_TIME>`.
+
+Collection: `images`  
+Document ID: `image_id`
 
 ```json
 {
@@ -148,7 +151,7 @@ PAN001_14d3bd_20180216T112430: {
 Stellar information is identified by the PANOPTES Input Catalog ID (PICID) and consists of processed runs
 of a single observation. An observation could be processed in multiple ways by the processing run.
 
-Note that the PICID corresponds the the Tess Input Catalog ID (TICID) and thus the same number can be used
+Note that the PICID corresponds the the [TESS Input Catalog ID (TICID)](https://archive.stsci.edu/tess/) and thus the same number can be used
 as a lookup on many public sites.
 
 #### Lightcurve
