@@ -3,22 +3,6 @@ import Vuex from 'vuex'
 
 import moment from 'moment';
 
-// Firebase App (the core Firebase SDK) is always required and
-// must be listed before other Firebase SDKs
-// const firebase = require("firebase");
-// Required for side-effects
-// require("firebase/firestore");
-
-// const firebaseConfig = {
-//   apiKey: "AIzaSyCObINzchGuOAauuzEX3nj6iNJU-YSM4Cg",
-//   authDomain: "panoptes-exp.firebaseapp.com",
-//   projectId: "panoptes-exp",
-//   databaseURL: "https://panoptes-exp.firebaseio.com",
-//   storageBucket: "panoptes-exp.appspot.com",
-//   messagingSenderId: "21247607123",
-//   appId: "1:21247607123:web:0605d362b8c98321e4e1a6"
-// };
-// firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 const axios = require('axios').default;
