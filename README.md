@@ -27,6 +27,8 @@ See the README for a specific service for more details. See the [Services](#serv
 
 # Data Model
 
+> :construction: Todo: Replace this section with easy graphic and then link to detailed document with this information.
+
 Data is organized by the object type:
 
 ```md
