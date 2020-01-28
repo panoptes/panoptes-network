@@ -10,7 +10,6 @@
     - [Image](#image)
     - [Star](#star)
     - [Lightcurve](#lightcurve)
-    - [Todo](#todo)
 
 The PANOPTES Data Explorer can be used to find information about PANOPTES data.
 
@@ -98,9 +97,52 @@ tracking movement. Any movement of the mount (e.g. a meridian flip) will stop th
 the same target is observed next. Ideally a unit will have at least two simulataneous observations at any
 given time (one for each camera).
 
-Observations are organized by a `sequence_id` of the form: `<UNIT_ID>_<CAMERA_ID>_<SEQUENCE_START_TIME>`.
+Observations are organized by a `sequence_id` of the form: 
+
+`<UNIT_ID>_<CAMERA_ID>_<SEQUENCE_START_TIME>`.
+
+```json
+{
+    PAN001_14d3bd_20180216T110623: {
+        unit_id: "PAN001",
+        status: "receiving_files",
+        camera_id: "14d3bd",
+        software_version: "POCSv0.6.0",
+        ra: 135.859993568,
+        dec: 28.4376569571,
+        exptime: 120
+        time: DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>),
+    }
+}
+```
 
 ### Image
+
+An image corresponds to a single image from a single camera.
+
+Images are organized by an `image_id` of the form: 
+
+`<UNIT_ID>_<CAMERA_ID>_<IMAGE_START_TIME>`.
+
+```json
+{
+PAN001_14d3bd_20180216T112430: {
+    ha_mnt: 1.919988307895942,       # From the mount
+    ra_mnt: 133.1505416666667,       # From the mount
+    dec_mnt: 28.33138888888889,      # From the mount
+    ra_image: 135.884026231,         # From plate solve
+    dec_image: 28.3746828541,        # From plate solve
+    exptime: 120,
+    moonfrac: 0.003716693699630014,
+    moonsep: 21.88964559220797,
+    airmass: 1.126544582361047,
+    bucket_path: "PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
+    sequence_id: "PAN001_14d3bd_20180216T110623",
+    time: DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>),
+    status: "uploaded"
+  }    
+}
+```
 
 ### Star
 
@@ -112,9 +154,4 @@ as a lookup on many public sites.
 
 ### Lightcurve
 
-
-### Todo
-
-* Create a `units` page that displays information about each unit.
-    * Show the `observations` and `images` counts for each unit.
-    * Perhaps split up the above by time period.
+_coming soon..._
