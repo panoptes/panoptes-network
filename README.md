@@ -2,6 +2,7 @@ PANOPTES Network
 ================
 
 - [PANOPTES Network](#panoptes-network)
+- [Data Explorer](#data-explorer)
 - [Data Model](#data-model)
     - [Data Descriptions](#data-descriptions)
       - [Unit](#unit)
@@ -24,6 +25,14 @@ Each service is either a [Cloud Function](https://cloud.google.com/functions) or
 Most services do not allow unauthenticated requests. Services largely communicate with each other via [PubSub](https://cloud.google.com/pubsub/) messages.
 
 See the README for a specific service for more details. See the [Services](#services) section for a list of services.
+
+# Data Explorer
+
+> :construction: Todo: Add more about data explorer here.
+
+The Data Explorer is a web-based tool to explore PANOPTES data at the observation and lightcurve level.
+
+See [Data Explorer README](data-explorer/README.md) for details.
 
 # Data Model
 
