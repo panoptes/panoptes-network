@@ -104,12 +104,12 @@ Observations are organized by a `sequence_id` of the form:
 {
     PAN001_14d3bd_20180216T110623: {
         unit_id: "PAN001",
-        status: "receiving_files",
         camera_id: "14d3bd",
         software_version: "POCSv0.6.0",
         ra: 135.859993568,
         dec: 28.4376569571,
         exptime: 120
+        status: "receiving_files",
         time: DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>),
     }
 }
@@ -137,8 +137,8 @@ PAN001_14d3bd_20180216T112430: {
     airmass: 1.126544582361047,
     bucket_path: "PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
     sequence_id: "PAN001_14d3bd_20180216T110623",
-    time: DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>),
     status: "uploaded"
+    time: DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>),
   }    
 }
 ```
