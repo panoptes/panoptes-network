@@ -3,14 +3,14 @@ PANOPTES Network
 
 - [PANOPTES Network](#panoptes-network)
 - [Data Model](#data-model)
-  - [Data Input](#data-input)
-  - [Data Output](#data-output)
-  - [Data Descriptions](#data-descriptions)
-    - [Unit](#unit)
-    - [Observation](#observation)
-    - [Image](#image)
-    - [Star](#star)
-    - [Lightcurve](#lightcurve)
+    - [Data Input](#data-input)
+    - [Data Output](#data-output)
+    - [Data Descriptions](#data-descriptions)
+      - [Unit](#unit)
+      - [Observation](#observation)
+      - [Image](#image)
+      - [Star](#star)
+      - [Lightcurve](#lightcurve)
 - [Services](#services)
   - [Deploying services](#deploying-services)
   - [Creating new services](#creating-new-services)
@@ -50,31 +50,31 @@ Lightcurves
 
 > **Note:** We currently are not generating any data products for the `mount` or `sensors`.
 
-## Data Input
+### Data Input
 <a href="#" id="data-input"></a>
 
-| object      |  key           | example                         | description   
-|-------------|--------------- | --------------------------------|------------ 
-| Unit        | `unit_id`      | `PAN001`                        | Data for a given PANOPTES units.
-| Camera        | `camera_id`      | `14d3bd`                        | Camera id.
-| Observation | `sequence_id`  | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew.
-| Image       | `image_id`     | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.
+| object      | key           | example                         | description                                   |
+| ----------- | ------------- | ------------------------------- | --------------------------------------------- |
+| Unit        | `unit_id`     | `PAN001`                        | Data for a given PANOPTES units.              |
+| Camera      | `camera_id`   | `14d3bd`                        | Camera id.                                    |
+| Observation | `sequence_id` | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew. |
+| Image       | `image_id`    | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.             |
 
-## Data Output
+### Data Output
 <a href="#" id="data-output"></a>
 
-| object      |  key          | example                         | description   
-|-------------|---------------|---------------------------------|--------------
-| Star        | `picid`       | `1954452882`                    | Data about the stellar source.
-| Lightcurve  | `lcid`        | `1954452882_20200110T122127`    | Generated lightcurve data from a single processing run.
+| object     | key     | example                      | description                                             |
+| ---------- | ------- | ---------------------------- | ------------------------------------------------------- |
+| Star       | `picid` | `1954452882`                 | Data about the stellar source.                          |
+| Lightcurve | `lcid`  | `1954452882_20200110T122127` | Generated lightcurve data from a single processing run. |
 
-## Data Descriptions
+### Data Descriptions
 <a href="#" id="data-descriptions"></a>
 
 > :warning: Note: PANOPTES data is stored in [Firestore](https://firebase.google.com/docs/firestore), which is a NoSQL database.
 Unlike a traditional database, this means that there is no guarantee that a certain field will be present. As part of our processing we try to guarantee that the fields listed below are always present, however the document may also contain additional fields not documented here.
 
-### Unit
+#### Unit
 
 The unit information is organized by `unit_id`, (e.g., `PAN010`).
 
@@ -94,7 +94,7 @@ The unit information is organized by `unit_id`, (e.g., `PAN010`).
 }
 ```
 
-### Observation
+#### Observation
 
 An observation is a sequence of images from a single camera taken from a single unit during one continuous
 tracking movement. Any movement of the mount (e.g. a meridian flip) will stop the current observation, even if
@@ -120,7 +120,7 @@ Observations are organized by a `sequence_id` of the form:
 }
 ```
 
-### Image
+#### Image
 
 An image corresponds to a single image from a single camera.
 
@@ -148,7 +148,7 @@ PAN001_14d3bd_20180216T112430: {
 }
 ```
 
-### Star
+#### Star
 
 Stellar information is identified by the PANOPTES Input Catalog ID (PICID) and consists of processed runs
 of a single observation. An observation could be processed in multiple ways by the processing run.
@@ -156,7 +156,7 @@ of a single observation. An observation could be processed in multiple ways by t
 Note that the PICID corresponds the the Tess Input Catalog ID (TICID) and thus the same number can be used
 as a lookup on many public sites.
 
-### Lightcurve
+#### Lightcurve
 
 _coming soon..._
 
