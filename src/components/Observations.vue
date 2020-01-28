@@ -18,23 +18,27 @@
       :search="search"
       :loading="isSearching"
       v-model="selectedObservations"
+      order-by="time"
       class="elevation-1"
     >
-    <template v-slot:item.sequence_id="{ item }">
-      <router-link
-        :to="{ name: 'observationDetail', params: { sequenceId: item.sequence_id }}">
-        {{ item.sequence_id }}
-      </router-link>
-    </template>
-    <template v-slot:item.ra="{ item }">
-        {{ item.ra | roundVal }}
-    </template>
-    <template v-slot:item.dec="{ item }">
-        {{ item.dec | roundVal }}
-    </template>
-    <template v-slot:item.time="{ item }">
-        {{ item.time | moment('YYYY-MM-DD HH:mm:ss ZZ') }}
-    </template>
+      <template v-slot:item.sequence_id="{ item }">
+        <router-link
+          :to="{ name: 'observationDetail', params: { sequenceId: item.sequence_id }}">
+          {{ item.sequence_id }}
+        </router-link>
+      </template>
+      <template v-slot:item.ra="{ item }">
+          {{ item.ra | roundVal }}
+      </template>
+      <template v-slot:item.dec="{ item }">
+          {{ item.dec | roundVal }}
+      </template>
+      <template v-slot:item.time="{ item }">
+          {{ item.time | moment('YYYY-MM-DD HH:mm:ss ZZ') }}
+      </template>
+      <template v-slot:item.status="{ item }">
+          {{ item.status }}
+      </template>      
     </v-data-table>
 
     <v-card-actions align="right" v-if="allowDownloads">
