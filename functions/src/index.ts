@@ -72,7 +72,7 @@ export const imagesCountIncrement = functions.firestore
 
 export const imagesCountDecrement = functions.firestore
   .document('images/{imageId}')
-  .onCreate((snap, context) => {
+  .onDelete((snap, context) => {
     // Get the unit_id from the image id.
     const unitId = context.params.imageId.split('_')[0];
     const observationId: string = snap.get('sequence_id');
