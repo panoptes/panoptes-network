@@ -29,8 +29,18 @@ Vue.use(Vuex)
 function formatObservationRow(data) {
     data['time'] = moment(data['time'].toDate());
 
-    data['ra'] = data['field_ra'].toFixed(3);
-    data['dec'] = data['field_dec'].toFixed(3);
+    // Check if image has been solved.
+    if (data.hasOwnProperty('ra')) {
+      data['ra'] = data['ra'].toFixed(3);
+      data['dec'] = data['dec'].toFixed(3);
+      data['solved'] = true;
+    } else {
+      if(data.hasOwnProperty('field_ra')){
+        data['ra'] = data['field_ra'].toFixed(3);
+        data['dec'] = data['field_dec'].toFixed(3);      
+      }
+      data['solved'] = false;
+    }
 
     return data;
 }
@@ -318,14 +328,15 @@ export default new Vuex.Store({
         let ra_max = parseFloat(state.searchModel.ra) + parseFloat(state.searchModel.searchRadius);
 
         db.collection('observations')
-          .where('field_dec', '<=', dec_max)
-          .where('field_dec', '>=', dec_min)
-          .orderBy('field_dec')
+          .where('dec', '<=', dec_max)
+          .where('dec', '>=', dec_min)
+          .orderBy('dec')
           .orderBy('time', 'desc')
           .get().then(querySnapshot => {
             let rows = [];
             querySnapshot.docs.forEach((doc) => {
               let data = doc.data();
+              
               data = formatObservationRow(data);
               data['sequence_id'] = doc.id;
 
