@@ -101,7 +101,6 @@ export const obsevationsCountIncrement = functions.firestore
     const unitId: string = snap.get('unit_id');
     const unitRef = db.collection('units').doc(unitId);
 
-    // Update aggregations in a transaction
     return db.runTransaction((transaction) => {
       return transaction.get(unitRef).then(() => {
         // increment count
@@ -121,7 +120,6 @@ export const obsevationsCountDecrement = functions.firestore
     const unitId: string = snap.get('unit_id');
     const unitRef = db.collection('units').doc(unitId);
 
-    // Update aggregations in a transaction
     return db.runTransaction((transaction) => {
       return transaction.get(unitRef).then(() => {
         // decrement count
