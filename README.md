@@ -1,5 +1,17 @@
 # PANOPTES Data Explorer
 
+- [PANOPTES Data Explorer](#panoptes-data-explorer)
+  - [Data Model](#data-model)
+  - [Data Input](#data-input)
+  - [Data Output](#data-output)
+  - [Data Descriptions](#data-descriptions)
+    - [Unit](#unit)
+    - [Observation](#observation)
+    - [Image](#image)
+    - [Star](#star)
+    - [Lightcurve](#lightcurve)
+    - [Todo](#todo)
+
 The PANOPTES Data Explorer can be used to find information about PANOPTES data.
 
 This page gives an overview of how the data is logically organized (the [data model](#data-odel)),
@@ -16,21 +28,21 @@ The data is described in more detail [below](#data-desc).
 
 Data is organized by the object type:
 
+```md
+# Data Model
+Units
+  Mount
+  Sensors
+  Cameras
+    Observations
+        Images
+
 ```
-# Data Input
-* Units
-  * Mount
-  * Sensors
-  * Cameras
-    * Observations
-        * Images
 
-
+```md
 # Data Output
-* Sources
-  * Observations
-    * Lightcurves
-
+Processed Observations
+Lightcurves
 ```
 
 > **Note:** We currently are not generating any data products for the `mount` or `sensors`.
@@ -41,8 +53,9 @@ Data is organized by the object type:
 | object      |  key           | example                         | description   
 |-------------|--------------- | --------------------------------|------------ 
 | Unit        | `unit_id`      | `PAN001`                        | Data for a given PANOPTES units.
-| Observation | `sequence_id`  | `PAN001_14d3bd_20200109T052127` | A sequence of images defined by a mount slew.
-| Image       | `image_id`     | `PAN001_14d3bd_20200109T052127` | A single image at a set exposure.
+| Camera        | `camera_id`      | `14d3bd`                        | Camera id.
+| Observation | `sequence_id`  | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew.
+| Image       | `image_id`     | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.
 
 ## Data Output
 <a href="#" id="data-output"></a>
@@ -53,11 +66,30 @@ Data is organized by the object type:
 | Lightcurve  | `lcid`        | `1954452882_20200110T122127`    | Generated lightcurve data from a single processing run.
 
 ## Data Descriptions
-<a href="#" id="data-desc"></a>
+<a href="#" id="data-descriptions"></a>
+
+> :warning: Note: PANOPTES data is stored in [Firestore](https://firebase.google.com/docs/firestore), which is a NoSQL database.
+Unlike a traditional database, this means that there is no guarantee that a certain field will be present. As part of our processing we try to guarantee that the fields listed below are always present, however the document may also contain additional fields not documented here.
 
 ### Unit
 
 The unit information is organized by `unit_id`, (e.g., `PAN010`).
+
+
+
+```json
+{
+    PAN001: {
+        name: "PAN001",
+        elevation: 3400.0,      # meters
+        location: {             # stored as GeoPoint
+            latitude: 19.54,    # degrees
+            longitude: -155.58  # degrees
+        },
+        status: "active"
+    }
+}
+```
 
 ### Observation
 
@@ -79,3 +111,10 @@ Note that the PICID corresponds the the Tess Input Catalog ID (TICID) and thus t
 as a lookup on many public sites.
 
 ### Lightcurve
+
+
+### Todo
+
+* Create a `units` page that displays information about each unit.
+    * Show the `observations` and `images` counts for each unit.
+    * Perhaps split up the above by time period.
