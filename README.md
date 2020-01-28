@@ -4,7 +4,6 @@ PANOPTES Network
 - [PANOPTES Network](#panoptes-network)
 - [Data Model](#data-model)
     - [Data Input](#data-input)
-    - [Data Output](#data-output)
     - [Data Descriptions](#data-descriptions)
       - [Unit](#unit)
       - [Observation](#observation)
@@ -42,31 +41,27 @@ Units
 
 ```
 
-```md
-# Data Output
-Processed Observations
-Lightcurves
-```
+Data is stored in [Google Firestore](https://firebase.google.com/docs/firestore) database with a flat structure:
 
-> **Note:** We currently are not generating any data products for the `mount` or `sensors`.
+```md
+# Data Storage
+images
+observations
+units
+processed_observations
+lightcurves
+```
 
 ### Data Input
 <a href="#" id="data-input"></a>
 
-| object      | key           | example                         | description                                   |
-| ----------- | ------------- | ------------------------------- | --------------------------------------------- |
-| Unit        | `unit_id`     | `PAN001`                        | Data for a given PANOPTES units.              |
-| Camera      | `camera_id`   | `14d3bd`                        | Camera id.                                    |
-| Observation | `sequence_id` | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew. |
-| Image       | `image_id`    | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.             |
-
-### Data Output
-<a href="#" id="data-output"></a>
-
-| object     | key     | example                      | description                                             |
-| ---------- | ------- | ---------------------------- | ------------------------------------------------------- |
-| Star       | `picid` | `1954452882`                 | Data about the stellar source.                          |
-| Lightcurve | `lcid`  | `1954452882_20200110T122127` | Generated lightcurve data from a single processing run. |
+| collection               | key           | key example                     | description                                                                               |
+| ------------------------ | ------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `images`                 | `image_id`    | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.                                                         |
+| `observations`           | `sequence_id` | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew.                                             |
+| `units`                  | `unit_id`     | `PAN001`                        | Data for a given PANOPTES unit.                                                           |
+| `processed_observations` | [generated*]  | `8zPAXSech07URES7WuTz`          | Metadata about a processed observation. Each observation may be processed multiple times. |
+| `lightcurves`            | [generated*]  | `P2t4GGYpkByRqAabWqhe`          | Generated lightcurve data from a single processing run.                                   |
 
 ### Data Descriptions
 <a href="#" id="data-descriptions"></a>
