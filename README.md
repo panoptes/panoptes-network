@@ -4,6 +4,7 @@ PANOPTES Network
 - [PANOPTES Network](#panoptes-network)
 - [Services](#services)
   - [Deploying services](#deploying-services)
+  - [Creating new services](#creating-new-services)
 
 
 Software related to the wider PANOPTES network that ties the individual units together.
@@ -41,3 +42,10 @@ command takes the service name as a parameter:
 ```bash
 $ bin/deploy record-image
 ```
+## Creating new services
+
+> Todo: More here.
+
+Services are either written in Python or JavaScript.
+
+See https://github.com/firebase/functions-samples
