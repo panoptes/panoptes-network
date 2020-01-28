@@ -1,0 +1,14 @@
+{
+  "name": "panoptes-network",
+  "version": "0.0.5",
+  "private": true,
+  "scripts": {
+    "serve": "cd data-explorer && vue-cli-service serve --mode development && cd ..",
+    "build": "cd data-explorer && vue-cli-service build && cd ..",
+    "test:unit": "cd data-explorer && vue-cli-service test:unit && cd .."
+  },
+  "dependencies": {
+    "@vue/cli-service": "^4.1.2"
+  },
+  "devDependencies": {}
+}
