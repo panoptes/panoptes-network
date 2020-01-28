@@ -1,5 +1,6 @@
 import os
 import rawpy
+import json
 from copy import copy
 from contextlib import suppress
 
