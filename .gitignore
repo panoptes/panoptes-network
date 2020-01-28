@@ -1,89 +1,64 @@
-# PANOPTES specific files
-conf_files/*_local.yaml
-examples/notebooks/*.fits
-examples/notebooks/*.jpeg
-
-# Development support
-sftp-config.json
-
-# emacs backups
-*~
-\#*\#
-
-# TeX products
-*.aux
-*.log
-*.pdf
-*.toc
-
-# Compiled files
-*.py[co]
-*.a
-*.o
-*.so
 __pycache__
-
-# Ignore .c files by default to avoid including generated code. If you want to
-# add a non-generated .c extension, use `git add -f filename.c`.
-*.c
-
-# Other generated files
 _build
-*/cython_version.py
-htmlcov
+.*.swp
 .coverage
 .coverage.*
-MANIFEST
-
-# Sphinx
-docs/api
-docs/_build
-
-# Eclipse editor project files
-.project
-.pydevproject
-.settings
-
-# Pycharm editor project files
-.idea
-
-# Packages/installer info
-*.egg
-*.eggs
-*.cache
-*.egg-info
-dist
-build
-eggs
-parts
-var
-sdist
-develop-eggs
-.installed.cfg
-distribute-*.tar.gz
-
-# Other
-.*.swp
-
-# Mac OSX
 .DS_Store
-
-# Eclipse project files
-.settings
+.env
+.eslintcache
+.firebase*
+.grunt
+.idea
+.installed.cfg
+.ipynb_checkpoints
+.lock-wscript
+.node_repl_history
+.npm
+.nyc_output
 .project
 .pydevproject
-
-# Ignore IPython notebook (Jupyter) checkpoints.
-.ipynb_checkpoints
-notebooks/*
-
-# Ignore link to weather_plots in web/static/
-weather_plots
-
-# Ignore pytest.ini file in root of project. Especially useful
-# on a unit to skip tests that interact with hardware.
-/pytest.ini
-
-# Ignore pytest's cache of data across tests.
-/.pytest_cache
+.settings
 .vscode/*
+.yarn-integrity
+*.a
+*.aux
+*.c
+*.cache
+*.egg*
+*.log
+*.o
+*.pdf
+*.pid
+*.pid.lock
+*.py[co]
+*.seed
+*.so
+*.tgz
+*.toc
+*/cython_version.py
+*~
+/.pytest_cache
+/pytest.ini
+\#*\#
+bower_components
+build
+build/Release
+conf_files/*_local.yaml
+coverage
+develop-eggs
+dist
+distribute-*.tar.gz
+docs/_build
+docs/api
+eggs
+htmlcov
+lib-cov
+logs
+MANIFEST
+node_modules/
+parts
+pids
+sdist
+sftp-config.json
+var
+TODO.md

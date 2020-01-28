@@ -1,5 +1,7 @@
 import os
 import rawpy
+import json
+import base64
 from copy import copy
 from contextlib import suppress
 
@@ -57,13 +59,14 @@ def entry_point(pubsub_message, context):
 
     if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
         try:
-            data = json.loads(
-                base64.b64decode(pubsub_message['data']).decode())
+            raw_string = base64.b64decode(pubsub_message['data']).decode()
+            print(f'Raw message received: {raw_string!r}')
+            data = json.loads(raw_string)
 
         except Exception as e:
             msg = ('Invalid Pub/Sub message: '
                    'data property is not valid base64 encoded JSON')
-            print(f'error: {e}')
+            print(f'{msg}: {e}')
             return f'Bad Request: {msg}', 400
 
         attributes = pubsub_message.get('attributes', dict())
@@ -102,7 +105,7 @@ def process_topic(data, attributes=None):
     rawpy_options = copy(DEFAULT_RAWPY_OPTIONS)
     # Update rawpy options with those passed by user
     with suppress(KeyError):
-        rawpy_options.update(request_json['rawpy_options'])
+        rawpy_options.update(data['rawpy_options'])
 
     print(f'Using rawpy options')
     print(f'{rawpy_options}')
