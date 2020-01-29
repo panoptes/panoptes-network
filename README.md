@@ -75,7 +75,7 @@ Unlike a traditional database, this means that there is no guarantee that a cert
 Collection: `units`  
 Document ID: `unit_id`
 
-```json
+```py
 {
     "PAN001": {
         "name": "PAN001",
@@ -106,7 +106,7 @@ Notes:
 
   * An observation will always have `ra` and `dec` columns but the values may be `null`. Typically this indicates the file has not been properly plate-solved.
 
-```json
+```py
 {
     "PAN001_14d3bd_20180216T110623": {
         "unit_id": "PAN001",
@@ -132,7 +132,7 @@ Images are organized by an `image_id` of the form:
 Collection: `images`  
 Document ID: `image_id`
 
-```json
+```py
 {
 "PAN001_14d3bd_20180216T112430": {
     "ha_mnt": 1.919988307895942,       # From the mount
