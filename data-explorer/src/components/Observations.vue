@@ -11,6 +11,7 @@
     </v-card-title>
 
     <v-data-table
+      id="obsTable"
       :dense="dense"
       :headers="fields"
       :items="observations"
@@ -34,7 +35,7 @@
           {{ item.dec | roundVal }}
       </template>
       <template v-slot:item.time="{ item }">
-          {{ item.time | moment('YYYY-MM-DD HH:mm:ss ZZ') }}
+          {{ item.time | moment('utc', 'YYYY-MM-DD HH:mm:ss') }}
       </template>
       <template v-slot:item.status="{ item }">
           {{ item.status }}
@@ -105,22 +106,22 @@ export default {
           sortable: true ,
         },
         {
-          text: 'RA',
+          text: 'RA [deg]',
           value: 'ra',
           sortable: true ,
         },
         {
-          text: 'Dec',
+          text: 'Dec [deg]',
           value: 'dec',
           sortable: true ,
         },
         {
-          text: 'Date',
+          text: 'Date [UTC]',
           value: 'time',
           sortable: true,
         },
         {
-          text: 'Exp Time',
+          text: 'Exptime [sec]',
           value: 'exptime',
           sortable: true
         },
@@ -140,5 +141,8 @@ export default {
 <style scoped>
 a {
   color: #42b983;
+}
+#obsTable {
+  font-family: monospace
 }
 </style>

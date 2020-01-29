@@ -4,6 +4,16 @@ import Vuex from 'vuex'
 import moment from 'moment';
 
 const db = firebase.firestore();
+const cloud_functions = firebase.functions()
+
+if (location.hostname === "localhost") {
+  console.log('Localhost detected');
+  db.settings({
+    host: "localhost:8081",
+    ssl: false
+  });
+  cloud_functions.useFunctionsEmulator("http://localhost:5001");
+}
 
 const axios = require('axios').default;
 const base_url = 'https://us-central1-panoptes-exp.cloudfunctions.net';
@@ -25,15 +35,6 @@ function formatObservationRow(data) {
       }
       data['solved'] = false;
     }
-
-    return data;
-}
-
-function  formatSourceRow(data) {
-    data['time'] = moment(data['last_process_time'].toDate());
-
-    data['ra'] = data['ra'].toFixed(3);
-    data['dec'] = data['dec'].toFixed(3);
 
     return data;
 }
@@ -235,18 +236,18 @@ export default new Vuex.Store({
         });
       },
 
-      getRecent: function({ dispatch }) {
+      getRecent: function({ dispatch, commit }) {
         commit('setSearching', 'general', true);        
-        dispatch('getRecentObservations');
+        return dispatch('getRecentObservations');
         // dispatch('getRecentSources');
       },
 
       getRecentObservations: function({ commit, state }) {
-        firebase.functions().httpsCallable('getRecentObservations')({
+        return cloud_functions.httpsCallable('getRecentObservations')({
           limit: 25
         })
           .then(function (result) {
-            commit('setObservations', result.data);
+            return commit('setObservations', result.data);
           })
           .catch(err => {
             console.error(err);

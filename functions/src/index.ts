@@ -1,10 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
-// // Start writing Firebase Functions
-// // https://firebase.google.com/docs/functions/typescript
-//
-
 admin.initializeApp({
   credential: admin.credential.applicationDefault()
 });
@@ -13,37 +9,56 @@ const db = admin.firestore();
 const increment = admin.firestore.FieldValue.increment(1);
 const decrement = admin.firestore.FieldValue.increment(-1);
 
-export const getRecentObservations = functions.https.onCall((data, context) => {
+export const formatFirestoreRow = (data: any) => {
+  // Turn into a time object.
+  if ('time' in data && data['time'] !== null) {
+    data['time'] = data['time'].toDate().toUTCString();
+
+    // Don't return 9 digits of precision.
+    if ('ra' in data && data['ra'] !== null) {
+      data['ra'] = data['ra'].toFixed(3);
+    }
+    if ('dec' in data && data['dec'] !== null) {
+      data['dec'] = data['dec'].toFixed(3);
+    }
+
+    return data;
+  }
+};
+
+export const getRecentObservations = functions.https.onCall(async (data, context) => {
   const limit = data.limit;
   const observationList: any[] = [];
-  return db.collection("observations").orderBy('time').limit(limit).get()
-    .then((querySnapshot: FirebaseFirestore.QuerySnapshot) => {
-      querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-        const obsData = doc.data();
-        obsData['sequence_id'] = doc.id;
-        observationList.push(obsData);
-      });
-      return observationList;
-    })
-    .catch((err: any) => {
-      console.error(err);
-    });  
+  try {
+    const querySnapshot = await db.collection("observations").orderBy('time').limit(limit).get();
+    querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const obsData = formatFirestoreRow(doc.data());
+      obsData['sequence_id'] = doc.id;
+      observationList.push(obsData);
+    });
+    return observationList;
+  }
+  catch (err) {
+    console.error(err);
+    return observationList;
+  }
 });
 
-export const getUnits = functions.https.onCall((data, context) => {
+export const getUnits = functions.https.onCall(async (data, context) => {
   const units: any[] = [];
-  return db.collection("units").get()
-    .then((querySnapshot: FirebaseFirestore.QuerySnapshot) => {
-      querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-        const unitData = doc.data();
-        unitData['unit_id'] = doc.id;
-        units.push(unitData);
-      });
-      return units;
-    })
-    .catch((err: any) => {
-      console.error(err);
+  try {
+    const querySnapshot = await db.collection("units").get();
+    querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const unitData = doc.data();
+      unitData['unit_id'] = doc.id;
+      units.push(unitData);
     });
+    return units;
+  }
+  catch (err) {
+    console.error(err);
+    return units;
+  }
 });
 
 export const imagesCountIncrement = functions.firestore
