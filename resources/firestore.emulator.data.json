@@ -26,6 +26,15 @@
             "num_images": 17074,
             "num_observations": 415,
             "status": "active"
+        },
+        "PAN018": {
+            "elevation": 3000.0,
+            "latitude": 26.22,
+            "longitude": 88.06,
+            "name": "PAN018",
+            "num_images": 320,
+            "num_observations": 49,
+            "status": "active"
         }
     },
     "observations": {
