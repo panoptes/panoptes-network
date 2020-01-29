@@ -106,16 +106,6 @@
 
         const db = firebase.firestore();
       }
-
-      Functions.httpsCallable('getRecentObservations')({
-        limit: 25
-      })
-        .then(function (result) {
-          console.log(result);
-        })
-        .catch(err => {
-          console.error(err);
-        });
     });
   </script>
 </body>
