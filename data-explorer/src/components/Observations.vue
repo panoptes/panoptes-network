@@ -78,11 +78,6 @@ export default {
       return this.searchModel.isSearching['observations'];
     }
   },
-  mounted: function () {
-    this.$nextTick(function () {
-      this.$store.dispatch('getRecent');
-    })
-  },
   props: [
     'perPage',
     'dense'

@@ -11,7 +11,6 @@
             sm="8"
           >
             <v-text-field
-              class=""
               disabled
               flat
               solo-inverted
@@ -276,8 +275,6 @@ export default {
     },
     reset () {
       this.$refs.form.reset();
-      this.$store.dispatch('getRecent');
-
     },
     resetValidation () {
       this.$refs.form.resetValidation()

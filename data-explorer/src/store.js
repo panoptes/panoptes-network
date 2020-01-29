@@ -236,25 +236,21 @@ export default new Vuex.Store({
       },
 
       getRecent: function({ dispatch }) {
+        commit('setSearching', 'general', true);        
         dispatch('getRecentObservations');
-        dispatch('getRecentSources');
+        // dispatch('getRecentSources');
       },
 
       getRecentObservations: function({ commit, state }) {
-        db.collection('observations').orderBy('time', 'desc').limit(25).get()
-          .then((querySnapshot) => {
-            let rows = [];
-            querySnapshot.forEach((doc) => {
-                let data = doc.data();
-                data['sequence_id'] = doc.id;
-                data = formatObservationRow(data);
-                rows.push(data);
-            });
-            commit('setObservations', rows);
+        firebase.functions().httpsCallable('getRecentObservations')({
+          limit: 25
+        })
+          .then(function (result) {
+            commit('setObservations', result.data);
           })
           .catch(err => {
-            console.log('Error getting recent observations', err)
-          });
+            console.error(err);
+          });        
       },
 
       getRecentSources: function({ commit, state }) {
@@ -276,15 +272,7 @@ export default new Vuex.Store({
       },
 
       getUnits: function({ commit, state }) {
-        db.collection("units").get().then((querySnapshot) => {
-          querySnapshot.forEach((doc) => {
-              let data = doc.data();
-              data['unit_id'] = doc.id;
-              commit('addUnit', data);
-          });
-        }).catch((err) => {
-          console.log('Error in getUnits:', err);
-        });
+        console.log('getUnits');
       },
 
       lookupField: function({ commit, state }) {
