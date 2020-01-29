@@ -2,7 +2,6 @@ PANOPTES Network
 ================
 
 - [PANOPTES Network](#panoptes-network)
-  - [Data Explorer](#data-explorer)
   - [Data Model](#data-model)
     - [Data Descriptions](#data-descriptions)
       - [Unit](#unit)
@@ -10,6 +9,7 @@ PANOPTES Network
       - [Image](#image)
       - [Star](#star)
       - [Lightcurve](#lightcurve)
+  - [Data Explorer](#data-explorer)
   - [Services](#services)
     - [Deploying services](#deploying-services)
     - [Creating new services](#creating-new-services)
@@ -25,14 +25,6 @@ Each service is either a [Cloud Function](https://cloud.google.com/functions) or
 Most services do not allow unauthenticated requests. Services largely communicate with each other via [PubSub](https://cloud.google.com/pubsub/) messages.
 
 See the README for a specific service for more details. See the [Services](#services) section for a list of services.
-
-## Data Explorer
-
-> :construction: Todo: Add more about data explorer here.
-
-The Data Explorer is a web-based tool to explore PANOPTES data at the observation and lightcurve level.
-
-See [Data Explorer README](data-explorer/README.md) for details.
 
 ## Data Model
 
@@ -85,14 +77,14 @@ Document ID: `unit_id`
 
 ```json
 {
-    PAN001: {
-        name: "PAN001",
-        elevation: 3400.0,      # meters
-        location: {             # stored as GeoPoint
-            latitude: 19.54,    # degrees
-            longitude: -155.58  # degrees
+    "PAN001": {
+        "name": "PAN001",
+        "elevation": 3400.0,      # meters
+        "location": {             # stored as GeoPoint
+            "latitude": 19.54,    # degrees
+            "longitude": -155.58  # degrees
         },
-        status: "active"
+        "status": "active"
     }
 }
 ```
@@ -171,6 +163,14 @@ as a lookup on many public sites.
 #### Lightcurve
 
 _coming soon..._
+
+## Data Explorer
+
+> :construction: Todo: Add more about data explorer here.
+
+The Data Explorer is a web-based tool to explore PANOPTES data at the observation and lightcurve level.
+
+See [Data Explorer README](data-explorer/README.md) for details.
 
 ## Services
 <a href="#" id="services"></a>
