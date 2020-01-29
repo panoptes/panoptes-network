@@ -2,17 +2,17 @@ PANOPTES Network
 ================
 
 - [PANOPTES Network](#panoptes-network)
-- [Data Explorer](#data-explorer)
-- [Data Model](#data-model)
+  - [Data Explorer](#data-explorer)
+  - [Data Model](#data-model)
     - [Data Descriptions](#data-descriptions)
       - [Unit](#unit)
       - [Observation](#observation)
       - [Image](#image)
       - [Star](#star)
       - [Lightcurve](#lightcurve)
-- [Services](#services)
-  - [Deploying services](#deploying-services)
-  - [Creating new services](#creating-new-services)
+  - [Services](#services)
+    - [Deploying services](#deploying-services)
+    - [Creating new services](#creating-new-services)
 
 
 Software related to the wider PANOPTES network that ties the individual units together.
@@ -26,7 +26,7 @@ Most services do not allow unauthenticated requests. Services largely communicat
 
 See the README for a specific service for more details. See the [Services](#services) section for a list of services.
 
-# Data Explorer
+## Data Explorer
 
 > :construction: Todo: Add more about data explorer here.
 
@@ -34,7 +34,7 @@ The Data Explorer is a web-based tool to explore PANOPTES data at the observatio
 
 See [Data Explorer README](data-explorer/README.md) for details.
 
-# Data Model
+## Data Model
 
 > :construction: Todo: Replace this section with easy graphic and then link to detailed document with this information.
 
@@ -109,19 +109,22 @@ Observations are organized by a `sequence_id` of the form:
 `<UNIT_ID>_<CAMERA_ID>_<SEQUENCE_START_TIME>`.
 
 Collection: `observations`  
-Document ID: `sequence_id`
+Document ID: `sequence_id`  
+Notes:
+
+  * An observation will always have `ra` and `dec` columns but the values may be `null`. Typically this indicates the file has not been properly plate-solved.
 
 ```json
 {
-    PAN001_14d3bd_20180216T110623: {
-        unit_id: "PAN001",
-        camera_id: "14d3bd",
-        software_version: "POCSv0.6.0",
-        ra: 135.859993568,
-        dec: 28.4376569571,
-        exptime: 120
-        status: "receiving_files",
-        time: DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>),
+    "PAN001_14d3bd_20180216T110623": {
+        "unit_id": "PAN001",
+        "camera_id": "14d3bd",
+        "software_version": "POCSv0.6.0",
+        "ra": 135.859993568,
+        "dec": 28.4376569571,
+        "exptime": 120,
+        "status": "receiving_files",
+        "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>)
     }
 }
 ```
@@ -139,20 +142,20 @@ Document ID: `image_id`
 
 ```json
 {
-PAN001_14d3bd_20180216T112430: {
-    ha_mnt: 1.919988307895942,       # From the mount
-    ra_mnt: 133.1505416666667,       # From the mount
-    dec_mnt: 28.33138888888889,      # From the mount
-    ra_image: 135.884026231,         # From plate solve
-    dec_image: 28.3746828541,        # From plate solve
-    exptime: 120,
-    moonfrac: 0.003716693699630014,
-    moonsep: 21.88964559220797,
-    airmass: 1.126544582361047,
-    bucket_path: "PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
-    sequence_id: "PAN001_14d3bd_20180216T110623",
-    status: "uploaded"
-    time: DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>),
+"PAN001_14d3bd_20180216T112430": {
+    "ha_mnt": 1.919988307895942,       # From the mount
+    "ra_mnt": 133.1505416666667,       # From the mount
+    "dec_mnt": 28.33138888888889,      # From the mount
+    "ra_image": 135.884026231,         # From plate solve
+    "dec_image": 28.3746828541,        # From plate solve
+    "exptime": 120,
+    "moonfrac": 0.003716693699630014,
+    "moonsep": 21.88964559220797,
+    "airmass": 1.126544582361047,
+    "bucket_path": "PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
+    "sequence_id": "PAN001_14d3bd_20180216T110623",
+    "status": "uploaded",
+    "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>)
   }    
 }
 ```
@@ -169,7 +172,7 @@ as a lookup on many public sites.
 
 _coming soon..._
 
-# Services
+## Services
 <a href="#" id="services"></a>
 
 There are a few different categories of services that are in use on the panoptes-network.
@@ -183,7 +186,7 @@ There are a few different categories of services that are in use on the panoptes
 | [`lookup-field`](lookup-field/README.md)       | Http    | A simple service to lookup astronomical sources by search term. |
 | [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.                      |
 
-## Deploying services
+### Deploying services
 <a href="#" id="deploying-services"></a>
 <a href="#" id="deploy"></a>
 
@@ -193,7 +196,7 @@ command takes the service name as a parameter:
 ```bash
 $ bin/deploy record-image
 ```
-## Creating new services
+### Creating new services
 
 > Todo: More here.
 
