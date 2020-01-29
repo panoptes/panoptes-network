@@ -1,18 +1,19 @@
 # PANOPTES Data Explorer
 
 - [PANOPTES Data Explorer](#panoptes-data-explorer)
-  - [Develop](#develop)
+  - [Data Explorer](#data-explorer)
+  - [Development](#development)
     - [Setup](#setup)
-    - [Development](#development)
+      - [Environment](#environment)
+      - [Web App](#web-app)
+    - [Development](#development-1)
     - [Deploy](#deploy)
+
+## Data Explorer
 
 The PANOPTES Data Explorer can be used to find information about PANOPTES data.
 
-## Develop
-
 The PANOPTES Data Explorer is the main source for public access to the PANOPTES data. This includes science data, both raw and processed data products, as well as metadata about the PANOPTES units, their observations, weather, etc.
-
-The Data Explorer is a single page web application ([SPA](https://en.wikipedia.org/wiki/Single-page_application)) that serves
 
 The Data Explorer uses the following:
 
@@ -23,7 +24,26 @@ The Data Explorer uses the following:
   - [Vue CLI](https://cli.vuejs.org/guide/) (web framework bootstrap)
   - [Vuetify](https://vuetifyjs.com/en/getting-started/quick-start) (web UI framework)
 
+## Development
+
 ### Setup
+
+#### Environment
+
+You must first have an environment that has an appropriate version of nodejs installed.  The easiest way
+to do this with an [Anaconda](https://www.anaconda.com/) environment. Assuming you already have `conda` installed (see link for details):
+
+```bash
+conda create -n panoptes-data-explorer python=3.7 nodejs=10
+```
+
+Then when before working on the Data Explorer:
+
+```bash
+conda activate panoptes-data-explorer
+```
+
+#### Web App
 
 For an initial setup the package dependencies must be installed from the root directory of the web app:
 
