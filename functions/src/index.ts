@@ -22,6 +22,12 @@ export const formatFirestoreRow = (data: any) => {
       data['dec'] = data['dec'].toFixed(3);
     }
 
+    if ('location' in data && data['location'] !== null) {
+      data['latitude'] = data['location'].latitude;
+      data['longitude'] = data['location'].longitude;
+      delete data.location;
+    }    
+
     return data;
   }
 };
@@ -30,7 +36,7 @@ export const getRecentObservations = functions.https.onCall(async (data, context
   const limit = data.limit;
   const observationList: any[] = [];
   try {
-    const querySnapshot = await db.collection("observations").orderBy('time').limit(limit).get();
+    const querySnapshot = await db.collection("observations").orderBy('time', 'desc').limit(limit).get();
     querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const obsData = formatFirestoreRow(doc.data());
       obsData['sequence_id'] = doc.id;
