@@ -1,2 +1,5 @@
+google-auth
+google-cloud-firestore
 halo
+mock
 panoptes-utils
