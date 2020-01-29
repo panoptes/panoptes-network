@@ -3,6 +3,8 @@
   "version": "0.0.5",
   "private": true,
   "scripts": {
+    "install": "cd data-explorer && npm install . && cd ..",
+    "emulate": "cd functions && npm run serve && cd ..",
     "serve": "cd data-explorer && npm run serve && cd ..",
     "build": "cd data-explorer && npm run build && cd ..",
     "test:unit": "cd data-explorer && npm run test:unit && cd .."
