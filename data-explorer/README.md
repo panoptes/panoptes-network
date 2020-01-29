@@ -6,7 +6,7 @@
     - [Setup](#setup)
       - [Environment](#environment)
       - [Web App](#web-app)
-    - [Development](#development-1)
+    - [Develop](#develop)
     - [Deploy](#deploy)
 
 ## Data Explorer
@@ -52,7 +52,7 @@ For an initial setup the package dependencies must be installed from the root di
 npm run install
 ```
 
-### Development
+### Develop
 
 For development you need to start the local firebase emulators and the development web server. These need to be started in separate terminals and will stay running while you do development.
 
