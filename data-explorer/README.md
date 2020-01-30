@@ -21,8 +21,8 @@ The Data Explorer uses the following:
   - [Nodejs](https://nodejs.org) (runtime and package management)
   - [TypeScript](https://www.typescriptlang.org/) (language version)
   - [Vue](https://vuejs.org) (web framework)
-  - [Vue CLI](https://cli.vuejs.org/guide/) (web framework bootstrap)
-  - [Vuetify](https://vuetifyjs.com/en/getting-started/quick-start) (web UI framework)
+  - [Nuxt](https://nuxtjs.org/) (Vue scaffolding and project management)
+  - [Vuetify](https://vuetifyjs.com/en/getting-started/quick-start) (Vue UI framework)
 
 ## Development
 
