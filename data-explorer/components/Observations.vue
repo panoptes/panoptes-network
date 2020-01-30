@@ -49,8 +49,6 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
-
 export default {
   name: 'Observations',
   filters: {
@@ -67,9 +65,14 @@ export default {
     }
   },
   computed: {
-    ...mapState(['units', 'searchModel', 'observations']),
-    isSearching: () => {
-      return this.searchModel.isSearching.observations
+    observations() {
+      return this.$store.state.model.observations
+    },
+    lightcurves() {
+      return this.$store.state.model.lightcurves
+    },
+    isSearching() {
+      return this.$store.state.search.isSearching.observations
     }
   },
   props: ['perPage', 'dense'],

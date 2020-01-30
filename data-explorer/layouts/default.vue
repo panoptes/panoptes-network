@@ -55,6 +55,8 @@
 </template>
 
 <script>
+import { mapState } from 'vuex'
+
 import PanLogo from '~/components/PanLogo.vue'
 
 export default {
@@ -90,9 +92,11 @@ export default {
       ],
       miniVariant: false,
       right: true,
-      rightDrawer: false,
-      title: 'PANOPTES Data Explorer'
+      rightDrawer: false
     }
+  },
+  computed: {
+    ...mapState(['title'])
   }
 }
 </script>

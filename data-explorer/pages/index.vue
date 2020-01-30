@@ -15,7 +15,7 @@
         <!-- Lightcurves -->
         <v-expansion-panel>
           <v-expansion-panel-header
-            >Lightcurves ({{ sources.length }})
+            >Lightcurves ({{ lightcurves.length }})
           </v-expansion-panel-header>
           <v-expansion-panel-content>
             <div class="text-center">
@@ -29,23 +29,27 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
-
 // @ is an alias to /src
 import Observations from '@/components/Observations'
-// import Sources from '@/components/Sources'
 
 export default {
   name: 'Home',
   components: {
     Observations
-    // Sources
+  },
+  async fetch({ store, params }) {
+    await store.dispatch('model/GET_RECENT')
   },
   data: () => ({
     openPanels: [0, 1]
   }),
   computed: {
-    ...mapState(['observations', 'searchModel'])
+    observations() {
+      return this.$store.state.model.observations
+    },
+    lightcurves() {
+      return this.$store.state.model.lightcurves
+    }
   }
 }
 </script>
