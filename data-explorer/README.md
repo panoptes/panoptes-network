@@ -1,22 +1,74 @@
-# data-explorer
+# PANOPTES Data Explorer
 
-> PANOPTES Data Explorer
+- [PANOPTES Data Explorer](#panoptes-data-explorer)
+  - [Data Explorer](#data-explorer)
+  - [Development](#development)
+    - [Setup](#setup)
+      - [Environment](#environment)
+      - [Web App](#web-app)
+    - [Develop](#develop)
+    - [Deploy](#deploy)
 
-## Build Setup
+## Data Explorer
 
-``` bash
-# install dependencies
-$ npm run install
+The PANOPTES Data Explorer can be used to find information about PANOPTES data.
 
-# serve with hot reload at localhost:3000
-$ npm run dev
+The PANOPTES Data Explorer is the main source for public access to the PANOPTES data. This includes science data, both raw and processed data products, as well as metadata about the PANOPTES units, their observations, weather, etc.
 
-# build for production and launch server
-$ npm run build
-$ npm run start
+The Data Explorer uses the following:
 
-# generate static project
-$ npm run generate
+- JavaScript:
+  - [Nodejs](https://nodejs.org) (runtime and package management)
+  - [TypeScript](https://www.typescriptlang.org/) (language version)
+  - [Vue](https://vuejs.org) (web framework)
+  - [Nuxt](https://nuxtjs.org/) (Vue scaffolding and project management)
+  - [Vuetify](https://vuetifyjs.com/en/getting-started/quick-start) (Vue UI framework)
+
+## Development
+
+### Setup
+
+#### Environment
+
+You must first have an environment that has an appropriate version of nodejs installed.  The easiest way
+to do this with an [Anaconda](https://www.anaconda.com/) environment. Assuming you already have `conda` installed (see link for details):
+
+```bash
+conda create -n panoptes-data-explorer python=3.7 nodejs=10
 ```
 
-For detailed explanation on how things work, check out [Nuxt.js docs](https://nuxtjs.org).
+Then when before working on the Data Explorer:
+
+```bash
+conda activate panoptes-data-explorer
+```
+
+#### Web App
+
+For an initial setup the package dependencies must be installed from the root directory of the web app:
+
+```bash
+# Install dependencies
+npm run install
+```
+
+### Develop
+
+For development you need to start the local firebase emulators and the development web server. These need to be started in separate terminals and will stay running while you do development.
+
+```bash
+# Run the firebase emulators
+npm run emulate
+```
+
+In a separate terminal:
+
+```bash
+# Run the development server
+npm run serve
+```
+
+### Deploy
+
+See [Deployment](../README.md#deploy) in main README for preferred deployment method.
+
