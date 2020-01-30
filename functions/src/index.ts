@@ -87,8 +87,6 @@ export const imagesCountIncrement = functions.firestore
         });
       });
     })
-      .then(() => console.log('Image count incremented'))
-      .catch((err: any) => { console.log(err) });
   });
 
 export const imagesCountDecrement = functions.firestore
