@@ -61,6 +61,12 @@ For development you need to start the local firebase emulators and the developme
 npm run emulate
 ```
 
+The emulator must be populated each time it is started:
+
+```bash
+npm run init
+```
+
 In a separate terminal:
 
 ```bash
