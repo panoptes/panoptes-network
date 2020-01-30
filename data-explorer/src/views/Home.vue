@@ -8,11 +8,15 @@
       </v-expansion-panel-content>
     </v-expansion-panel>
 
-    <!-- Observations -->
+    <!-- Lightcurves -->
     <v-expansion-panel>
-      <v-expansion-panel-header>Sources ({{ sources.length }})</v-expansion-panel-header>
+      <v-expansion-panel-header>Lightcurves ({{ sources.length }})</v-expansion-panel-header>
       <v-expansion-panel-content>
-        <Sources :perPage="5" :dense="true" />
+        <div class="text-center">
+          <v-sheet class="yellow lighten-4">
+            Coming Soon!
+          </v-sheet>
+        </div>
       </v-expansion-panel-content>
     </v-expansion-panel>
   </v-expansion-panels>
