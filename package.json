@@ -5,7 +5,8 @@
   "scripts": {
     "install": "cd data-explorer && npm install . && cd ..",
     "emulate": "cd functions && npm run serve && cd ..",
-    "serve": "python resources/populate-fs-emulator.py resources/firestore.emulator.data.json && cd data-explorer && npm run serve && cd ..",
+    "init": "python resources/populate-fs-emulator.py resources/firestore.emulator.data.json",
+    "serve": "cd data-explorer && npm run serve && cd ..",
     "build": "cd data-explorer && npm run build && cd ..",
     "test:unit": "cd data-explorer && npm run test:unit && cd .."
   },
