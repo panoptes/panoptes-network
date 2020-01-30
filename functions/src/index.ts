@@ -111,8 +111,6 @@ export const imagesCountDecrement = functions.firestore
         });
       });
     })
-      .then(() => console.log('Image count decremented'))
-      .catch((err: any) => { console.log(err) });
   });
 
 export const obsevationsCountIncrement = functions.firestore
@@ -130,8 +128,6 @@ export const obsevationsCountIncrement = functions.firestore
         });
       });
     })
-      .then(() => console.log('Observation count incremented'))
-      .catch((err: any) => { console.log(err) });
   });
 
 export const obsevationsCountDecrement = functions.firestore
@@ -149,6 +145,4 @@ export const obsevationsCountDecrement = functions.firestore
         });
       });
     })
-      .then(() => console.log('Observation count decremented'))
-      .catch((err: any) => { console.log(err) });
   });
