@@ -11,7 +11,7 @@
     "sources": "functions"
   },
   "hosting": {
-    "public": "public",
+    "public": "data-explorer/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
