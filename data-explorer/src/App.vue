@@ -85,8 +85,8 @@
       items: [
         // { icon: 'mdi-robot', text: 'Units', link: 'units' },
         { icon: 'mdi-home', text: 'Home', link: 'home' },
-        { icon: 'mdi-star-box-multiple-outline', text: 'Observations', link: 'observations' },
-        { icon: 'mdi-star-face', text: 'Stars', link: 'stars' },
+        // { icon: 'mdi-star-box-multiple-outline', text: 'Observations', link: 'observations' },
+        // { icon: 'mdi-star-face', text: 'Stars', link: 'stars' },
       ],
     }),
   }
