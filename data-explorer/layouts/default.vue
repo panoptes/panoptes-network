@@ -8,6 +8,7 @@
       app
     >
       <v-list>
+        <PanLogo />
         <v-list-item
           v-for="(item, i) in items"
           :key="i"
@@ -54,7 +55,12 @@
 </template>
 
 <script>
+import PanLogo from '~/components/PanLogo.vue'
+
 export default {
+  components: {
+    PanLogo
+  },
   data() {
     return {
       clipped: false,
