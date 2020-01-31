@@ -38,6 +38,7 @@ export default {
     Observations
   },
   async fetch({ store, params }) {
+    // Lookup the most recent on page load.
     await store.dispatch('model/GET_RECENT')
   },
   data: () => ({
