@@ -15,36 +15,30 @@
       v-model="selectedObservations"
       :dense="dense"
       :headers="fields"
-      :items="observations"
+      :items="state.model.observations"
       :items-per-page="perPage"
       :search="search"
-      :loading="isSearching"
+      :loading="state.search.isSearching.observations"
       order-by="time"
       class="elevation-1"
     >
       <template v-slot:item.sequence_id="{ item }">
         <nuxt-link :to="'/observations/' + item.sequence_id">
-          {{ item.sequence_id }}
+          {{
+          item.sequence_id
+          }}
         </nuxt-link>
       </template>
-      <template v-slot:item.ra="{ item }">
-        {{ item.ra | roundVal }}
-      </template>
-      <template v-slot:item.dec="{ item }">
-        {{ item.dec | roundVal }}
-      </template>
-      <template v-slot:item.time="{ item }">
-        {{ item.time | moment('utc', 'YYYY-MM-DD HH:mm:ss') }}
-      </template>
-      <template v-slot:item.status="{ item }">
-        {{ item.status }}
-      </template>
+      <template v-slot:item.ra="{ item }">{{ item.ra | roundVal }}</template>
+      <template v-slot:item.dec="{ item }">{{ item.dec | roundVal }}</template>
+      <template v-slot:item.time="{ item }">{{ item.time | moment('utc', 'YYYY-MM-DD HH:mm:ss') }}</template>
+      <template v-slot:item.status="{ item }">{{ item.status }}</template>
     </v-data-table>
     <v-card-actions align="right">
       <v-spacer />
-      <v-btn :disabled="!selectedObservations.length" small>
+      <!-- <v-btn :disabled="state.search.hasResults" small>
         <v-icon>mdi-table</v-icon>Get CSV
-      </v-btn>
+      </v-btn> -->
     </v-card-actions>
   </v-card>
 </template>
@@ -127,14 +121,8 @@ export default {
     }
   },
   computed: {
-    observations() {
-      return this.$store.state.model.observations
-    },
-    lightcurves() {
-      return this.$store.state.model.lightcurves
-    },
-    isSearching() {
-      return this.$store.state.search.isSearching.observations
+    state() {
+      return this.$store.state
     }
   }
 }
