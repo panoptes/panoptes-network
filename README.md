@@ -154,19 +154,13 @@ Document ID: `image_id`
 
 #### Star
 
-Stellar information is identified by the PANOPTES Input Catalog ID (PICID) and consists of processed runs
-of a single observation. An observation could be processed in multiple ways by the processing run.
-
-Note that the PICID corresponds the the [TESS Input Catalog ID (TICID)](https://archive.stsci.edu/tess/) and thus the same number can be used
-as a lookup on many public sites.
+_coming soon..._
 
 #### Lightcurve
 
 _coming soon..._
 
 ## Data Explorer
-
-> :construction: Todo: Add more about data explorer here.
 
 The Data Explorer is a web-based tool to explore PANOPTES data at the observation and lightcurve level.
 
