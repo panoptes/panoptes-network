@@ -14,10 +14,7 @@
     </div>
     <div class="columns">
       <div class="column">
-        <b-tabs
-          @change="switchTab"
-          type="is-toggle"
-          >
+        <b-tabs type="is-toggle" @change="switchTab">
           <b-tab-item label="Data">
             <LightcurvePlot />
             }
@@ -28,7 +25,7 @@
           <b-tab-item label="Ref Locations">
             <ReferenceLocationsPlot />
           </b-tab-item>
-    <!--         <b-tab-item label="Ref Distances" v-if="sourceRunDetail.files.plots">
+          <!--         <b-tab-item label="Ref Distances" v-if="sourceRunDetail.files.plots">
             <a :href="sourceRunDetail.files.plots['reference-pairplot']" target="_blank">
               <b-img :src="sourceRunDetail.files.plots['reference-pairplot']"></b-img>
             </a>
@@ -44,13 +41,13 @@
           <b-tab-item label="Pixel Drift">
             <PixelDriftPlot />
           </b-tab-item>
-    <!--         <b-tab-item label="Ref Vmags" v-if="sourceRunDetail.files.plots">
+          <!--         <b-tab-item label="Ref Vmags" v-if="sourceRunDetail.files.plots">
             <a :href="sourceRunDetail.files.plots['reference-vmags']" target="_blank">
               <b-img :src="sourceRunDetail.files.plots['reference-vmags']">
               </b-img>
             </a>
           </b-tab-item> -->
-          <b-tab-item label="Files" v-if="sourceRunDetail">
+          <b-tab-item v-if="sourceRunDetail" label="Files">
             <ul>
               <li v-for="file in sourceRunDetail.files">
                 <a :href="file">{{ file }}</a>
@@ -61,7 +58,6 @@
       </div>
     </div>
   </section>
-
 </template>
 
 <script>
@@ -86,44 +82,46 @@ export default {
     PiaaList
   },
   methods: {
-    roundVal : function(value) {
-      return Number(value).toFixed(3);
+    roundVal: function(value) {
+      return Number(value).toFixed(3)
     },
-    leadingZeros : function(num) {
-      var size = 3;
-      var s = String(num);
-      while (s.length < (size || 2)) {s = "0" + s;}
-      return s;
+    leadingZeros: function(num) {
+      var size = 3
+      var s = String(num)
+      while (s.length < (size || 2)) {
+        s = '0' + s
+      }
+      return s
     },
-    switchTab: function(tabIndex){
-      switch(tabIndex){
+    switchTab: function(tabIndex) {
+      switch (tabIndex) {
         case 0:
-          this.$store.dispatch('getLightcurve');
-          break;
+          this.$store.dispatch('getLightcurve')
+          break
         case 1:
-          this.$store.dispatch('getRawCounts');
+          this.$store.dispatch('getRawCounts')
           break
         case 2:
-          this.$store.dispatch('getReferenceLocations');
-          break;
+          this.$store.dispatch('getReferenceLocations')
+          break
         case 3:
-          this.$store.dispatch('getPixelDrift');
-          break;
+          this.$store.dispatch('getPixelDrift')
+          break
       }
     },
-    ...mapActions([
-      'setSource'
-    ])
+    ...mapActions(['setSource'])
   },
   filters: {
-    roundVal : function(value) {
-      return Number(value).toFixed(3);
+    roundVal: function(value) {
+      return Number(value).toFixed(3)
     },
-    leadingZeros : function(num) {
-      var size = 3;
-      var s = String(num);
-      while (s.length < (size || 2)) {s = "0" + s;}
-      return s;
+    leadingZeros: function(num) {
+      var size = 3
+      var s = String(num)
+      while (s.length < (size || 2)) {
+        s = '0' + s
+      }
+      return s
     }
   },
   computed: {
@@ -139,13 +137,13 @@ export default {
       'frameIndex'
     ])
   },
-  created () {
+  created() {
     // Check to see if store has the picid set.
-    if (this.picid === null || this.sourceRecord === null){
-      this.setSource(this.$route.params.picid);
+    if (this.picid === null || this.sourceRecord === null) {
+      this.setSource(this.$route.params.picid)
     }
   },
-  data () {
+  data() {
     return {
       loading: true
     }
@@ -158,7 +156,8 @@ export default {
 .header {
   font-size: 0.9rem;
 }
-h1, h2 {
+h1,
+h2 {
   font-weight: normal;
 }
 a {
@@ -173,5 +172,4 @@ table th {
   overflow: scroll;
   -webkit-overflow-scrolling: touch;
 }
-
 </style>

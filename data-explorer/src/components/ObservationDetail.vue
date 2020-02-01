@@ -1,25 +1,25 @@
 <template>
-<b-card>
-  <b-tabs card>
-    <b-tab title="info" active>
-      <b-card header="Info">
-        <ObservationSummary
-          :sequence="sequence"
-          :sequenceDir="sequenceDir"
-        />
-      </b-card>
-      <b-card
-        no-body
-        :header="'Images (' + images.length + ')'"
+  <b-card>
+    <b-tabs card>
+      <b-tab title="info" active>
+        <b-card header="Info">
+          <ObservationSummary
+            :sequence="sequence"
+            :sequence-dir="sequenceDir"
+          />
+        </b-card>
+        <b-card
+          no-body
+          :header="'Images (' + images.length + ')'"
+          <b-card-body
         >
-        <b-card-body>
           <b-table
             :items="images"
             :fields="fields"
             :per-page="perPage"
             :current-page="currentPage"
             sort-by="imgtime"
-            :sort-desc=false
+            :sort-desc="false"
             caption-top
             bordered
             striped
@@ -27,80 +27,83 @@
             hoverable
             small
           >
-          <template v-slot:cell(imgtime)="data">
-            {{ data.value | moment("HH:mm:ss") }}
-          </template>
-          <template v-slot:cell(airmass)="data">
-            {{ data.value | roundVal }}
-          </template>
-          <template v-slot:cell(file_path)="data">
-            FITS:
+            <template v-slot:cell(imgtime)="data">
+              {{ data.value | moment("HH:mm:ss") }}
+            </template>
+            <template v-slot:cell(airmass)="data">
+              {{ data.value | roundVal }}
+            </template>
+            <template v-slot:cell(file_path)="data">
+              FITS:
               <b-link
-              v-if="jpg_files"
-              :href="data.value.replace('.fits.fz', '_r.fits').replace()" target="_blank"
-              >R </b-link>
-
-            <b-link
-              v-if="jpg_files"
-              :href="data.value.replace('.fits.fz', '_g.fits')" target="_blank"
-              >G </b-link>
-
-            <b-link
-              v-if="jpg_files"
-              :href="data.value.replace('.fits.fz', '_b.fits')" target="_blank"
-              >B </b-link>
-              JPG
-            <b-link
-              v-if="jpg_files"
-              :href="data.value.replace('.fits.fz', '.jpg')" target="_blank"
+                v-if="jpg_files"
+                :href="data.value.replace('.fits.fz', '_r.fits').replace()" target="_blank"
               >
-              <font-awesome-icon icon="image"></font-awesome-icon>
-            </b-link>
-          </template>
-        </b-table>
-        <b-row>
-          <b-col cols="6">
-            <b-button size='sm' variant='link'>
-              <a :href='"http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=" + sequenceId'>Download file list</a>
-            </b-button>
-            <font-awesome-icon icon="question-circle" id="downloadList"></font-awesome-icon>
+                R
+              </b-link>
 
-          </b-col>
-          <b-popover target="downloadList" triggers="hover focus" delay="500">
-             <template slot="title">Download File List</template>
-             Clicking this link will download a text file that contains a list
-             of FITS files for this observation.
+              <b-link
+                v-if="jpg_files"
+                :href="data.value.replace('.fits.fz', '_g.fits')" target="_blank"
+              >
+                G
+              </b-link>
 
-             You can use a tool like <code>wget</code> or <code>curl</code> to download
-             the files:
-             <br/><br/>
-             <code>wget -i {{sequenceId}}.txt</code>
-          </b-popover>
-          <b-col cols="6">
-            <b-pagination
-              :total-rows="images.length"
-              :per-page="perPage"
-              v-model="currentPage"
-              class="float-right"
-               />
-          </b-col>
-        </b-row>
-        </b-card-body>
-      </b-card>
-    </b-tab>
-    <b-tab
-      title="timelapse"
-      :disabled="timelapseUrl == ''"
+              <b-link
+                v-if="jpg_files"
+                :href="data.value.replace('.fits.fz', '_b.fits')" target="_blank"
+              >
+                B
+              </b-link>
+              JPG
+              <b-link
+                v-if="jpg_files"
+                :href="data.value.replace('.fits.fz', '.jpg')" target="_blank"
+              >
+                <font-awesome-icon icon="image" />
+              </b-link>
+            </template>
+          </b-table>
+          <b-row>
+            <b-col cols="6">
+              <b-button size="sm" variant="link">
+                <a :href="&quot;http://us-central1-panoptes-survey.cloudfunctions.net/observation-file-list?sequence_id=&quot; + sequenceId">Download file list</a>
+              </b-button>
+              <font-awesome-icon id="downloadList" icon="question-circle" />
+            </b-col>
+            <b-popover target="downloadList" triggers="hover focus" delay="500">
+              <template slot="title">
+                Download File List
+              </template>
+              Clicking this link will download a text file that contains a list
+              of FITS files for this observation.
+
+              You can use a tool like <code>wget</code> or <code>curl</code> to download
+              the files:
+              <br><br>
+              <code>wget -i {{ sequenceId }}.txt</code>
+            </b-popover>
+            <b-col cols="6">
+              <b-pagination
+                v-model="currentPage"
+                :total-rows="images.length"
+                :per-page="perPage"
+                class="float-right"
+              />
+            </b-col>
+          </b-row>
+          </b-card-body>
+        </b-card>
+      </b-tab>
+      <b-tab
+        title="timelapse"
+        :disabled="timelapseUrl == ''"
+        <b-embed type="video" controls :src="timelapseUrl"
       >
-      <b-embed
-        type="video"
-        controls
-        :src="timelapseUrl"
-      >
-      </b-embed>
-    </b-tab>
-  </b-tabs>
-</b-card>
+</b-embed>
+      </b-tab>
+    </b-tabs>
+  </b-card>
 </template>
 
 <script>
@@ -153,11 +156,11 @@ export default {
   //     .finally(() => (this.loading = false))
   // },
   filters: {
-    roundVal : function(value) {
-      return Number(value).toFixed(3);
+    roundVal: function(value) {
+      return Number(value).toFixed(3)
     }
   },
-  data () {
+  data() {
     return {
       sequenceId: this.$route.params.sequenceId,
       info: {},
@@ -179,7 +182,12 @@ export default {
         { label: 'HA', key: 'ha_mnt', sortable: true },
         { label: 'Airmass', key: 'airmass', sortable: true },
         { label: 'Exptime', key: 'exptime', sortable: true },
-        { label: 'Image', key: 'file_path', sortable: false, tdClass: 'text-center' }
+        {
+          label: 'Image',
+          key: 'file_path',
+          sortable: false,
+          tdClass: 'text-center'
+        }
       ]
     }
   }
@@ -188,7 +196,8 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-h1, h2 {
+h1,
+h2 {
   font-weight: normal;
 }
 a {

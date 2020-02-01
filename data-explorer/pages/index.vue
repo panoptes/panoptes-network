@@ -4,22 +4,24 @@
       <v-expansion-panels :value="openPanels" accordion flat multiple>
         <!-- Observations -->
         <v-expansion-panel>
-          <v-expansion-panel-header
-            >Observations ({{ observations.length }})
+          <v-expansion-panel-header>
+            Observations ({{ observations.length }})
           </v-expansion-panel-header>
           <v-expansion-panel-content>
-            <Observations :perPage="5" :dense="true" />
+            <Observations :per-page="5" :dense="true" />
           </v-expansion-panel-content>
         </v-expansion-panel>
 
         <!-- Lightcurves -->
         <v-expansion-panel>
-          <v-expansion-panel-header
-            >Lightcurves ({{ lightcurves.length }})
+          <v-expansion-panel-header>
+            Lightcurves ({{ lightcurves.length }})
           </v-expansion-panel-header>
           <v-expansion-panel-content>
             <div class="text-center">
-              <v-sheet class="yellow lighten-4">Coming Soon!</v-sheet>
+              <v-sheet class="yellow lighten-4">
+                Coming Soon!
+              </v-sheet>
             </div>
           </v-expansion-panel-content>
         </v-expansion-panel>
@@ -48,7 +50,7 @@ export default {
       return this.$store.state.model.lightcurves
     }
   },
-  async fetch({ store, params }) {
+  async fetch({ store }) {
     // Lookup the most recent on page load.
     await store.dispatch('model/GET_RECENT')
   }

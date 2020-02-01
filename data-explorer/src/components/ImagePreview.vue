@@ -1,40 +1,38 @@
 <template>
-<article class="media">
-  <figure class="media-left" @click="isImageModalActive = true">
+  <article class="media">
+    <figure class="media-left" @click="isImageModalActive = true">
       <p class="image is-128x128">
-        <img :src="image.file_path | toJpg">
+        <img :src="image.file_path | toJpg" />
       </p>
-    <b-modal :active.sync="isImageModalActive">
-      <figure class="image">
-        <img :src="image.file_path | toJpg">
-      </figure>
-    </b-modal>      
-  </figure>
-  <div class="media-content">
-    <div class="content">
+      <b-modal :active.sync="isImageModalActive">
+        <figure class="image">
+          <img :src="image.file_path | toJpg">
+        </figure>
+      </b-modal>
+    </figure>
+    <div class="media-content">
+      <div class="content">
         <strong> {{ image.obstime }} </strong>
-      <ul>
-        <li v-for="(value, key) in image">
-          {{ key }}: {{ value }}
-        </li>
-      </ul>
+        <ul>
+          <li v-for="(value, key) in image">{{ key }}: {{ value }}</li>
+        </ul>
+      </div>
     </div>
-  </div>
-</article>
+  </article>
 </template>
 
 <script>
 export default {
   name: 'HelloWorld',
+  filters: {
+    toJpg: function(value) {
+      return value.replace('.fits.fz', '.jpg')
+    }
+  },
   props: {
     image: Object
   },
-  filters: {
-    toJpg: function (value) {
-      return value.replace(".fits.fz", ".jpg")
-    }
-  },
-  data () {
+  data() {
     return {
       isImageModalActive: false
     }
@@ -43,5 +41,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
-</style>
+<style scoped lang="scss"></style>

@@ -1,5 +1,5 @@
 <template>
- <v-card outlined>
+  <v-card outlined>
     <v-card-title>
       <v-text-field
         v-model="search"
@@ -7,7 +7,7 @@
         label="Filter Sources"
         single-line
         hide-details
-      ></v-text-field>
+      />
     </v-card-title>
     <v-data-table
       :dense="dense"
@@ -24,12 +24,13 @@
             <td>
               <template slot="header" slot-scope="{ column }">
                 <b-tooltip label="PANOPTES Input Catalog ID" dashed>
-                {{ item.picid }}
+                  {{ item.picid }}
                 </b-tooltip>
               </template>
               <router-link
-                :to="{ name: 'sourceDetail', params: { picid: item.picid }}">
-              {{ item.picid }}
+                :to="{ name: 'sourceDetail', params: { picid: item.picid } }"
+              >
+                {{ item.picid }}
               </router-link>
             </td>
             <td>
@@ -48,7 +49,13 @@
               {{ item.vmag.toFixed(2) }}
             </td>
             <td>
-              <a v-bind:href="'https://exofop.ipac.caltech.edu/tess/target.php?id=' + item.picid" target="_blank">
+              <a
+                :href="
+                  'https://exofop.ipac.caltech.edu/tess/target.php?id=' +
+                    item.picid
+                "
+                target="_blank"
+              >
                 ExoFOP
               </a>
             </td>
@@ -57,8 +64,8 @@
       </template>
     </v-data-table>
 
-    <v-card-actions align="right" v-if="allowDownloads">
-      <v-spacer></v-spacer>
+    <v-card-actions v-if="allowDownloads" align="right">
+      <v-spacer />
       <v-btn small :disabled="!selectedStars.length">
         <v-icon>mdi-table</v-icon> Get CSV
       </v-btn>
@@ -72,34 +79,30 @@ import { mapState, mapActions } from 'vuex'
 export default {
   name: 'Sources',
   computed: {
-    ...mapState([
-      'searchModel',
-      'fromSearch',
-      'sources',
-    ]),
+    ...mapState(['searchModel', 'fromSearch', 'sources']),
     isSearching: function() {
-      return this.searchModel.isSearching['stars'];
+      return this.searchModel.isSearching['stars']
     }
   },
   methods: {
     submitForm: function() {
-      this.$store.dispatch('setSource', this.gotoPicid);
-      this.$router.push({ name: 'sourceDetail', params: { picid: this.gotoPicid }});
+      this.$store.dispatch('setSource', this.gotoPicid)
+      this.$router.push({
+        name: 'sourceDetail',
+        params: { picid: this.gotoPicid }
+      })
     }
   },
   filters: {
-    removeNan: function(val){
-      if (typeof(val) === 'number'){
-        val = '';
+    removeNan: function(val) {
+      if (typeof val === 'number') {
+        val = ''
       }
-      return val;
+      return val
     }
   },
-  props: [
-    'perPage',
-    'dense'
-  ],
-  data () {
+  props: ['perPage', 'dense'],
+  data() {
     return {
       currentPage: 1,
       loading: false,
@@ -149,4 +152,3 @@ export default {
   }
 }
 </script>
-

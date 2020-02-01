@@ -17,6 +17,14 @@ module.exports = {
         content: process.env.npm_package_description || ''
       }
     ],
+    script: [
+      { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-app.js' },
+      { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-auth.js' },
+      { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-storage.js' },
+      { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-firestore.js' },
+      { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-functions.js' },
+      { src: 'http://localhost:5000/__/firebase/init.js' }
+    ],
     link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
   },
   /*
@@ -30,23 +38,23 @@ module.exports = {
   /*
    ** Plugins to load before mounting the App
    */
-  plugins: [],
+  plugins: ['~/plugins/firebase.js', '~/plugins/moment.js'],
   /*
    ** Nuxt.js dev-modules
    */
   buildModules: [
     // Doc: https://github.com/nuxt-community/eslint-module
     '@nuxtjs/eslint-module',
-    '@nuxtjs/vuetify'
+    '@nuxtjs/vuetify',
+    // Doc: https://github.com/nuxt-community/dotenv-module
+    '@nuxtjs/dotenv'
   ],
   /*
    ** Nuxt.js modules
    */
   modules: [
     // Doc: https://axios.nuxtjs.org/usage
-    '@nuxtjs/axios',
-    // Doc: https://github.com/nuxt-community/dotenv-module
-    '@nuxtjs/dotenv'
+    '@nuxtjs/axios'
   ],
   /*
    ** Axios module configuration
@@ -57,6 +65,7 @@ module.exports = {
    ** vuetify module configuration
    ** https://github.com/nuxt-community/vuetify-module
    */
+  moment: {},
   vuetify: {
     customVariables: ['~/assets/variables.scss'],
     theme: {
@@ -81,6 +90,16 @@ module.exports = {
     /*
      ** You can extend webpack config here
      */
-    extend(config, ctx) {}
+    extend(config, ctx) {
+      // Run ESLint on save
+      if (ctx.isDev && ctx.isClient) {
+        config.module.rules.push({
+          enforce: "pre",
+          test: /\.(js|vue)$/,
+          loader: "eslint-loader",
+          exclude: /(node_modules)/
+        })
+      }
+    }
   }
 }

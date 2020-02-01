@@ -1,10 +1,10 @@
 <template>
-    <div>
-      <Plotly
-        :data="plotData"
-        :layout="layout"
-      /></Plotly>
-    </div>
+  <div>
+    <Plotly
+      :data="plotData"
+      :layout="layout"
+    /></Plotly>
+  </div>
 </template>
 
 <script>
@@ -16,20 +16,20 @@ export default {
     components: {
         Plotly
     },
-    methods: {
-        loadData(data){
-            this.plotData[0]['x'] = data.image_time;
-            this.plotData[1]['x'] = data.image_time;
-
-            this.plotData[0]['y'] = data.x_offset;
-            this.plotData[1]['y'] = data.y_offset;
-
-            this.$nextTick();
-        }
-    },
     watch: {
         pixelData: function(newValue, oldValue) {
-          this.loadData(newValue);
+          this.loadData(newValue)
+        }
+    },
+    methods: {
+        loadData(data){
+            this.plotData[0]['x'] = data.image_time
+            this.plotData[1]['x'] = data.image_time
+
+            this.plotData[0]['y'] = data.x_offset
+            this.plotData[1]['y'] = data.y_offset
+
+            this.$nextTick()
         }
     },
     computed: {

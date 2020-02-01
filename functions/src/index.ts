@@ -13,33 +13,57 @@ export const formatFirestoreRow = (data: any) => {
   // Turn into a time object.
   if ('time' in data && data['time'] !== null) {
     data['time'] = data['time'].toDate().toUTCString();
-
-    // Don't return 9 digits of precision.
-    if ('ra' in data && data['ra'] !== null) {
-      data['ra'] = data['ra'].toFixed(3);
-    }
-    if ('dec' in data && data['dec'] !== null) {
-      data['dec'] = data['dec'].toFixed(3);
-    }
-
-    if ('location' in data && data['location'] !== null) {
-      data['latitude'] = data['location'].latitude;
-      data['longitude'] = data['location'].longitude;
-      delete data.location;
-    }    
-
-    return data;
   }
+
+  // Don't return 9 digits of precision.
+  if ('ra' in data && data['ra'] !== null) {
+    data['ra'] = data['ra'].toFixed(3);
+  }
+  if ('dec' in data && data['dec'] !== null) {
+    data['dec'] = data['dec'].toFixed(3);
+  }
+
+  if ('location' in data && data['location'] !== null) {
+    data['latitude'] = data['location'].latitude;
+    data['longitude'] = data['location'].longitude;
+    delete data.location;
+  }
+
+  return data;
 };
 
 export const getRecentObservations = functions.https.onCall(async (data, context) => {
-  const limit = data.limit;
+  let limit: number = 25
+  if ('limit' in data) {
+    limit = data.limit;
+  }
   const observationList: any[] = [];
   try {
     const querySnapshot = await db.collection("observations").orderBy('time', 'desc').limit(limit).get();
     querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const obsData = formatFirestoreRow(doc.data());
       obsData['sequence_id'] = doc.id;
+      observationList.push(obsData);
+    });
+    return observationList;
+  }
+  catch (err) {
+    console.error(err);
+    return observationList;
+  }
+});
+
+export const getRecentLightcurves = functions.https.onCall(async (data, context) => {
+  let limit: number = 25
+  if ('limit' in data) {
+    limit = data.limit;
+  }
+  const observationList: any[] = [];
+  try {
+    const querySnapshot = await db.collection("lightcurves").orderBy('time', 'desc').limit(limit).get();
+    querySnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const obsData = formatFirestoreRow(doc.data());
+      obsData['lightcurve_id'] = doc.id;
       observationList.push(obsData);
     });
     return observationList;

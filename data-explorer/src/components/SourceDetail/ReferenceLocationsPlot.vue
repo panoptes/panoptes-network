@@ -1,10 +1,10 @@
 <template>
-    <div>
-      <Plotly
-        :data="plotData"
-        :layout="layout"
-      /></Plotly>
-    </div>
+  <div>
+    <Plotly
+      :data="plotData"
+      :layout="layout"
+    /></Plotly>
+  </div>
 </template>
 
 <script>
@@ -16,35 +16,35 @@ export default {
     components: {
         Plotly
     },
+    watch: {
+        locationData: function(newValue, oldValue) {
+          this.loadData(newValue)
+        }
+    },
     methods: {
         loadData(data){
           if (data.x !== undefined){
-            this.plotData[0]['x'] = data.x;
-            this.plotData[0]['y'] = data.y;
-            this.plotData[0].marker.color = data.score_rank;
+            this.plotData[0]['x'] = data.x
+            this.plotData[0]['y'] = data.y
+            this.plotData[0].marker.color = data.score_rank
 
             for (var i = data.x.length - 1; i >= 0; i--) {
-              let labelText = 'Score Rank: ' + data.score_rank[i];
-              labelText += '<br />';
-              labelText += 'Score (x100): ' + (data.score[i] * 100).toFixed(3);
-              labelText += '<br />';
-              labelText += 'Coeff: ' + data.coeffs[i].toFixed(3);
-              this.plotData[0].text.push(labelText);
+              let labelText = 'Score Rank: ' + data.score_rank[i]
+              labelText += '<br />'
+              labelText += 'Score (x100): ' + (data.score[i] * 100).toFixed(3)
+              labelText += '<br />'
+              labelText += 'Coeff: ' + data.coeffs[i].toFixed(3)
+              this.plotData[0].text.push(labelText)
 
               // let markerSize = 1 / (data.score_rank[i] / 80);
               // this.plotData[0].marker.size.push(markerSize);
             }
 
-            this.plotData[1]['x'] = [data.x[0]];
-            this.plotData[1]['y'] = [data.y[0]];
+            this.plotData[1]['x'] = [data.x[0]]
+            this.plotData[1]['y'] = [data.y[0]]
 
-            this.$nextTick();
+            this.$nextTick()
           }
-        }
-    },
-    watch: {
-        locationData: function(newValue, oldValue) {
-          this.loadData(newValue);
         }
     },
     computed: {
