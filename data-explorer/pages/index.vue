@@ -37,10 +37,6 @@ export default {
   components: {
     Observations
   },
-  async fetch({ store, params }) {
-    // Lookup the most recent on page load.
-    await store.dispatch('model/GET_RECENT')
-  },
   data: () => ({
     openPanels: [0, 1]
   }),
@@ -51,6 +47,10 @@ export default {
     lightcurves() {
       return this.$store.state.model.lightcurves
     }
+  },
+  async fetch({ store, params }) {
+    // Lookup the most recent on page load.
+    await store.dispatch('model/GET_RECENT')
   }
 }
 </script>
