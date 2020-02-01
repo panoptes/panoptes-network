@@ -27,7 +27,9 @@
     </v-navigation-drawer>
     <v-app-bar :clipped-left="clipped" fixed app>
       <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-      <v-toolbar-title v-text="title" />
+      <v-toolbar-title style="width: 300px" class="ml-0 pl-4">
+        <span class="hidden-sm-and-down">{{ title }}</span>
+      </v-toolbar-title>
       <v-spacer />
     </v-app-bar>
     <v-content>
@@ -56,12 +58,13 @@
 
 <script>
 import { mapState } from 'vuex'
-
-import PanLogo from '~/components/PanLogo.vue'
+// import { Search } from '@/components/Search.vue'
+import PanLogo from '@/components/PanLogo.vue'
 
 export default {
   components: {
     PanLogo
+    // Search
   },
   data() {
     return {
