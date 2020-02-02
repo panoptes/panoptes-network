@@ -45,11 +45,21 @@ export const getRecentObservations = functions.https.onCall(async (data, context
       obsData['sequence_id'] = doc.id;
       observationList.push(obsData);
     });
-    return observationList;
+    return observationList;observationList
   }
   catch (err) {
     console.error(err);
     return observationList;
+  }
+});
+
+export const getObservation = functions.https.onCall(async (data, context) => {
+  try {
+    return await db.collection("observations").doc(data.sequence_id).get();
+  }
+  catch (err) {
+    console.error(err);
+    return {};
   }
 });
 

@@ -1,17 +1,22 @@
 <template>
   <v-layout>
-    <v-flex class="text-center"> Observation {{ sequence_id }} </v-flex>
+    <v-flex class="text-center">
+      <ObservationDetail />
+    </v-flex>
   </v-layout>
 </template>
+
 <script>
+import ObservationDetail from '@/components/ObservationDetail'
+
 export default {
-  name: 'ObservationDetail',
-  props: {},
-  data() {
-    return {
-      sequence_id: this.$route.params.sequence_id
-    }
+  name: 'Observation',
+  components: {
+    ObservationDetail
   },
-  computed: {}
+  async fetch({ store, params }) {
+    console.log(params)
+    await store.dispatch('observation/GET_OBSERVATION', params.sequence_id)
+  }  
 }
 </script>
