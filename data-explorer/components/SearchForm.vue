@@ -5,23 +5,22 @@
         <v-row no-gutters>
           <v-col cols="12" sm="8">
             <v-text-field
-              disabled
               flat
-              solo-inverted
               hide-details
               prepend-inner-icon="mdi-magnify"
               :label="searchLabel"
               class="hidden-sm-and-down"
             />
           </v-col>
-          <v-col cols="12" sm="4">
+          <!-- <v-col cols="12" sm="4">
             <v-btn class="ma-2" color="primary" dark v-on="on">
               <v-icon dark left>mdi-table-search</v-icon>Search
             </v-btn>
-          </v-col>
+          </v-col> -->
         </v-row>
       </template>
 
+      <!-- The Search Form is disabled for now -->
       <v-card>
         <v-card-title class="headline primary dark white--text" primary-title>
           <v-toolbar-title>
