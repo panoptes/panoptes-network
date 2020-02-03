@@ -13,6 +13,7 @@ PANOPTES Network
   - [Services](#services)
     - [Deploying services](#deploying-services)
     - [Creating new services](#creating-new-services)
+  - [Development](#development)
 
 
 Software related to the wider PANOPTES network that ties the individual units together.
@@ -197,3 +198,11 @@ $ bin/deploy record-image
 Services are either written in Python or JavaScript.
 
 See https://github.com/firebase/functions-samples
+
+## Development
+
+Development within the `panoptes-network` repository could be related to either the updating of individual GCP services or could be related to [Data Explorer](#data-explorer).
+
+For the individual services the work is usually constrained to a single service/folder within this repository and the changes can be published according to the [Deploying services](#deploying-services) section above.
+
+For instructions on working with the Data Explorer, see the [Development section](data-explorer#data-explorer/README.md) of the README.
