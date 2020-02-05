@@ -49,7 +49,7 @@ For an initial setup the package dependencies must be installed from the root di
 
 ```bash
 # Install dependencies
-npm run install
+npm run install-deps
 ```
 
 ### Develop
@@ -64,15 +64,23 @@ npm run emulate
 The emulator must be populated each time it is started:
 
 ```bash
-npm run init
+npm run emulate-init
 ```
 
 In a separate terminal:
 
 ```bash
 # Run the development server
-npm run serve
+npm run web-dev
 ```
+
+This should output a message similar to:
+
+```bash
+ READY  Server listening on http://localhost:3000  
+```
+
+Visit the url in your web browser. There are various plugins for Chrome and Firefox that make debugging Vue applications easier.
 
 ### Deploy
 
