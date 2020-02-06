@@ -35,6 +35,7 @@ module.exports = {
    ** Global CSS
    */
   css: [],
+  pageTransition: 'page',
   /*
    ** Plugins to load before mounting the App
    */
