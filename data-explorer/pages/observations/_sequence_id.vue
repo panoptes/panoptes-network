@@ -15,8 +15,8 @@ export default {
     ObservationDetail
   },
   async fetch({ store, params }) {
-    console.log(params)
     await store.dispatch('observation/GET_OBSERVATION', params.sequence_id)
+    await store.dispatch('observation/GET_IMAGES', params.sequence_id)
   }  
 }
 </script>
