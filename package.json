@@ -5,9 +5,9 @@
   "scripts": {
     "install-deps": "npm install . && cd functions && npm install . && cd ../data-explorer && npm install . && cd ..",
     "emulate": "cd functions && npm run serve && cd ..",
-    "init-emulator": "python resources/populate-fs-emulator.py resources/firestore.emulator.data.json",
+    "emulate-init": "python resources/populate-fs-emulator.py resources/firestore.emulator.data.json",
     "serve": "cd data-explorer && npm run serve && cd ..",
-    "dev": "cd data-explorer && npm run dev && cd ..",
+    "web-dev": "cd data-explorer && npm run dev && cd ..",
     "build": "cd data-explorer && npm run build && cd ..",
     "test:unit": "cd data-explorer && npm run test:unit && cd .."
   },
