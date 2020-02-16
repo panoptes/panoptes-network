@@ -206,8 +206,6 @@ Development within the `panoptes-network` repository could be related to either 
 
 For the individual services the work is usually constrained to a single service/folder within this repository and the changes can be published according to the [Deploying services](#deploying-services) section above.
 
-For instructions on working with the Data Explorer, see the [Development section](data-explorer#data-explorer/README.md) of the README.
-
 ### Setup
 
 You must first have an environment that has the approriate software installed.
@@ -237,3 +235,5 @@ firebase login
 ```
 
 This should open a browser and ask you to authenticate with your gmail account.
+
+For instructions on working with the Data Explorer, see the [Development section](data-explorer#data-explorer/README.md) of the README.
