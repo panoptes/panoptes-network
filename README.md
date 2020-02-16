@@ -237,3 +237,5 @@ firebase login
 This should open a browser and ask you to authenticate with your gmail account.
 
 For instructions on working with the Data Explorer, see the [Development section](data-explorer#data-explorer/README.md) of the README.
+
+> Note: You need to to have the Java OpenJDK to run the emulators. Details at [https://openjdk.java.net/install](https://openjdk.java.net/install).
