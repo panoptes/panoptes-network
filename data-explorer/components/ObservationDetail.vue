@@ -77,24 +77,53 @@
       </v-list>
     </v-card>
 
-    <AirmassCard />
+    <StatCard name="Exptime" :values="exptimes" units="sec" />
+    <StatCard name="Airmass" :values="airmass" />
+    <StatCard name="Moon Fraction" :values="moonfracs" units="" :showSparkline="true" />
+    <StatCard name="Moon Separation" :values="moonseps" units="deg" :showSparkline="true" />
     <ImageList />
   </v-row>
 </template>
 
 <script>
 import ImageList from '@/components/Observation/ImageList'
-import AirmassCard from '@/components/Observation/AirmassCard'
+import StatCard from '@/components/Observation/StatCard'
 
 export default {
   name: 'ObservationDetail',
-  components: { AirmassCard, ImageList },
+  components: { StatCard, ImageList },
   computed: {
-    observation: {
-      get() {
-        return this.$store.state.observation.observation
-      }
-    }
+    observation: function() {
+      return this.$store.state.observation.observation
+    },
+    airmass: function() {
+      const airmassList = []
+      this.$store.state.observation.images.forEach((img) => {
+        airmassList.push(img.airmass)
+      })
+      return airmassList
+    },
+    exptimes: function() {
+      const timeList = []
+      this.$store.state.observation.images.forEach((img) => {
+        timeList.push(img.exptime)
+      })
+      return timeList
+    },
+    moonfracs: function() {
+      const moonList = []
+      this.$store.state.observation.images.forEach((img) => {
+        moonList.push(img.moonfrac)
+      })
+      return moonList
+    },
+    moonseps: function() {
+      const moonList = []
+      this.$store.state.observation.images.forEach((img) => {
+        moonList.push(img.moonsep)
+      })
+      return moonList
+    }    
   },
   data() {
     return {}
