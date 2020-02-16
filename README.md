@@ -229,3 +229,11 @@ pip install -r requirements.txt
 # Install javascript dependencies
 npm run install-deps
 ```
+
+The javascript dependencies will also install the [`firebase-tools`](https://firebase.google.com/docs/cli/) that are required to work with the local emulators.  These tools require that you login to firebase:
+
+```bash
+firebase login
+```
+
+This should open a browser and ask you to authenticate with your gmail account.
