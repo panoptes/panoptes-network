@@ -26,34 +26,6 @@ The Data Explorer uses the following:
 
 ## Development
 
-### Setup
-
-#### Environment
-
-You must first have an environment that has an appropriate version of nodejs installed.  The easiest way
-to do this with an [Anaconda](https://www.anaconda.com/) environment. Assuming you already have `conda` installed (see link for details):
-
-```bash
-conda create -n panoptes-data-explorer python=3.7 nodejs=10
-```
-
-Then when before working on the Data Explorer:
-
-```bash
-conda activate panoptes-data-explorer
-```
-
-#### Web App
-
-For an initial setup the package dependencies must be installed from the root directory of the web app:
-
-```bash
-# Install dependencies
-npm run install-deps
-```
-
-### Develop
-
 For development you need to start the local firebase emulators and the development web server. These need to be started in separate terminals and will stay running while you do development.
 
 ```bash
@@ -77,7 +49,7 @@ npm run web-dev
 This should output a message similar to:
 
 ```bash
- READY  Server listening on http://localhost:3000  
+ READY  Server listening on http://localhost:3000
 ```
 
 Visit the url in your web browser. There are various plugins for Chrome and Firefox that make debugging Vue applications easier.
