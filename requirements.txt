@@ -1,5 +1,6 @@
+click
 google-auth
 google-cloud-firestore
 halo
 mock
-panoptes-utils
+-e git+git://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils
