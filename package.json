@@ -3,7 +3,7 @@
   "version": "0.0.5",
   "private": true,
   "scripts": {
-    "install-deps": "npm install . && cd functions && npm install . && cd ../data-explorer && npm install . && cd ..",
+    "install-deps": "npm install . && cd functions && npm install . && cd ../data-explorer && npm install . && cd .. && npm audit fix",
     "emulate": "cd functions && npm run serve && cd ..",
     "emulate-init": "python resources/populate-fs-emulator.py resources/firestore.emulator.data.json",
     "serve": "cd data-explorer && npm run serve && cd ..",

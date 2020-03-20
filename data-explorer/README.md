@@ -34,7 +34,7 @@ You must first have an environment that has an appropriate version of nodejs ins
 to do this with an [Anaconda](https://www.anaconda.com/) environment. Assuming you already have `conda` installed (see link for details):
 
 ```bash
-conda create -n panoptes-data-explorer python=3.7 nodejs=10
+conda create -n panoptes-data-explorer -c conda-forge python=3.7 nodejs=11
 ```
 
 Then when before working on the Data Explorer:
