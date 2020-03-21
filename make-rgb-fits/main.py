@@ -1,14 +1,18 @@
 import os
 import rawpy
+import json
+import base64
 from copy import copy
 from contextlib import suppress
+
+from flask import jsonify
 from google.cloud import storage
 
 from astropy.io import fits
 
-PROJECT_ID = os.getenv('POSTGRES_USER', 'panoptes')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-survey')
-UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-pretty-pictures')
+PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-rgb-images')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
 
@@ -23,7 +27,65 @@ DEFAULT_RAWPY_OPTIONS = {
 }
 
 
-def make_rgb_fits(request):
+def entry_point(pubsub_message, context):
+    """Receive and process main request for topic.
+
+    The arriving `pubsub_message` will be in a `PubSubMessage` format:
+
+    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
+
+    ```
+        pubsub_message = {
+          "data": string,
+          "attributes": {
+            string: string,
+            ...
+        }
+        context = {
+          "messageId": string,
+          "publishTime": string
+        }
+    ```
+
+    Args:
+         pubsub_message (dict):  The dictionary with data specific to this type of
+            pubsub_message. The `data` field contains the PubsubMessage message. The
+            `attributes` field will contain custom attributes if there are any.
+        context (google.cloud.functions.Context): The Cloud Functions pubsub_message
+            metadata. The `event_id` field contains the Pub/Sub message ID. The
+            `timestamp` field contains the publish time.
+    """
+    print(f'Function triggered with: {pubsub_message!r} {context!r}')
+
+    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
+        try:
+            raw_string = base64.b64decode(pubsub_message['data']).decode()
+            print(f'Raw message received: {raw_string!r}')
+            data = json.loads(raw_string)
+
+        except Exception as e:
+            msg = ('Invalid Pub/Sub message: '
+                   'data property is not valid base64 encoded JSON')
+            print(f'{msg}: {e}')
+            return f'Bad Request: {msg}', 400
+
+        attributes = pubsub_message.get('attributes', dict())
+
+        try:
+            print(f'Processing: data={data!r} attributes={attributes!r}')
+            process_topic(data, attributes)
+            # Flush the stdout to avoid log buffering.
+            sys.stdout.flush()
+            return ('', 204)  # 204 is no-content success
+
+        except Exception as e:
+            print(f'error: {e}')
+            return ('', 500)
+
+    return ('', 500)
+
+
+def process_topic(data, attributes=None):
     """Responds to any HTTP request.
 
     Notes:
@@ -37,19 +99,13 @@ def make_rgb_fits(request):
         Response object using
         `make_response <http://flask.pocoo.org/docs/1.0/api/#flask.Flask.make_response>`.
     """
-    request_json = request.get_json()
-    if request.args and 'cr2_file' in request.args:
-        raw_file = request.args.get('cr2_file')
-    elif request_json and 'cr2_file' in request_json:
-        raw_file = request_json['cr2_file']
-    else:
-        return f'No file requested'
+    raw_file = data.get('bucket_path')
 
     # Get default rawpy options
     rawpy_options = copy(DEFAULT_RAWPY_OPTIONS)
     # Update rawpy options with those passed by user
     with suppress(KeyError):
-        rawpy_options.update(request_json['rawpy_options'])
+        rawpy_options.update(data['rawpy_options'])
 
     print(f'Using rawpy options')
     print(f'{rawpy_options}')
@@ -103,7 +159,7 @@ def make_rgb_fits(request):
         print(f'Removing {tmp_fn}')
         os.remove(tmp_fn)
 
-    return 'Success!'
+    return jsonify(success=True, msg=f"RGB FITS files made for {raw_file}")
 
 
 def upload_blob(source_file_name, destination_blob_name):

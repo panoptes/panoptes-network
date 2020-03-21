@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-TOPIC=${1:-make-rgb-fits}
+TOPIC=${1:-record-image}
 
 gcloud functions deploy \
                  "${TOPIC}" \
