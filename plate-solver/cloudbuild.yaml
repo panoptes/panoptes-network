@@ -33,8 +33,6 @@ steps:
   - '2m'
   - '--memory'
   - '2G'
-  - '--update-env-vars'
-  - 'LOCAL_USER_ID=1000'
   waitFor: ['push-base']
 
 images:
