@@ -5,7 +5,7 @@ COPY ./requirements.txt /requirements.txt
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc git pkg-config build-essential && \
-    /opt/conda/bin/pip install --no-cache-dir -r /requirements.txt && \
+    pip install --no-cache-dir -r /requirements.txt && \
     # Cleanup apt.
     apt-get autoremove --purge -y \
         gcc pkg-config build-essential && \
