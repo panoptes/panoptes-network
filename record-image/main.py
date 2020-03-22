@@ -2,11 +2,18 @@ import os
 import sys
 import json
 import base64
+import requests
 from contextlib import suppress
 
 from google.cloud import storage
 from google.cloud import firestore
+from google.cloud import pubsub
 from dateutil.parser import parse as parse_date
+
+publisher = pubsub.PublisherClient()
+
+project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
+pubsub_base = f'projects/{project_id}/topics'
 
 try:
     db = firestore.Client()
@@ -18,6 +25,9 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 
 bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
+plate_solver_topic = os.getenv('SOLVER_topic', 'plate-solve')
+
+header_url = os.getenv('HEADER_URL', 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
 
 
 def entry_point(pubsub_message, context):
@@ -102,7 +112,9 @@ def process_topic(data, attributes=None):
     print("Looking up header for file: ", bucket_path)
     storage_blob = bucket.get_blob(bucket_path)
     if storage_blob:
-        file_headers = lookup_fits_header(storage_blob)
+        res = requests.post(header_url, data=dict(bucket_path=bucket_path))
+        if res.ok:
+            file_headers = res.json()
         file_headers.update(header)
 
         # Change filename to public url of file.
@@ -129,10 +141,11 @@ def process_topic(data, attributes=None):
         # obj_data = None
         response_msg = f'Error adding header: {e!r}'
     else:
-        # Send to plate-solver
-        # print(f"Forwarding to plate-solver: {bucket_path}")
-        # obj_data = {'image_id': img_id}
-        # requests.post(plate_solve_endpoint, json=obj_data)
+        # Send to add-header-to-db
+        print(f'Forwarding to solver.')
+        send_pubsub_message(plate_solver_topic, {
+            'bucket_path': bucket_path,
+        })
 
         response_msg = f'New image: sequence_id={seq_id} image_id={img_id}'
 
@@ -271,71 +284,12 @@ def add_header_to_db(header, bucket_path):
     return True
 
 
-def lookup_fits_header(remote_path):
-    """Read the FITS header from storage.
+def send_pubsub_message(topic, data):
+    print(f"Sending message to {topic}: {data!r}")
+    data = json.dumps(data).encode()
 
-    FITS Header Units are stored in blocks of 2880 bytes consisting of 36 lines
-    that are 80 bytes long each. The Header Unit always ends with the single
-    word 'END' on a line (not necessarily line 36).
+    def callback(future):
+        message_id = future.result()
+        print(f'Pubsub message to {topic} received: {message_id}')
 
-    Here the header is streamed from Storage until the 'END' is found, with
-    each line given minimal parsing.
-
-    See https://fits.gsfc.nasa.gov/fits_primer.html for overview of FITS format.
-
-    Args:
-        remote_path (`google.cloud.storage.blob.Blob`): Blob or path to remote blob.
-            If just the blob name is given then the blob is looked up first.
-
-    Returns:
-        dict: FITS header as a dictonary.
-    """
-    i = 1
-    if remote_path.name.endswith('.fz'):
-        i = 2  # We skip the compression header info
-
-    headers = dict()
-
-    streaming = True
-    while streaming:
-        # Get a header card
-        start_byte = 2880 * (i - 1)
-        end_byte = (2880 * i) - 1
-        b_string = remote_path.download_as_string(start=start_byte, end=end_byte)
-
-        # Loop over 80-char lines
-        for j in range(0, len(b_string), 80):
-            item_string = b_string[j: j + 80].decode()
-
-            # End of FITS Header, stop streaming
-            if item_string.startswith('END'):
-                streaming = False
-                break
-
-            # Get key=value pairs (skip COMMENTS and HISTORY)
-            if item_string.find('=') > 0:
-                k, v = item_string.split('=')
-
-                # Remove FITS comment
-                if ' / ' in v:
-                    v = v.split(' / ')[0]
-
-                v = v.strip()
-
-                # Cleanup and discover type in dumb fashion
-                if v.startswith("'") and v.endswith("'"):
-                    v = v.replace("'", "").strip()
-                elif v.find('.') > 0:
-                    v = float(v)
-                elif v == 'T':
-                    v = True
-                elif v == 'F':
-                    v = False
-                else:
-                    v = int(v)
-
-                headers[k.strip()] = v
-
-        i += 1
-
-    return headers
+    publisher.publish(f'{pubsub_base}/{topic}', data)
