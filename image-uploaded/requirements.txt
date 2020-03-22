@@ -1,3 +1,4 @@
 Flask==1.1.1
-gunicorn==19.9.0
+google-cloud-firestore
 google-cloud-pubsub
+gunicorn==19.9.0

@@ -1,8 +1,15 @@
 import os
 import sys
 import json
+from contextlib import suppress
 
 from google.cloud import pubsub
+from google.cloud import firestore
+
+try:
+    db = firestore.Client()
+except Exception as e:
+    print(f'Error getting firestore client: {e!r}')
 
 publisher = pubsub.PublisherClient()
 
@@ -106,22 +113,28 @@ def process_fz(bucket_path):
     sequence_id = f'{unit_id}_{camera_id}_{seq_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
 
-    headers = {
-        'PANID': unit_id,
-        'INSTRUME': camera_id,
-        'SEQTIME': seq_time,
-        'IMGTIME': image_time,
-        'SEQID': sequence_id,
-        'IMAGEID': image_id,
-        'FILENAME': bucket_path,
-        'PSTATE': 'fits_received'
-    }
+    # See if image is recorded
+    with suppress(KeyError):
+        status = db.document(f'images/{image_id}').get(['status']).get('status')
 
-    # Send to add-header-to-db
-    send_pubsub_message(add_header_topic, {
-        'headers': headers,
-        'bucket_path': bucket_path,
-    })
+        if not status or status == 'metadata_received':
+
+            headers = {
+                'PANID': unit_id,
+                'INSTRUME': camera_id,
+                'SEQTIME': seq_time,
+                'IMGTIME': image_time,
+                'SEQID': sequence_id,
+                'IMAGEID': image_id,
+                'FILENAME': bucket_path,
+                'PSTATE': 'fits_received'
+            }
+
+            # Send to add-header-to-db
+            send_pubsub_message(add_header_topic, {
+                'headers': headers,
+                'bucket_path': bucket_path,
+            })
 
 
 def process_fits(bucket_path):
