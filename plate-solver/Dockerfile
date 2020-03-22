@@ -21,4 +21,4 @@ WORKDIR /app
 
 # Clear existing entrypoint.
 ENTRYPOINT []
-CMD ["sh", "-c", "/opt/conda/bin/gunicorn -b :${PORT} -w 1 --threads 8 main:app"]
+CMD ["sh", "-c", "/opt/conda/bin/gunicorn -b :${PORT} -w 1 --threads 4 main:app"]
