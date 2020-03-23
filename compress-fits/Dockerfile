@@ -4,7 +4,7 @@ COPY ./requirements.txt /requirements.txt
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        gcc git pkg-config build-essential && \
+        gcc pkg-config build-essential && \
     pip install --no-cache-dir -r /requirements.txt && \
     # Cleanup apt.
     apt-get autoremove --purge -y \
@@ -20,4 +20,4 @@ COPY . /app
 WORKDIR /app
 
 ENTRYPOINT []
-CMD ["sh", "-c", "/opt/conda/bin/gunicorn -b :${PORT} -w 1 --threads 8 main:app"]
+CMD ["sh", "-c", "/usr/local/bin/gunicorn -b :${PORT} -w 1 --threads 8 --timeout 120 --log-level=DEBUG main:app"]

@@ -2,6 +2,7 @@ import os
 import sys
 import base64
 import tempfile
+from warnings import warn
 
 from flask import Flask
 from flask import request
@@ -12,16 +13,18 @@ from google.cloud import storage
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.serializers import from_json
 
+
 app = Flask(__name__)
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 
 # Storage
 try:
+    print(f'Loading google storage credentials')
     storage_client = storage.Client(project=PROJECT_ID)
-except RuntimeError:
-    print(f"Can't load Google credentials, exiting")
-    sys.exit(1)
+except Exception as e:
+    warn(f"Can't load Google credentials, exiting: {e!r}")
+    # sys.exit(1)
 
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 

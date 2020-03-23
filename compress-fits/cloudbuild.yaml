@@ -24,6 +24,8 @@ steps:
   - '${_TOPIC}'
   - '--image'
   - 'gcr.io/${PROJECT_ID}/${_TOPIC}:latest'
+  - '--service-account'
+  - 'piaa-pipeline@panoptes-exp.iam.gserviceaccount.com'
   - '--region'
   - 'us-central1'
   - '--platform'
@@ -32,7 +34,7 @@ steps:
   - '--timeout'
   - '2m'
   - '--memory'
-  - '512M'
+  - '2G'
   waitFor: ['push-base']
 
 images:
