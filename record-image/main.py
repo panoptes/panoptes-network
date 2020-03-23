@@ -7,10 +7,7 @@ from contextlib import suppress
 
 from google.cloud import storage
 from google.cloud import firestore
-from google.cloud import pubsub
 from dateutil.parser import parse as parse_date
-
-publisher = pubsub.PublisherClient()
 
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 pubsub_base = f'projects/{project_id}/topics'
@@ -20,14 +17,18 @@ try:
 except Exception as e:
     print(f'Error getting firestore client: {e!r}')
 
-
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 
 bucket = storage.Client(project=PROJECT_ID).get_bucket(BUCKET_NAME)
-plate_solver_topic = os.getenv('SOLVER_topic', 'plate-solve')
 
 header_url = os.getenv('HEADER_URL', 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
+metadata_server_token_url = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience='
+token_request_url = metadata_server_token_url + header_url
+token_request_headers = {'Metadata-Flavor': 'Google'}
+token_response = requests.get(token_request_url, headers=token_request_headers)
+jwt = token_response.content.decode("utf-8")
+receiving_function_headers = {'Authorization': f'bearer {jwt}'}
 
 
 def entry_point(pubsub_message, context):
@@ -112,9 +113,16 @@ def process_topic(data, attributes=None):
     print("Looking up header for file: ", bucket_path)
     storage_blob = bucket.get_blob(bucket_path)
     if storage_blob:
-        res = requests.post(header_url, data=dict(bucket_path=bucket_path))
+        res = requests.post(header_url,
+                            json=dict(bucket_path=bucket_path),
+                            headers=receiving_function_headers)
         if res.ok:
             file_headers = res.json()
+            print(f'Got FITS headers for {bucket_path}')
+        else:
+            print(f'Header content {res.content}')
+            raise Exception(f'Error with getting headers: {res!r}')
+
         file_headers.update(header)
 
         # Change filename to public url of file.
@@ -141,12 +149,6 @@ def process_topic(data, attributes=None):
         # obj_data = None
         response_msg = f'Error adding header: {e!r}'
     else:
-        # Send to add-header-to-db
-        print(f'Forwarding to solver.')
-        send_pubsub_message(plate_solver_topic, {
-            'bucket_path': bucket_path,
-        })
-
         response_msg = f'New image: sequence_id={seq_id} image_id={img_id}'
 
     print(response_msg)
@@ -216,7 +218,6 @@ def add_header_to_db(header, bucket_path):
                 'project': header.get('ORIGIN'),  # Project PANOPTES
                 'software_version': header.get('CREATOR', ''),
                 'field_name': header.get('FIELD', ''),
-                'camera_filter': header.get('FILTER'),
                 'iso': header.get('ISO'),
                 'ra': header.get('CRVAL1'),
                 'dec': header.get('CRVAL2'),
@@ -237,12 +238,11 @@ def add_header_to_db(header, bucket_path):
         if not image_doc.exists or image_status in valid_status:
             print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
 
-            measrggb = header.get('MEASRGGB').split(' ')
-
             image_data = {
                 'sequence_id': seq_id,
                 'time': img_time,
                 'bucket_path': bucket_path,
+                'status': 'uploaded',
                 # Observation information
                 'airmass': header.get('AIRMASS'),
                 'exptime': header.get('EXPTIME'),
@@ -255,21 +255,6 @@ def add_header_to_db(header, bucket_path):
                 'ha_mnt': header.get('HA-MNT'),
                 'ra_mnt': header.get('RA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
-                # Camera properties
-                'measev': header.get('MEASEV'),
-                'measev2': header.get('MEASEV2'),
-                'measr': int(measrggb[0]),
-                'measg': int(measrggb[1]),
-                'measg2': int(measrggb[2]),
-                'measb': int(measrggb[3]),
-                'camtemp': float(header.get('CAMTEMP').split(' ')[0]),
-                'circconf': float(header.get('CIRCCONF').split(' ')[0]),
-                'colortmp': header.get('COLORTMP'),
-                'bluebal': header.get('BLUEBAL'),
-                'redbal': header.get('REDBAL'),
-                'whtlvln': header.get('WHTLVLN'),
-                'whtlvls': header.get('WHTLVLS'),
-                'status': 'uploaded',
             }
             try:
                 image_doc.reference.set(image_data, merge=True)
@@ -282,14 +267,3 @@ def add_header_to_db(header, bucket_path):
         raise e
 
     return True
-
-
-def send_pubsub_message(topic, data):
-    print(f"Sending message to {topic}: {data!r}")
-    data = json.dumps(data).encode()
-
-    def callback(future):
-        message_id = future.result()
-        print(f'Pubsub message to {topic} received: {message_id}')
-
-    publisher.publish(f'{pubsub_base}/{topic}', data)
