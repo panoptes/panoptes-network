@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-from contextlib import suppress
 
 from google.cloud import pubsub
 from google.cloud import firestore
@@ -16,7 +15,7 @@ publisher = pubsub.PublisherClient()
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 pubsub_base = f'projects/{project_id}/topics'
 
-add_header_topic = os.getenv('HEADER_topic', 'record-image')
+plate_solve_topic = os.getenv('SOLVER_topic', 'plate-solve')
 fits_packer_topic = os.getenv('FPACK_topic', 'compress-fits')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
@@ -74,7 +73,7 @@ def process_topic(data):
 
     process_lookup = {
         '.fits': process_fits,
-        '.fz': process_fz,
+        '.fz': process_fits,
         '.cr2': process_cr2,
     }
 
@@ -97,62 +96,9 @@ def send_pubsub_message(topic, data):
     publisher.publish(f'{pubsub_base}/{topic}', data)
 
 
-def process_fz(bucket_path):
-    """ Forward the headers to the -add-header-to-db Cloud Function.
-
-    Args:
-        bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
-    """
-    # Get some of the fields from the path.
-    unit_id, camera_id, seq_time, filename = bucket_path.split('/')
-
-    # Get the image time from the filename
-    image_time = filename.split('.')[0]
-
-    # Build the sequence and image ids
-    sequence_id = f'{unit_id}_{camera_id}_{seq_time}'
-    image_id = f'{unit_id}_{camera_id}_{image_time}'
-
-    # See if image is recorded
-    with suppress(KeyError):
-        status = db.document(f'images/{image_id}').get(['status']).get('status')
-
-        if not status or status == 'metadata_received':
-
-            headers = {
-                'PANID': unit_id,
-                'INSTRUME': camera_id,
-                'SEQTIME': seq_time,
-                'IMGTIME': image_time,
-                'SEQID': sequence_id,
-                'IMAGEID': image_id,
-                'FILENAME': bucket_path,
-                'PSTATE': 'fits_received'
-            }
-
-            # Send to add-header-to-db
-            send_pubsub_message(add_header_topic, {
-                'headers': headers,
-                'bucket_path': bucket_path,
-            })
-
-
 def process_fits(bucket_path):
-    """ Publish a message on the topic to trigger fits packing.
-
-    Args:
-        bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
-    """
-    send_pubsub_message(fits_packer_topic, dict(bucket_path=bucket_path))
+    send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
-    send_pubsub_message(make_rgb_topic, dict(cr2_file=bucket_path))
-
-
-if __name__ == '__main__':
-    PORT = int(os.getenv('PORT')) if os.getenv('PORT') else 8080
-
-    # This is used when running locally. Gunicorn is used to run the
-    # application on Cloud Run. See entrypoint in Dockerfile.
-    app.run(host='127.0.0.1', port=PORT, debug=True)
+    send_pubsub_message(make_rgb_topic, dict(bucket_path=bucket_path))
