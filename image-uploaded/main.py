@@ -16,7 +16,6 @@ project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 pubsub_base = f'projects/{project_id}/topics'
 
 plate_solve_topic = os.getenv('SOLVER_topic', 'plate-solve')
-fits_packer_topic = os.getenv('FPACK_topic', 'compress-fits')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 
