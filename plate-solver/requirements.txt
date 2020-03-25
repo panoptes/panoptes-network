@@ -1,7 +1,5 @@
 astropy
-Flask==1.1.1
 google-cloud-storage
 google-cloud-firestore
-gunicorn==20.0.4
-panoptes-utils>=0.2.5
-pytest==5.3.2
+google-cloud-pubsub
+panoptes-utils>=0.2.7

@@ -1,28 +1,28 @@
 import os
 import sys
-import base64
 import tempfile
-
-from flask import Flask
-from flask import request
-from flask import jsonify
+import time
 
 from google.cloud import firestore
 from google.cloud import storage
+from google.cloud import pubsub
 
 from astropy.io import fits
 from panoptes.utils.images import fits as fits_utils
+from panoptes.utils.images.bayer import get_rgb_background
+from panoptes.utils import image_id_from_path
 from panoptes.utils.serializers import from_json
-from panoptes.utils.bayer import get_rgb_background
+from panoptes.utils.logger import logger
+
+logger.enable('panoptes')
 
 try:
     db = firestore.Client()
 except Exception as e:
     print(f'Error getting firestore client: {e!r}')
 
-app = Flask(__name__)
-
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+PUBSUB_SUBSCRIPTION = 'plate-solve-read'
 
 # Storage
 try:
@@ -32,38 +32,38 @@ except RuntimeError:
     sys.exit(1)
 
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
 
-@app.route('/', methods=['POST'])
 def main():
-    """ You shouldn't need to change anything here. """
-    envelope = request.get_json()
-    if not envelope:
-        msg = 'no Pub/Sub message received'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
+    """Continuously pull messages from subsciption"""
+    subscriber = pubsub.SubscriberClient()
+    subscription_path = subscriber.subscription_path(PROJECT_ID, PUBSUB_SUBSCRIPTION)
 
-    if not isinstance(envelope, dict) or 'message' not in envelope:
-        msg = 'invalid Pub/Sub message format'
-        print(f'error: {msg}')
-        return f'Bad Request: {msg}', 400
+    print('Starting the Pubsub listen loop.')
+    while True:
+        response = subscriber.pull(subscription_path, max_messages=MAX_MESSAGES, return_immediately=True)
 
-    pubsub_message = envelope['message']
+        # If nothing found, sleep for 10 minutes.
+        if len(response.received_messages) == 0:
+            print(f'No plate solve requests found. Sleeping for 10 minutes.')
+            time.sleep(600)
 
-    data = dict()
-    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
-        data = from_json(base64.b64decode(pubsub_message['data']).decode('utf-8').strip())
+        for msg in response.received_messages:
+            print("Received message:", msg.message)
 
-    print(f'Received {data!r}')
-    process_topic(data)
+            # Process
+            try:
+                data = from_json(msg.message.data.decode())
+                print(f"Data received: {data!r}")
+                process_topic(data)
+            except Exception as e:
+                print(f'Problem plate-solving message: {e!r}')
+            finally:
+                subscriber.acknowledge(subscription_path, msg.ack_id)
 
-    # Flush the stdout to avoid log buffering.
-    sys.stdout.flush()
 
-    return ('', 204)
-
-
-def process_topic(data,):
+def process_topic(data):
     """Plate-solve a FITS file.
 
     Returns:
@@ -76,7 +76,6 @@ def process_topic(data,):
         "timeout": 120
     })
     background_config = data.get('background_config', {
-        "force_new": True,
         "camera_bias": 2048.,
         "filter_size": 20,
     })
@@ -90,7 +89,16 @@ def process_topic(data,):
                 print(f'Getting blob for {bucket_path}.')
                 fits_blob = bucket.get_blob(bucket_path)
                 if not fits_blob:
-                    return jsonify(success=False, msg=f"Can't find {bucket_path} in {bucket_name}")
+                    raise FileNotFoundError(f"Can't find {bucket_path} in {bucket_name}")
+
+                image_id = image_id_from_path(bucket_path)
+                print(f'Got image_id {image_id} for {bucket_path}')
+
+                # Get the metadata from firestore.
+                image_doc_ref = db.document(f'images/{image_id}')
+                image_doc = image_doc_ref.get().to_dict() or dict()
+                if image_doc.get('solved', False):
+                    print(f'Image has been solved by plate-solver {image_id}, skipping solve')
 
                 # Download file
                 print(f'Downloading image for {bucket_path}.')
@@ -98,26 +106,28 @@ def process_topic(data,):
                 with open(local_path, 'wb') as f:
                     fits_blob.download_to_file(f)
 
-                image_id = fits_utils.getval(local_path, 'IMAGEID')
-                status = db.document(f'images/{image_id}').get('status')
-                if status == 'solved':
-                    return jsonify(bucket_uri=fits_blob.public_url, status='solved')
-
                 # Do the actual plate-solve.
                 solved_path = solve_file(local_path, background_config, solve_config)
+                print(f'Done solving, new path: {solved_path}')
+
+                # Compress if needed.
+                if not solved_path.endswith('.fz'):
+                    print(f'Compressing: {solved_path}')
+                    solved_path = fits_utils.fpack(solved_path)
+                    bucket_path = bucket_path.replace('.fits', '.fits.fz')
+                    fits_blob = bucket.rename_blob(fits_blob, bucket_path)
 
                 # Replace file on bucket with solved file.
                 print(f'Uploading {solved_path} to {fits_blob.public_url}')
                 fits_blob.upload_from_filename(solved_path)
 
-                # Update firestore record
-                db.document(f'images/{image_id}').set(dict(status='solved'), merge=True)
+                # Update firestore record.
+                image_doc_ref.set(dict(status='solved', solved=True, bucket_path=bucket_path), merge=True)
 
-                return jsonify(bucket_uri=fits_blob.public_url, status='solved')
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
-                db.document(f'images/{image_id}').set(dict(status='solve_error'), merge=True)
-                return jsonify(error=e)
+                if image_doc_ref:
+                    image_doc_ref.set(dict(status='solve_error'), merge=True)
             finally:
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
@@ -126,36 +136,39 @@ def solve_file(local_path, background_config, solve_config):
     print(f'Solving {local_path}')
     solved_file = None
 
-    observation_background = get_rgb_background(local_path, **background_config)
-    if observation_background is None:
-        return None
+    # Get the background subtracted data.
+    header = fits_utils.getheader(local_path)
+    data = fits_utils.getdata(local_path)
+
+    # try:
+    #     observation_background = get_rgb_background(local_path, **background_config)
+    #     if observation_background is None:
+    #         print(f'Could not get RGB background for {local_path}, plate-solving without')
+    #         header['BACKFAIL'] = True
+    #         data = data - observation_background
+    # except Exception as e:
+    #     print(f'Problem getting background for {local_path}: {e!r}')
 
     print(f'Plate solving for {local_path}')
-    try:
-        # Get the background subtracted data.
-        header = fits_utils.getheader(local_path)
-        data = fits_utils.getdata(local_path)
-        # Save subtracted file locally.
-        hdu = fits.PrimaryHDU(data=data - observation_background, header=header)
 
-        back_path = local_path.replace('.fits', '-background.fits')
-        hdu.writeto(back_path, overwrite=True)
+    # Save subtracted file locally.
+    hdu = fits.PrimaryHDU(data=data, header=header)
 
-        print(f'Plate solving {back_path} with args: {solve_config!r}')
-        solve_info = fits_utils.get_solve_field(back_path, **solve_config)
-        solved_file = solve_info['solved_fits_file'].replace('.new', '.fits')
+    back_path = local_path.replace('.fits', '-background.fits')
+    hdu.writeto(back_path, overwrite=True)
 
-        # Save over original file with new headers but old data.
-        solved_header = fits_utils.getheader(solved_file)
-        solved_header['status'] = 'solved'
-        hdu = fits.PrimaryHDU(data=data, header=solved_header)
-        hdu.writeto(local_path, overwrite=True)
+    print(f'Plate solving {back_path} with args: {solve_config!r}')
+    solve_info = fits_utils.get_solve_field(back_path, **solve_config)
+    solved_file = solve_info['solved_fits_file'].replace('.new', '.fits')
 
-    except Exception as e:
-        print(f'Problem with plate solving: {e!r}')
-    finally:
-        return local_path
+    # Save over original file with new headers but old data.
+    solved_header = fits_utils.getheader(solved_file)
+    solved_header['status'] = 'solved'
+    hdu = fits.PrimaryHDU(data=data, header=solved_header)
+    hdu.writeto(local_path, overwrite=True)
+
+    return local_path
 
 
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+if __name__ == '__main__':
+    main()

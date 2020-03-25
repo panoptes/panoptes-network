@@ -13,12 +13,8 @@ RUN apt-get update && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/*
 
-ARG port=8080
-ENV PORT $port
-
 COPY . /app
 WORKDIR /app
 
 # Clear existing entrypoint.
-ENTRYPOINT []
-CMD ["sh", "-c", "/opt/conda/bin/gunicorn -b :${PORT} -w 1 --threads 4 main:app"]
+ENTRYPOINT ["python", "-u", "main.py"]
