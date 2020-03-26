@@ -8,13 +8,12 @@ from google.cloud import storage
 from google.cloud import pubsub
 
 from astropy.io import fits
+
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.images.bayer import get_rgb_background
 from panoptes.utils import image_id_from_path
 from panoptes.utils.serializers import from_json
-from panoptes.utils.logger import logger
 
-logger.enable('panoptes')
 
 try:
     db = firestore.Client()
@@ -26,7 +25,7 @@ PUBSUB_SUBSCRIPTION = 'plate-solve-read'
 
 # Storage
 try:
-    storage_client = storage.Client(project=PROJECT_ID)
+    storage_client = storage.Client()
 except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
@@ -42,15 +41,23 @@ def main():
 
     print('Starting the Pubsub listen loop.')
     while True:
-        response = subscriber.pull(subscription_path, max_messages=MAX_MESSAGES, return_immediately=True)
+        try:
+            response = subscriber.pull(subscription_path,
+                                       max_messages=MAX_MESSAGES,
+                                       timeout=30)
+        except Exception as e:
+            print(f"Can't pull messages: {e!r}")
+            time.sleep(30)
+            continue
 
         # If nothing found, sleep for 10 minutes.
         if len(response.received_messages) == 0:
             print(f'No plate solve requests found. Sleeping for 10 minutes.')
             time.sleep(600)
 
+        ack_ids = list()
         for msg in response.received_messages:
-            print("Received message:", msg.message)
+            print(f"Received message: {msg.message}")
 
             # Process
             try:
@@ -60,7 +67,15 @@ def main():
             except Exception as e:
                 print(f'Problem plate-solving message: {e!r}')
             finally:
-                subscriber.acknowledge(subscription_path, msg.ack_id)
+                print(f'Adding ack_id={msg.ack_id}')
+                ack_ids.append(msg.ack_id)
+
+        if ack_ids:
+            print(f'Ack IDS: {ack_ids}')
+            try:
+                subscriber.acknowledge(subscription_path, ack_ids)
+            except Exception as e:
+                print(f'Problem acknowledging messages: {e!r}')
 
 
 def process_topic(data):
@@ -79,7 +94,7 @@ def process_topic(data):
         "camera_bias": 2048.,
         "filter_size": 20,
     })
-    print(f"Plate-solving FITS file {bucket_path}")
+    print(f"Staring plate-solving for FITS file {bucket_path}")
     if bucket_path is not None:
 
         with tempfile.TemporaryDirectory() as tmp_dir_name:
@@ -118,7 +133,7 @@ def process_topic(data):
                     fits_blob = bucket.rename_blob(fits_blob, bucket_path)
 
                 # Replace file on bucket with solved file.
-                print(f'Uploading {solved_path} to {fits_blob.public_url}')
+                print(f'Uploading {solved_path} to {fits_blob.path}')
                 fits_blob.upload_from_filename(solved_path)
 
                 # Update firestore record.
@@ -133,35 +148,39 @@ def process_topic(data):
 
 
 def solve_file(local_path, background_config, solve_config):
-    print(f'Solving {local_path}')
+    print(f'Entering solve_file for {local_path}')
     solved_file = None
 
     # Get the background subtracted data.
     header = fits_utils.getheader(local_path)
     data = fits_utils.getdata(local_path)
 
-    # try:
-    #     observation_background = get_rgb_background(local_path, **background_config)
-    #     if observation_background is None:
-    #         print(f'Could not get RGB background for {local_path}, plate-solving without')
-    #         header['BACKFAIL'] = True
-    #         data = data - observation_background
-    # except Exception as e:
-    #     print(f'Problem getting background for {local_path}: {e!r}')
+    try:
+        observation_background = get_rgb_background(local_path, **background_config)
+        if observation_background is None:
+            print(f'Could not get RGB background for {local_path}, plate-solving without')
+            header['BACKFAIL'] = True
+            data = data - observation_background
+        else:
+            print(f'Got background for {local_path}')
+    except Exception as e:
+        print(f'Problem getting background for {local_path}: {e!r}')
 
-    print(f'Plate solving for {local_path}')
-
+    print(f'Creating new background subtracted file for {local_path}')
     # Save subtracted file locally.
     hdu = fits.PrimaryHDU(data=data, header=header)
 
     back_path = local_path.replace('.fits', '-background.fits')
+    back_path = local_path.replace('.fz', '')
     hdu.writeto(back_path, overwrite=True)
+    assert os.path.exists(back_path)
 
-    print(f'Plate solving {back_path} with args: {solve_config!r}')
+    print(f'Plate solving background subtracted {back_path} with args: {solve_config!r}')
     solve_info = fits_utils.get_solve_field(back_path, **solve_config)
     solved_file = solve_info['solved_fits_file'].replace('.new', '.fits')
 
     # Save over original file with new headers but old data.
+    print(f'Creating new plate-solved file for {local_path}')
     solved_header = fits_utils.getheader(solved_file)
     solved_header['status'] = 'solved'
     hdu = fits.PrimaryHDU(data=data, header=solved_header)

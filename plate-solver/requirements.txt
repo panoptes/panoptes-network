@@ -1,5 +1,5 @@
 astropy
-google-cloud-storage
 google-cloud-firestore
 google-cloud-pubsub
+google-cloud-storage
 panoptes-utils>=0.2.7
