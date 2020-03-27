@@ -4,6 +4,7 @@ import tempfile
 import time
 from contextlib import suppress
 from dateutil.parser import parse as parse_date
+from collections import defaultdict
 import numpy as np
 
 from google.cloud import firestore
@@ -193,7 +194,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
             full_background = np.ma.array(observation_background).sum(0).filled(0)
             data = data - full_background
 
-            background_info = dict()
+            background_info = defaultdict(dict)
             for color, back in zip('rgb', observation_background):
                 background_info['background_median'][color] = np.ma.median(back)
                 background_info['background_rms'][color] = np.ma.std(back)
