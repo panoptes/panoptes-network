@@ -86,11 +86,8 @@ def main():
                     return
 
                 # Send to solver processing.
-                solved_path = process_topic(image_doc_ref, data)
+                process_topic(image_doc_ref, data)
 
-                print(f'Adding metadata record to firestore for {solved_path}')
-                headers = fits_utils.getheader(solved_path)
-                add_header_to_db(image_doc_ref, headers)
             except Exception as e:
                 print(f'Problem plate-solving message: {e!r}')
                 if image_doc_ref:
@@ -159,12 +156,14 @@ def process_topic(image_doc_ref, data):
                 print(f'Uploading {solved_path} for {bucket_path}')
                 fits_blob.upload_from_filename(solved_path)
 
+                print(f'Adding metadata record to firestore for {solved_path}')
+                headers = fits_utils.getheader(solved_path)
+                add_header_to_db(image_doc_ref, headers)
+
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
             finally:
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
-
-                return solved_path
 
 
 def solve_file(local_path, background_config, solve_config, headers):
