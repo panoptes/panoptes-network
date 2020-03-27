@@ -69,12 +69,32 @@ def main():
             try:
                 data = from_json(msg.message.data.decode())
                 print(f"Data received: {data!r}")
-                solved_path = process_topic(data)
-                print(f'Adding metadata record to firestore')
+
+                # Get image info.
+                bucket_path = data.get('bucket_path')
+                image_id = image_id_from_path(bucket_path)
+                print(f'Got image_id {image_id} for {bucket_path}')
+
+                image_doc_ref = db.document(f'images/{image_id}')
+                image_doc_snap = image_doc_ref.get()
+                print(f'Record in firetore: {image_doc_snap.exists}')
+
+                # Skip image if previously solved.
+                image_doc = image_doc_snap.to_dict() or dict()
+                if image_doc.get('solved', False) or image_doc.get('status') == 'solved':
+                    print(f'Image has been solved by plate-solver {image_id}, skipping solve')
+                    return
+
+                # Send to solver processing.
+                solved_path = process_topic(image_doc_ref, data)
+
+                print(f'Adding metadata record to firestore for {solved_path}')
                 headers = fits_utils.getheader(solved_path)
-                add_header_to_db(headers)
+                add_header_to_db(image_doc_ref, headers)
             except Exception as e:
                 print(f'Problem plate-solving message: {e!r}')
+                if image_doc_ref:
+                    image_doc_ref.set(dict(status='solve_error', solved=False), merge=True)
             finally:
                 print(f'Adding ack_id={msg.ack_id}')
                 ack_ids.append(msg.ack_id)
@@ -87,7 +107,7 @@ def main():
                 print(f'Problem acknowledging messages: {e!r}')
 
 
-def process_topic(data):
+def process_topic(image_doc_ref, data):
     """Plate-solve a FITS file.
 
     Returns:
@@ -118,15 +138,6 @@ def process_topic(data):
                 image_id = image_id_from_path(bucket_path)
                 print(f'Got image_id {image_id} for {bucket_path}')
 
-                # Get the metadata from firestore.
-                image_doc_ref = db.document(f'images/{image_id}')
-                image_doc_snap = image_doc_ref.get()
-                print(f'Record in firetore: {image_doc_snap.exists}')
-                image_doc = image_doc_snap.to_dict() or dict()
-                if image_doc.get('solved', False) or image_doc.get('status') == 'solved':
-                    print(f'Image has been solved by plate-solver {image_id}, skipping solve')
-                    return
-
                 # Download file
                 print(f'Downloading image for {bucket_path}.')
                 local_path = os.path.join(tmp_dir_name, bucket_path.replace('/', '-'))
@@ -136,22 +147,24 @@ def process_topic(data):
                 headers = {'FILENAME': fits_blob.public_url}
 
                 # Do the actual plate-solve.
+                print(f'Calling solve_field for {local_path} from {bucket_path}.')
                 solved_path = solve_file(local_path, background_config, solve_config, headers)
-                print(f'Done solving, new path: {solved_path}')
-
-                # Replace file on bucket with solved file.
-                print(f'Uploading {solved_path}')
-                fits_blob.upload_from_filename(solved_path)
+                print(f'Done solving, new path: {solved_path} for {bucket_path}')
 
                 if not bucket_path.endswith('.fz'):
-                    bucket.rename_blob(fits_blob, f'{bucket_path}.fz')
+                    print(f'Renaming {bucket_path} to {bucket_path}.fz because we compressed')
+                    fits_blob = bucket.rename_blob(fits_blob, f'{bucket_path}.fz')
+
+                # Replace file on bucket with solved file.
+                print(f'Uploading {solved_path} for {bucket_path}')
+                fits_blob.upload_from_filename(solved_path)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
-                if image_doc_ref:
-                    image_doc_ref.set(dict(status='solve_error', solved=False), merge=True)
             finally:
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
+
+                return solved_path
 
 
 def solve_file(local_path, background_config, solve_config, headers):
@@ -202,7 +215,7 @@ def solve_file(local_path, background_config, solve_config, headers):
     return overwrite_local_path
 
 
-def add_header_to_db(header):
+def add_header_to_db(image_doc_ref, header):
     """Add FITS image info to metadb.
 
     Note:
@@ -288,7 +301,6 @@ def add_header_to_db(header):
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
-        image_doc_ref = db.document(f'images/{image_id}')
         image_doc_snap = image_doc_ref.get()
 
         image_status = image_doc_snap.get('status')
