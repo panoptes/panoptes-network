@@ -39,6 +39,7 @@ except RuntimeError:
     sys.exit(1)
 
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+BACKGROUND_BUCKET_NAME = os.getenv('BACKGROUND_BUCKET_NAME', 'panoptes-backgrounds')
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
 
@@ -151,7 +152,8 @@ def process_topic(image_doc_ref, data):
                                          background_config,
                                          solve_config,
                                          headers,
-                                         image_doc_ref)
+                                         image_doc_ref,
+                                         bucket_path)
                 print(f'Done solving, new path: {solved_path} for {bucket_path}')
 
                 if not bucket_path.endswith('.fz'):
@@ -172,7 +174,7 @@ def process_topic(image_doc_ref, data):
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
 
-def solve_file(local_path, background_config, solve_config, headers, image_doc_ref):
+def solve_file(local_path, background_config, solve_config, headers, image_doc_ref, bucket_path):
     print(f'Entering solve_file for {local_path}')
     solved_file = None
 
@@ -194,10 +196,25 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
             full_background = np.ma.array(observation_background).sum(0).filled(0)
             data = data - full_background
 
+            back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
+
             background_info = defaultdict(dict)
-            for color, back in zip('rgb', observation_background):
-                background_info['background_median'][color] = np.ma.median(back)
-                background_info['background_rms'][color] = np.ma.std(back)
+            for color, back_data in zip('rgb', observation_background):
+                background_info['background_median'][color] = np.ma.median(back_data)
+                background_info['background_rms'][color] = np.ma.std(back_data)
+
+                # Save background file.
+                hdu = fits.PrimaryHDU(data=back_data.data, header=header)
+
+                back_path = bucket_path.replace(f'.fits', '-background-{color}.fits')
+                back_path = bucket_path.replace('.fz', '')
+                print(f'Creating background file for {back_path}')
+                hdu.writeto(back_path, overwrite=True)
+                back_path = fits_utils.fpack(back_path)
+
+                blob = back_bucket.get_blob(bucket_path)
+                print(f'Uploading background file for {back_path} to {blob.public_url}')
+                blob.upload_from_filename(back_path)
 
             # Record background details in image.
             image_doc_ref.set(background_info, merge=True)
@@ -208,7 +225,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
     # Save subtracted file locally.
     hdu = fits.PrimaryHDU(data=data, header=header)
 
-    back_path = local_path.replace('.fits', '-background.fits')
+    back_path = local_path.replace('.fits', '-back-sub.fits')
     back_path = local_path.replace('.fz', '')
     hdu.writeto(back_path, overwrite=True)
     assert os.path.exists(back_path)
