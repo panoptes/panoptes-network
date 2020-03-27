@@ -18,7 +18,8 @@ from panoptes.utils.serializers import from_json
 from panoptes.utils.logger import logger
 
 logger.enable('panoptes')
-
+logger.remove()
+logger.add(sys.stderr, format='{message}')
 
 try:
     db = firestore.Client()
@@ -57,7 +58,7 @@ def main():
 
         # If nothing found, sleep for 10 minutes.
         if len(response.received_messages) == 0:
-            print(f'No plate solve requests found. Sleeping for 10 minutes.')
+            # print(f'No plate solve requests found. Sleeping for 10 minutes.')
             time.sleep(60)
 
         ack_ids = list()
@@ -228,7 +229,7 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
         with suppress(AttributeError):
             header[k] = v.strip()
 
-    print(f'Using headers: {header!r}')
+    # print(f'Using headers: {header!r}')
     try:
         seq_id = header.get('SEQID', '')
 
