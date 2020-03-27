@@ -86,7 +86,7 @@ def main():
                 image_doc = image_doc_snap.to_dict() or dict()
                 if image_doc.get('solved', False) or image_doc.get('status') == 'solved':
                     print(f'Image has been solved by plate-solver {image_id}, skipping solve')
-                    return
+                    break
 
                 # Send to solver processing.
                 process_topic(image_doc_ref, data)
