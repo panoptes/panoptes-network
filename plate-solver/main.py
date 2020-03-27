@@ -2,6 +2,8 @@ import os
 import sys
 import tempfile
 import time
+from contextlib import suppress
+from dateutil.parser import parse as parse_date
 
 from google.cloud import firestore
 from google.cloud import storage
@@ -13,6 +15,9 @@ from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.images.bayer import get_rgb_background
 from panoptes.utils import image_id_from_path
 from panoptes.utils.serializers import from_json
+from panoptes.utils.logger import logger
+
+logger.enable('panoptes')
 
 
 try:
@@ -53,7 +58,7 @@ def main():
         # If nothing found, sleep for 10 minutes.
         if len(response.received_messages) == 0:
             print(f'No plate solve requests found. Sleeping for 10 minutes.')
-            time.sleep(600)
+            time.sleep(60)
 
         ack_ids = list()
         for msg in response.received_messages:
@@ -111,7 +116,9 @@ def process_topic(data):
 
                 # Get the metadata from firestore.
                 image_doc_ref = db.document(f'images/{image_id}')
-                image_doc = image_doc_ref.get().to_dict() or dict()
+                image_doc_snap = image_doc_ref.get()
+                print(f'Record in firetore: {image_doc_snap.exists}')
+                image_doc = image_doc_snap.to_dict() or dict()
                 if image_doc.get('solved', False):
                     print(f'Image has been solved by plate-solver {image_id}, skipping solve')
 
@@ -121,38 +128,38 @@ def process_topic(data):
                 with open(local_path, 'wb') as f:
                     fits_blob.download_to_file(f)
 
+                headers = {'FILENAME': fits_blob.public_url}
+
                 # Do the actual plate-solve.
-                solved_path = solve_file(local_path, background_config, solve_config)
+                solved_path = solve_file(local_path, background_config, solve_config, headers)
                 print(f'Done solving, new path: {solved_path}')
 
-                # Compress if needed.
-                if not solved_path.endswith('.fz'):
-                    print(f'Compressing: {solved_path}')
-                    solved_path = fits_utils.fpack(solved_path)
-                    bucket_path = bucket_path.replace('.fits', '.fits.fz')
-                    fits_blob = bucket.rename_blob(fits_blob, bucket_path)
-
                 # Replace file on bucket with solved file.
-                print(f'Uploading {solved_path} to {fits_blob.path}')
+                print(f'Uploading {solved_path}')
                 fits_blob.upload_from_filename(solved_path)
 
-                # Update firestore record.
-                image_doc_ref.set(dict(status='solved', solved=True, bucket_path=bucket_path), merge=True)
+                if not bucket_path.endswith('.fz'):
+                    bucket.rename_blob(fits_blob, f'{bucket_path}.fz')
+
+                print(f'Adding metadata record to firestore for {local_path}')
+                headers = fits_utils.getheader(solved_path)
+                add_header_to_db(image_doc_ref, headers, bucket_path)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
                 if image_doc_ref:
-                    image_doc_ref.set(dict(status='solve_error'), merge=True)
+                    image_doc_ref.set(dict(status='solve_error', solved=False), merge=True)
             finally:
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
 
-def solve_file(local_path, background_config, solve_config):
+def solve_file(local_path, background_config, solve_config, headers):
     print(f'Entering solve_file for {local_path}')
     solved_file = None
 
     # Get the background subtracted data.
     header = fits_utils.getheader(local_path)
+    header.update(headers)
     data = fits_utils.getdata(local_path)
 
     try:
@@ -180,13 +187,138 @@ def solve_file(local_path, background_config, solve_config):
     solved_file = solve_info['solved_fits_file'].replace('.new', '.fits')
 
     # Save over original file with new headers but old data.
-    print(f'Creating new plate-solved file for {local_path}')
+    print(f'Creating new plate-solved file for {local_path} from {solved_file}')
     solved_header = fits_utils.getheader(solved_file)
     solved_header['status'] = 'solved'
     hdu = fits.PrimaryHDU(data=data, header=solved_header)
-    hdu.writeto(local_path, overwrite=True)
 
-    return local_path
+    overwrite_local_path = local_path.replace('.fz', '')
+    hdu.writeto(overwrite_local_path, overwrite=True)
+
+    print(f'Compressing: {overwrite_local_path}')
+    overwrite_local_path = fits_utils.fpack(overwrite_local_path)
+
+    return overwrite_local_path
+
+
+def add_header_to_db(image_doc_ref, header, bucket_path):
+    """Add FITS image info to metadb.
+
+    Note:
+        This function doesn't check header for proper entries and
+        assumes a large list of keywords. See source for details.
+
+    Args:
+        header (dict): FITS Header data from an observation.
+        bucket_path (str): Full path to the image in a Google Storage Bucket.
+
+    Returns:
+        str: The image_id.
+
+    Raises:
+        e: Description
+    """
+    print(f'Cleaning headers for {bucket_path}')
+    header.remove('COMMENT', ignore_missing=True, remove_all=True)
+    header.remove('HISTORY', ignore_missing=True, remove_all=True)
+
+    # Scrub all the entries
+    for k, v in header.items():
+        with suppress(AttributeError):
+            header[k] = v.strip()
+
+    print(f'Using headers: {header!r}')
+    try:
+        seq_id = header.get('SEQID', '')
+
+        unit_id, camera_id, sequence_time = seq_id.split('_')
+        sequence_time = parse_date(sequence_time)
+
+        img_id = header.get('IMAGEID', '')
+        img_time = parse_date(img_id.split('_')[-1])
+
+        print(f'Getting document for observation {seq_id}')
+        seq_doc_ref = db.document(f'observations/{seq_id}')
+        seq_doc_snap = seq_doc_ref.get()
+
+        # Only process sequence if in a certain state.
+        valid_status = ['metadata_received', 'solve_error', 'uploaded']
+
+        if not seq_doc_snap.exists or seq_doc_snap.get('status') in valid_status:
+            print(f'Making new document for observation {seq_id}')
+            # If no sequence doc then probably no unit id. This is just to minimize
+            # the number of lookups that would be required if we looked up unit_id
+            # doc each time.
+            print(f'Getting doc for unit {unit_id}')
+            unit_doc_ref = db.document(f'units/{unit_id}')
+            unit_doc_snap = unit_doc_ref.get()
+
+            # Add a units doc if it doesn't exist.
+            if not unit_doc_snap.exists:
+                try:
+                    unit_data = {
+                        'name': header.get('OBSERVER', ''),
+                        'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
+                        'elevation': float(header.get('ELEV-OBS')),
+                        'status': 'active'  # Assuming we are active since we received files.
+                    }
+                    unit_doc_ref.set(unit_data, merge=True)
+                except Exception:
+                    pass
+
+            seq_data = {
+                'unit_id': unit_id,
+                'camera_id': camera_id,
+                'time': sequence_time,
+                'exptime': header.get('EXPTIME'),
+                'project': header.get('ORIGIN'),  # Project PANOPTES
+                'software_version': header.get('CREATOR', ''),
+                'field_name': header.get('FIELD', ''),
+                'iso': header.get('ISO'),
+                'ra': header.get('CRVAL1'),
+                'dec': header.get('CRVAL2'),
+                'status': 'receiving_files',
+            }
+
+            try:
+                print("Inserting sequence: {}".format(seq_data))
+                seq_doc_ref.set(seq_data, merge=True)
+            except Exception as e:
+                print(f"Can't insert sequence {seq_id}: {e!r}")
+
+        image_doc_snap = image_doc_ref.get()
+
+        image_status = image_doc_snap.get('status')
+
+        if not image_doc_snap.exists or image_status in valid_status:
+            print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
+
+            image_data = {
+                'sequence_id': seq_id,
+                'time': img_time,
+                'bucket_path': bucket_path,
+                'status': 'solved',
+                'airmass': header.get('AIRMASS'),
+                'exptime': header.get('EXPTIME'),
+                'moonfrac': header.get('MOONFRAC'),
+                'moonsep': header.get('MOONSEP'),
+                'ra_image': header.get('CRVAL1'),
+                'dec_image': header.get('CRVAL2'),
+                'ha_mnt': header.get('HA-MNT'),
+                'ra_mnt': header.get('RA-MNT'),
+                'dec_mnt': header.get('DEC-MNT'),
+            }
+            try:
+                image_doc_ref.set(image_data, merge=True)
+            except Exception as e:
+                print(f"Can't insert image info {img_id}: {e!r}")
+        else:
+            print(f'Image exists with status={image_status} so not updating record details')
+
+    except Exception as e:
+        raise e
+
+    return True
 
 
 if __name__ == '__main__':
