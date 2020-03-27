@@ -119,8 +119,9 @@ def process_topic(data):
                 image_doc_snap = image_doc_ref.get()
                 print(f'Record in firetore: {image_doc_snap.exists}')
                 image_doc = image_doc_snap.to_dict() or dict()
-                if image_doc.get('solved', False):
+                if image_doc.get('solved', False) or image_doc.get('status') == 'solved':
                     print(f'Image has been solved by plate-solver {image_id}, skipping solve')
+                    return
 
                 # Download file
                 print(f'Downloading image for {bucket_path}.')
@@ -298,6 +299,7 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
                 'time': img_time,
                 'bucket_path': bucket_path,
                 'status': 'solved',
+                'solved': True,
                 'airmass': header.get('AIRMASS'),
                 'exptime': header.get('EXPTIME'),
                 'moonfrac': header.get('MOONFRAC'),
