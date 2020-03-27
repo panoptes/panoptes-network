@@ -4,6 +4,7 @@ import tempfile
 import time
 from contextlib import suppress
 from dateutil.parser import parse as parse_date
+import numpy as np
 
 from google.cloud import firestore
 from google.cloud import storage
@@ -145,7 +146,11 @@ def process_topic(image_doc_ref, data):
 
                 # Do the actual plate-solve.
                 print(f'Calling solve_field for {local_path} from {bucket_path}.')
-                solved_path = solve_file(local_path, background_config, solve_config, headers)
+                solved_path = solve_file(local_path,
+                                         background_config,
+                                         solve_config,
+                                         headers,
+                                         image_doc_ref)
                 print(f'Done solving, new path: {solved_path} for {bucket_path}')
 
                 if not bucket_path.endswith('.fz'):
@@ -166,7 +171,7 @@ def process_topic(image_doc_ref, data):
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
 
-def solve_file(local_path, background_config, solve_config, headers):
+def solve_file(local_path, background_config, solve_config, headers, image_doc_ref):
     print(f'Entering solve_file for {local_path}')
     solved_file = None
 
@@ -176,13 +181,25 @@ def solve_file(local_path, background_config, solve_config, headers):
     data = fits_utils.getdata(local_path)
 
     try:
-        observation_background = get_rgb_background(local_path, **background_config)
-        if observation_background is None:
+        observation_background = get_rgb_background(local_path,
+                                                    return_separate=True,
+                                                    **background_config)
+        if len(observation_background) is None:
             print(f'Could not get RGB background for {local_path}, plate-solving without')
             header['BACKFAIL'] = True
-            data = data - observation_background
         else:
             print(f'Got background for {local_path}')
+            # Create one array for the backgrounds, where any holes are filled with zeros.
+            full_background = np.ma.array(observation_background).sum(0).filled(0)
+            data = data - full_background
+
+            background_info = dict()
+            for color, back in zip('rgb', observation_background):
+                background_info['background_median'][color] = np.ma.median(back)
+                background_info['background_rms'][color] = np.ma.std(back)
+
+            # Record background details in image.
+            image_doc_ref.set(background_info, merge=True)
     except Exception as e:
         print(f'Problem getting background for {local_path}: {e!r}')
 
@@ -301,11 +318,10 @@ def add_header_to_db(image_doc_ref, header):
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
         image_doc_snap = image_doc_ref.get()
-
         image_status = image_doc_snap.get('status')
 
         if not image_doc_snap.exists or image_status in valid_status:
-            print("Adding header for SEQ={} IMG={}".format(seq_id, image_id))
+            print(f"Adding image document for SEQ={seq_id} IMG={image_id}")
 
             image_data = {
                 'sequence_id': seq_id,
