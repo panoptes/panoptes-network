@@ -69,7 +69,10 @@ def main():
             try:
                 data = from_json(msg.message.data.decode())
                 print(f"Data received: {data!r}")
-                process_topic(data)
+                solved_path = process_topic(data)
+                print(f'Adding metadata record to firestore')
+                headers = fits_utils.getheader(solved_path)
+                add_header_to_db(headers)
             except Exception as e:
                 print(f'Problem plate-solving message: {e!r}')
             finally:
@@ -143,10 +146,6 @@ def process_topic(data):
                 if not bucket_path.endswith('.fz'):
                     bucket.rename_blob(fits_blob, f'{bucket_path}.fz')
 
-                print(f'Adding metadata record to firestore for {local_path}')
-                headers = fits_utils.getheader(solved_path)
-                add_header_to_db(image_doc_ref, headers, bucket_path)
-
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
                 if image_doc_ref:
@@ -203,7 +202,7 @@ def solve_file(local_path, background_config, solve_config, headers):
     return overwrite_local_path
 
 
-def add_header_to_db(image_doc_ref, header, bucket_path):
+def add_header_to_db(header):
     """Add FITS image info to metadb.
 
     Note:
@@ -220,6 +219,7 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
     Raises:
         e: Description
     """
+    bucket_path = header.get('FILENAME')
     print(f'Cleaning headers for {bucket_path}')
     header.remove('COMMENT', ignore_missing=True, remove_all=True)
     header.remove('HISTORY', ignore_missing=True, remove_all=True)
@@ -236,15 +236,15 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
         unit_id, camera_id, sequence_time = seq_id.split('_')
         sequence_time = parse_date(sequence_time)
 
-        img_id = header.get('IMAGEID', '')
-        img_time = parse_date(img_id.split('_')[-1])
+        image_id = header.get('IMAGEID', '')
+        img_time = parse_date(image_id.split('_')[-1])
 
         print(f'Getting document for observation {seq_id}')
         seq_doc_ref = db.document(f'observations/{seq_id}')
         seq_doc_snap = seq_doc_ref.get()
 
         # Only process sequence if in a certain state.
-        valid_status = ['metadata_received', 'solve_error', 'uploaded']
+        valid_status = ['metadata_received', 'solve_error', 'uploaded', 'receiving_files']
 
         if not seq_doc_snap.exists or seq_doc_snap.get('status') in valid_status:
             print(f'Making new document for observation {seq_id}')
@@ -288,12 +288,13 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
+        image_doc_ref = db.document(f'images/{image_id}')
         image_doc_snap = image_doc_ref.get()
 
         image_status = image_doc_snap.get('status')
 
         if not image_doc_snap.exists or image_status in valid_status:
-            print("Adding header for SEQ={} IMG={}".format(seq_id, img_id))
+            print("Adding header for SEQ={} IMG={}".format(seq_id, image_id))
 
             image_data = {
                 'sequence_id': seq_id,
@@ -314,7 +315,7 @@ def add_header_to_db(image_doc_ref, header, bucket_path):
             try:
                 image_doc_ref.set(image_data, merge=True)
             except Exception as e:
-                print(f"Can't insert image info {img_id}: {e!r}")
+                print(f"Can't insert image info {image_id}: {e!r}")
         else:
             print(f'Image exists with status={image_status} so not updating record details')
 
