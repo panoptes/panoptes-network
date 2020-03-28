@@ -181,7 +181,6 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
     # Get the background subtracted data.
     header = fits_utils.getheader(local_path)
     header.update(headers)
-    print(f'Headers: {header!r}')
     data = fits_utils.getdata(local_path)
 
     try:
@@ -198,11 +197,11 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
             data = data - full_background
 
             back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
-            background_info = defaultdict(dict)
+            background_info = defaultdict(lambda: defaultdict(dict))
 
             for color, back_data in zip('rgb', observation_background):
-                background_info['background_median'][color] = np.ma.median(back_data)
-                background_info['background_rms'][color] = np.ma.std(back_data)
+                background_info['background']['median'][color] = np.ma.median(back_data)
+                background_info['background']['rms'][color] = np.ma.std(back_data)
 
                 # Save background file as unsigned int16
                 hdu = fits.PrimaryHDU(data=back_data.data.astype(np.uint16), header=header)
@@ -216,7 +215,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
                 blob = back_bucket.blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
-                background_info['background_path'][color] = blob.public_url
+                background_info['background']['path'][color] = blob.public_url
 
             # Record background details in image.
             image_doc_snap.reference.set(background_info, merge=True)
