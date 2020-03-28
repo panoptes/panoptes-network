@@ -212,7 +212,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
                 hdu.writeto(back_path, overwrite=True)
                 back_path = fits_utils.fpack(back_path)
 
-                blob = back_bucket.get_blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
+                blob = back_bucket.blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
 
