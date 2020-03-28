@@ -123,7 +123,7 @@ def process_topic(image_doc_snap, data):
     })
     background_config = data.get('background_config', {
         "camera_bias": 2048.,
-        "filter_size": 20,
+        "filter_size": 42,
     })
     print(f"Staring plate-solving for FITS file {bucket_path}")
     if bucket_path is not None:
