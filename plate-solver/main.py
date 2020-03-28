@@ -89,7 +89,7 @@ def main():
                     break
 
                 # Send to solver processing.
-                process_topic(image_doc_ref, data)
+                process_topic(image_doc_snap, data)
 
             except Exception as e:
                 print(f'Problem plate-solving message: {e!r}')
@@ -107,7 +107,7 @@ def main():
                 print(f'Problem acknowledging messages: {e!r}')
 
 
-def process_topic(image_doc_ref, data):
+def process_topic(image_doc_snap, data):
     """Plate-solve a FITS file.
 
     Returns:
@@ -152,7 +152,7 @@ def process_topic(image_doc_ref, data):
                                          background_config,
                                          solve_config,
                                          headers,
-                                         image_doc_ref,
+                                         image_doc_snap,
                                          bucket_path)
                 print(f'Done solving, new path: {solved_path} for {bucket_path}')
 
@@ -166,7 +166,7 @@ def process_topic(image_doc_ref, data):
 
                 print(f'Adding metadata record to firestore for {solved_path}')
                 headers = fits_utils.getheader(solved_path)
-                add_header_to_db(image_doc_ref, headers)
+                add_header_to_db(image_doc_snap, headers)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
@@ -174,13 +174,14 @@ def process_topic(image_doc_ref, data):
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
 
-def solve_file(local_path, background_config, solve_config, headers, image_doc_ref, bucket_path):
+def solve_file(local_path, background_config, solve_config, headers, image_doc_snap, bucket_path):
     print(f'Entering solve_file for {local_path}')
     solved_file = None
 
     # Get the background subtracted data.
     header = fits_utils.getheader(local_path)
     header.update(headers)
+    print(f'Headers: {header!r}')
     data = fits_utils.getdata(local_path)
 
     try:
@@ -203,8 +204,8 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
                 background_info['background_median'][color] = np.ma.median(back_data)
                 background_info['background_rms'][color] = np.ma.std(back_data)
 
-                # Save background file.
-                hdu = fits.PrimaryHDU(data=back_data.data, header=header)
+                # Save background file as unsigned int16
+                hdu = fits.PrimaryHDU(data=back_data.data.astype(np.uint16), header=header)
 
                 back_path = local_path.replace('.fits', f'-background-{color}.fits')
                 back_path = back_path.replace('.fz', '')
@@ -215,9 +216,10 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
                 blob = back_bucket.blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
+                background_info['background_path'][color] = blob.public_url
 
             # Record background details in image.
-            image_doc_ref.set(background_info, merge=True)
+            image_doc_snap.reference.set(background_info, merge=True)
     except Exception as e:
         print(f'Problem getting background for {local_path}: {e!r}')
 
@@ -249,7 +251,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
     return overwrite_local_path
 
 
-def add_header_to_db(image_doc_ref, header):
+def add_header_to_db(image_doc_snap, header):
     """Add FITS image info to metadb.
 
     Note:
@@ -335,8 +337,10 @@ def add_header_to_db(image_doc_ref, header):
             except Exception as e:
                 print(f"Can't insert sequence {seq_id}: {e!r}")
 
-        image_doc_snap = image_doc_ref.get()
-        image_status = image_doc_snap.get('status')
+        try:
+            image_status = image_doc_snap.get('status')
+        except KeyError:
+            image_status = 'receiving_files'
 
         if not image_doc_snap.exists or image_status in valid_status:
             print(f"Adding image document for SEQ={seq_id} IMG={image_id}")
@@ -358,7 +362,7 @@ def add_header_to_db(image_doc_ref, header):
                 'dec_mnt': header.get('DEC-MNT'),
             }
             try:
-                image_doc_ref.set(image_data, merge=True)
+                image_doc_snap.reference.set(image_data, merge=True)
             except Exception as e:
                 print(f"Can't insert image info {image_id}: {e!r}")
         else:
