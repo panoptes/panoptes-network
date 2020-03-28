@@ -113,7 +113,8 @@ def process_topic(image_doc_snap, data):
     Returns:
         TYPE: Description
     """
-    bucket_name = data.get('bucket_name', BUCKET_NAME)
+    raw_bucket_name = data.get('raw_bucket_name', RAW_BUCKET_NAME)
+    processed_bucket_name = data.get('raw_bucket_name', PROCESSED_BUCKET_NAME)
     bucket_path = data.get('bucket_path', None)
     solve_config = data.get('solve_config', {
         "skip_solved": False,
@@ -126,14 +127,18 @@ def process_topic(image_doc_snap, data):
     print(f"Staring plate-solving for FITS file {bucket_path}")
     if bucket_path is not None:
 
+        raw_bucket = storage_client.get_bucket(raw_bucket_name)
+        processed_bucket = storage_client.get_bucket(processed_bucket_name)
+
         with tempfile.TemporaryDirectory() as tmp_dir_name:
             print(f'Creating temp directory {tmp_dir_name} for {bucket_path}')
-            bucket = storage_client.get_bucket(bucket_name)
             try:
                 print(f'Getting blob for {bucket_path}.')
-                fits_blob = bucket.get_blob(bucket_path)
+
+                fits_blob = raw_bucket.get_blob(bucket_path)
                 if not fits_blob:
-                    raise FileNotFoundError(f"Can't find {bucket_path} in {bucket_name}")
+                    raise FileNotFoundError(f"Can't find {bucket_path} in {raw_bucket_name}")
+                processed_blob = processed_bucket.blob(bucket_path)
 
                 image_id = image_id_from_path(bucket_path)
                 print(f'Got image_id {image_id} for {bucket_path}')
@@ -144,7 +149,7 @@ def process_topic(image_doc_snap, data):
                 with open(local_path, 'wb') as f:
                     fits_blob.download_to_file(f)
 
-                headers = {'FILENAME': fits_blob.public_url}
+                headers = {'FILENAME': processed_blob.public_url}
 
                 # Do the actual plate-solve.
                 print(f'Calling solve_field for {local_path} from {bucket_path}.')
@@ -156,13 +161,9 @@ def process_topic(image_doc_snap, data):
                                          bucket_path)
                 print(f'Done solving, new path: {solved_path} for {bucket_path}')
 
-                if not bucket_path.endswith('.fz'):
-                    print(f'Renaming {bucket_path} to {bucket_path}.fz because we compressed')
-                    fits_blob = bucket.rename_blob(fits_blob, f'{bucket_path}.fz')
-
                 # Replace file on bucket with solved file.
-                print(f'Uploading {solved_path} for {bucket_path}')
-                fits_blob.upload_from_filename(solved_path)
+                print(f'Uploading {solved_path} to {processed_blob.public_url}')
+                processed_blob.upload_from_filename(solved_path)
 
                 print(f'Adding metadata record to firestore for {solved_path}')
                 headers = fits_utils.getheader(solved_path)
@@ -194,7 +195,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
             print(f'Got background for {local_path}')
             # Create one array for the backgrounds, where any holes are filled with zeros.
             full_background = np.ma.array(observation_background).sum(0).filled(0)
-            data = data - full_background
+            subtracted_data = data - full_background
 
             back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
             background_info = defaultdict(lambda: defaultdict(dict))
@@ -224,7 +225,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
 
     print(f'Creating new background subtracted file for {local_path}')
     # Save subtracted file locally.
-    hdu = fits.PrimaryHDU(data=data, header=header)
+    hdu = fits.PrimaryHDU(data=subtracted_data, header=header)
 
     back_path = local_path.replace('.fits', '-back-sub.fits')
     back_path = local_path.replace('.fz', '')
@@ -239,7 +240,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
     print(f'Creating new plate-solved file for {local_path} from {solved_file}')
     solved_header = fits_utils.getheader(solved_file)
     solved_header['status'] = 'solved'
-    hdu = fits.PrimaryHDU(data=data, header=solved_header)
+    hdu = fits.PrimaryHDU(data=subtracted_data, header=solved_header)
 
     overwrite_local_path = local_path.replace('.fz', '')
     hdu.writeto(overwrite_local_path, overwrite=True)
