@@ -197,8 +197,8 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
             data = data - full_background
 
             back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
-
             background_info = defaultdict(dict)
+
             for color, back_data in zip('rgb', observation_background):
                 background_info['background_median'][color] = np.ma.median(back_data)
                 background_info['background_rms'][color] = np.ma.std(back_data)
@@ -206,13 +206,13 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_r
                 # Save background file.
                 hdu = fits.PrimaryHDU(data=back_data.data, header=header)
 
-                back_path = bucket_path.replace(f'.fits', '-background-{color}.fits')
-                back_path = bucket_path.replace('.fz', '')
+                back_path = local_path.replace('.fits', f'-background-{color}.fits')
+                back_path = back_path.replace('.fz', '')
                 print(f'Creating background file for {back_path}')
                 hdu.writeto(back_path, overwrite=True)
                 back_path = fits_utils.fpack(back_path)
 
-                blob = back_bucket.get_blob(bucket_path)
+                blob = back_bucket.get_blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
 
