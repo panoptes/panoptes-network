@@ -52,6 +52,12 @@ def process_topic(data):
 
     Triggered when file is uploaded to bucket and forwards on to appropriate service.
 
+    This function first check to see if the file has the legacy field name in it,
+    and if so rename the file (which will trigger this function again with new name).
+
+    Correct:   PAN001/14d3bd/20200319T111240/20200319T112708.fits.fz
+    Incorrect: PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
+
     Args:
         data (dict): The Cloud Functions event payload.
         context (google.cloud.functions.Context): Metadata of triggering event.
@@ -62,6 +68,15 @@ def process_topic(data):
 
     if bucket_path is None:
         raise Exception(f'No file requested')
+
+    # Check if has legeacy path
+    path_parts = bucket_path.split('/')
+    if len(path_parts) == 5:
+        field_name = path_parts.pop(1)
+        new_path = '/'.join(path_parts)
+        print(f'Removed field name ["{field_name}"]: {bucket_path} -> {new_path}')
+        storage_bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
+        return
 
     _, file_ext = os.path.splitext(bucket_path)
 
@@ -93,21 +108,9 @@ def send_pubsub_message(topic, data):
 def process_fits(bucket_path):
     """Process the FITS files.
 
-    This function first check to see if the file has the legacy field name in it,
-    and if so rename the file (which will trigger this function again with new name).
-
-    Correct:   PAN001/14d3bd/20200319T111240/20200319T112708.fits.fz
-    Incorrect: PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
 
     """
-    path_parts = bucket_path.split('/')
-    if len(path_parts) == 5:
-        field_name = path_parts.pop(1)
-        new_path = '/'.join(path_parts)
-        print(f'Removed field name ["{field_name}"]: {bucket_path} -> {new_path}')
-        storage_bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
-    else:
-        send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
+    send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
