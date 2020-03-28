@@ -38,7 +38,8 @@ except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
 
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+RAW_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+PROCESSED_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-images')
 BACKGROUND_BUCKET_NAME = os.getenv('BACKGROUND_BUCKET_NAME', 'panoptes-backgrounds')
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
@@ -242,13 +243,15 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
     solved_header['status'] = 'solved'
     hdu = fits.PrimaryHDU(data=subtracted_data, header=solved_header)
 
-    overwrite_local_path = local_path.replace('.fz', '')
-    hdu.writeto(overwrite_local_path, overwrite=True)
+    hdu.writeto(solved_file, overwrite=True)
 
-    print(f'Compressing: {overwrite_local_path}')
-    overwrite_local_path = fits_utils.fpack(overwrite_local_path)
+    print(f'Compressing: {solved_file}')
+    with suppress(FileNotFoundError):
+        os.unlink(local_path)
+    new_local_path = fits_utils.fpack(solved_file)
 
-    return overwrite_local_path
+    print(f'Returning: {new_local_path}')
+    return new_local_path
 
 
 def add_header_to_db(image_doc_snap, header):
