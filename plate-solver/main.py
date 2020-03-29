@@ -227,12 +227,10 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
     sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
 
-    sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv')
-
     sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
 
+    sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv')
     sources_blob = sources_bucket.blob(sources_bucket_path)
-    print(f'Uploading {sources_path} to {sources_blob.public_url}')
     sources_blob.upload_from_filename(sources_path)
     print(f'{sources_path} uploaded to {sources_blob.public_url}')
 
