@@ -198,26 +198,52 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
                                                  catalog_match=True,
                                                  bq_client=bq_client)
 
+    # Rename all columns to be from sextractor, then revert some.
+    point_sources.rename(columns={c: f'sextractor_{c}'
+                                  for c
+                                  in point_sources.columns},
+                         inplace=True,
+                         errors='ignore')
+
+    # Revert some of those from above.
+    point_sources.rename(columns={
+        'sextractor_picid': 'picid',
+        'sextractor_vmag': 'catalog_vmag',
+        'sextractor_vmag_err': 'catalog_vmag_err',
+    },
+        inplace=True,
+        errors='ignore')
+
     # Add some of the FITS headers
-    point_sources['iso'] = headers['ISO']
     point_sources['exptime'] = headers['EXPTIME']
-    point_sources['camtemp'] = headers['CAMTEMP'].split(' ')[0]  # '16 C'
-    point_sources['circconf'] = headers['CIRCCONF'].split(' ')[0]  # '0.019 mm'
-    point_sources['colortmp'] = headers['COLORTMP']
-    point_sources['measev'] = headers['MEASEV']
-    point_sources['measev2'] = headers['MEASEV2']
-    point_sources['measrggb'] = headers['MEASRGGB'].split(' ')  # = '455 1024 1024 784'
-    point_sources['whtlvln'] = headers['WHTLVLN']
-    point_sources['whtlvls'] = headers['WHTLVLS']
-    point_sources['redbal'] = headers['REDBAL']
-    point_sources['bluebal'] = headers['BLUEBAL']
-    point_sources['ra_mnt'] = headers['RA-MNT']
-    point_sources['ha_mnt'] = headers['HA-MNT']
-    point_sources['dec_mnt'] = headers['DEC-MNT']
-    point_sources['airmass'] = headers['AIRMASS']
-    point_sources['lat'] = headers['LAT']
-    point_sources['long'] = headers['LONG']
-    point_sources['elev'] = headers['ELEV']
+
+    point_sources['camera_iso'] = headers['ISO']
+    point_sources['camera_temp'] = headers['CAMTEMP'].split(' ')[0]  # '16 C'
+    point_sources['camera_circconf'] = headers['CIRCCONF'].split(' ')[0]  # '0.019 mm'
+    point_sources['camera_colortmp'] = headers['COLORTMP']
+    point_sources['camera_measev'] = headers['MEASEV']
+    point_sources['camera_measev2'] = headers['MEASEV2']
+
+    meas_r, meas_g1, meas_g2, meas_b = headers['MEASRGGB'].split(' ')  # = '455 1024 1024 784'
+    point_sources['camera_meas_r'] = meas_r
+    point_sources['camera_meas_g1'] = meas_g1
+    point_sources['camera_meas_g2'] = meas_g2
+    point_sources['camera_meas_r'] = meas_b
+
+    point_sources['camera_whtlvln'] = headers['WHTLVLN']
+    point_sources['camera_whtlvls'] = headers['WHTLVLS']
+    point_sources['camera_redbal'] = headers['REDBAL']
+    point_sources['camera_bluebal'] = headers['BLUEBAL']
+
+    point_sources['mnt_ra'] = headers['RA-MNT']
+    point_sources['mnt_ha'] = headers['HA-MNT']
+    point_sources['mnt_dec'] = headers['DEC-MNT']
+    point_sources['mnt_airmass'] = headers['AIRMASS']
+
+    point_sources['location_lat'] = headers['LAT']
+    point_sources['location_long'] = headers['LONG']
+    point_sources['location_elev'] = headers['ELEV']
+
     point_sources['image_center_ra'] = headers['CRVAL1']
     point_sources['image_center_dec'] = headers['CRVAL2']
 
@@ -226,12 +252,12 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
 
     # Adjust some of the header items
     point_sources['image_id'] = image_id
-    point_sources['seq_time'] = seq_time
-    point_sources['img_time'] = image_time
-    point_sources['unit_id'] = unit_id
+    point_sources['image_time'] = image_time
+    point_sources['sequence_time'] = seq_time
     point_sources['camera_id'] = camera_id
+    point_sources['unit_id'] = unit_id
 
-    sources_path = solved_path.replace('.fits.fz', '.csv')
+    sources_path = solved_path.replace('.fits.fz', '.csv.gz')
     print(f'Saving sources to {sources_path}')
     point_sources.to_csv(sources_path)
 
@@ -240,7 +266,7 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
 
     sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
 
-    sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv')
+    sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv.gz')
     sources_blob = sources_bucket.blob(sources_bucket_path)
     sources_blob.upload_from_filename(sources_path)
     print(f'{sources_path} uploaded to {sources_blob.public_url}')
