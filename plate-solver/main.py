@@ -15,7 +15,7 @@ from google.cloud import bigquery
 from astropy.io import fits
 
 from panoptes.utils.images import fits as fits_utils
-from panoptes.utils.images.bayer import get_rgb_background
+from panoptes.utils.images import bayer
 from panoptes.utils import image_id_from_path
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.serializers import from_json
@@ -285,38 +285,45 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
     data = fits_utils.getdata(local_path)
 
     try:
-        observation_background = get_rgb_background(local_path,
-                                                    return_separate=True,
-                                                    **background_config)
-        if len(observation_background) is None:
+        rgb_backs = bayer.get_rgb_background(local_path,
+                                             return_separate=True,
+                                             **background_config)
+        if len(rgb_backs) is None:
             print(f'Could not get RGB background for {local_path}, plate-solving without')
             header['BACKFAIL'] = True
         else:
             print(f'Got background for {local_path}')
             # Create one array for the backgrounds, where any holes are filled with zeros.
-            full_background = np.ma.array(observation_background).sum(0).filled(0)
+            rgb_masks = bayer.get_rgb_masks(fits_utils.getdata(local_path))
+            full_background = np.array([np.ma.array(data=d0, mask=m0).filled(0)
+                                        for d0, m0
+                                        in zip(rgb_backs, rgb_masks)]).sum(0)
             subtracted_data = data - full_background
 
             back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
             background_info = defaultdict(lambda: defaultdict(dict))
 
-            for color, back_data in zip('rgb', observation_background):
-                background_info['background']['median'][color] = np.ma.median(back_data)
-                background_info['background']['rms'][color] = np.ma.std(back_data)
-
+            for color, back_data in zip('rgb', rgb_backs):
                 # Save background file as unsigned int16
-                hdu = fits.PrimaryHDU(data=back_data.data.astype(np.uint16), header=header)
+                back_hdu = fits.PrimaryHDU(data=back_data.background.astype(np.uint16), header=header)
+                rms_hdu = fits.ImageHDU(data=back_data.data.astype(np.uint16))
 
                 back_path = local_path.replace('.fits', f'-background-{color}.fits')
                 back_path = back_path.replace('.fz', '')
                 print(f'Creating background file for {back_path}')
-                hdu.writeto(back_path, overwrite=True)
-                back_path = fits_utils.fpack(back_path)
+                hdul = fits.HDUList([back_hdu, rms_hdu])
+                hdul.writeto(back_path, overwrite=True)
 
-                blob = back_bucket.blob(bucket_path.replace('.fits', f'-background-{color}.fits'))
+                back_bucket_name = bucket_path.replace('.fits', f'-background-{color}.fits')
+                back_bucket_name = back_bucket_name.replace('.fz', '')
+                blob = back_bucket.blob(back_bucket_name)
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
+
+                # Info to save to firestore.
                 background_info['background']['path'][color] = blob.public_url
+                background_info['background']['median'][color] = back_data.background_median
+                background_info['background']['rms'][color] = back_data.background_rms_median
 
             # Record background details in image.
             image_doc_snap.reference.set(background_info, merge=True)
