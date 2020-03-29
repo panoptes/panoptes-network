@@ -184,28 +184,55 @@ def process_topic(image_doc_snap, data):
                 add_header_to_db(image_doc_snap, headers)
 
                 # Source extraction.
-                print(f'Doing source extraction for {solved_path}')
-                point_sources = sources.lookup_point_sources(solved_path,
-                                                             catalog_match=True,
-                                                             bq_client=bq_client)
-
-                sources_path = solved_path.replace('.fits.fz', '.csv')
-                print(f'Saving sources to {sources_path}')
-                point_sources.to_csv(sources_path)
-
-                sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
-                sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
-
-                sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
-
-                sources_blob = sources_bucket.blob(sources_bucket_path)
-                sources_blob.upload_from_filename(sources_path)
-                print(f'{sources_path} uploaded to {sources_blob.public_url}')
+                source_extraction(solved_path, bucket_path)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
             finally:
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
+
+
+def source_extraction(solved_path, bucket_path, image_id, sequence_id):
+    print(f'Doing source extraction for {solved_path}')
+    point_sources = sources.lookup_point_sources(solved_path,
+                                                 catalog_match=True,
+                                                 bq_client=bq_client)
+
+    # Add some of the FITS headers
+    headers = fits_utils.getheader(solved_path)
+    key_list = [
+        'AIRMASS',
+        'EXPTIME',
+        'HA',
+        'MOONSEP',
+        'MOONFRAC',
+    ]
+    for header in key_list:
+        with suppress(KeyError):
+            point_sources[header.lower()] = headers[header]
+
+    unit_id, camera_id, image_time = image_id.split('_')
+    seq_time = sequence_id.split('_')[-1]
+
+    # Adjust some of the header items
+    point_sources['image_id'] = image_id
+    point_sources['seq_time'] = seq_time
+    point_sources['img_time'] = image_time
+    point_sources['unit_id'] = unit_id
+    point_sources['camera_id'] = camera_id
+
+    sources_path = solved_path.replace('.fits.fz', '.csv')
+    print(f'Saving sources to {sources_path}')
+    point_sources.to_csv(sources_path)
+
+    sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
+    sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
+
+    sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
+
+    sources_blob = sources_bucket.blob(sources_bucket_path)
+    sources_blob.upload_from_filename(sources_path)
+    print(f'{sources_path} uploaded to {sources_blob.public_url}')
 
 
 def solve_file(local_path, background_config, solve_config, headers, image_doc_snap, bucket_path):
