@@ -184,7 +184,7 @@ def process_topic(image_doc_snap, data):
                 add_header_to_db(image_doc_snap, headers)
 
                 # Source extraction.
-                source_extraction(solved_path, bucket_path, image_id, sequence_id)
+                source_extraction(headers, solved_path, bucket_path, image_id, sequence_id)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
@@ -192,14 +192,13 @@ def process_topic(image_doc_snap, data):
                 print(f'Cleaning up temp directory: {tmp_dir_name} for {bucket_path}')
 
 
-def source_extraction(solved_path, bucket_path, image_id, sequence_id):
+def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     print(f'Doing source extraction for {solved_path}')
     point_sources = sources.lookup_point_sources(solved_path,
                                                  catalog_match=True,
                                                  bq_client=bq_client)
 
     # Add some of the FITS headers
-    headers = fits_utils.getheader(solved_path)
     key_list = [
         'AIRMASS',
         'EXPTIME',
@@ -228,9 +227,12 @@ def source_extraction(solved_path, bucket_path, image_id, sequence_id):
     sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
     sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
 
+    sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv')
+
     sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
 
     sources_blob = sources_bucket.blob(sources_bucket_path)
+    print(f'Uploading {sources_path} to {sources_blob.public_url}')
     sources_blob.upload_from_filename(sources_path)
     print(f'{sources_path} uploaded to {sources_blob.public_url}')
 
