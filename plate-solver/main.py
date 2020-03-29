@@ -184,7 +184,7 @@ def process_topic(image_doc_snap, data):
                 add_header_to_db(image_doc_snap, headers)
 
                 # Source extraction.
-                source_extraction(solved_path, bucket_path)
+                source_extraction(solved_path, bucket_path, image_id, sequence_id)
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
