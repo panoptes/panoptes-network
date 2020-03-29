@@ -257,6 +257,8 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     point_sources['camera_id'] = camera_id
     point_sources['unit_id'] = unit_id
 
+    point_sources.reindex(sorted(point_sources.columns), axis=1, inplace=True)
+
     sources_path = solved_path.replace('.fits.fz', '.csv.gz')
     print(f'Saving sources to {sources_path}')
     point_sources.to_csv(sources_path)
