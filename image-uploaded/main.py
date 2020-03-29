@@ -22,6 +22,7 @@ make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 # Storage
 storage_client = storage.Client()
 storage_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-raw-images'))
+timelapse_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-timelapse'))
 
 
 def entry_point(data, context):
@@ -69,16 +70,22 @@ def process_topic(data):
     if bucket_path is None:
         raise Exception(f'No file requested')
 
+    _, file_ext = os.path.splitext(bucket_path)
+
     # Check if has legeacy path
     path_parts = bucket_path.split('/')
     if len(path_parts) == 5:
         field_name = path_parts.pop(1)
         new_path = '/'.join(path_parts)
         print(f'Removed field name ["{field_name}"]: {bucket_path} -> {new_path}')
-        storage_bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
-        return
 
-    _, file_ext = os.path.splitext(bucket_path)
+        bucket = storage_bucket
+        if file_ext == '.mp4':
+            bucket = timelapse_bucket
+
+        bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
+
+        return
 
     process_lookup = {
         '.fits': process_fits,
@@ -106,10 +113,6 @@ def send_pubsub_message(topic, data):
 
 
 def process_fits(bucket_path):
-    """Process the FITS files.
-
-
-    """
     send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 

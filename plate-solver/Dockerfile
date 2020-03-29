@@ -1,4 +1,6 @@
-FROM gcr.io/panoptes-exp/panoptes-utils:latest
+ARG base_tag=latest
+
+FROM gcr.io/panoptes-exp/panoptes-utils:$base_tag
 
 COPY ./requirements.txt /requirements.txt
 
@@ -17,4 +19,4 @@ COPY . /app
 WORKDIR /app
 
 # Clear existing entrypoint.
-ENTRYPOINT ["python", "-u", "main.py"]
+CMD ["python", "-u", "main.py"]

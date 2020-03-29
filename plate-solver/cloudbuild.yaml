@@ -1,20 +1,21 @@
 steps:
 # Build
-- name: 'gcr.io/cloud-builders/docker'
+- name: 'docker'
   id: 'base'
   args:
   - 'build'
-  - '--tag=gcr.io/${PROJECT_ID}/${_TOPIC}:latest'
+  - '--build-arg=base_tag=${_BASE_TAG}'
+  - '--tag=gcr.io/${PROJECT_ID}/${_TOPIC}:${_BASE_TAG}'
   - '.'
   waitFor: ['-']
 
 # Push
-- name: 'gcr.io/cloud-builders/docker'
+- name: 'docker'
   id: 'push-base'
   args:
   - 'push'
-  - 'gcr.io/${PROJECT_ID}/${_TOPIC}:latest'
+  - 'gcr.io/${PROJECT_ID}/${_TOPIC}:${_BASE_TAG}'
   waitFor: ['base']
 
 images:
-- 'gcr.io/${PROJECT_ID}/${_TOPIC}:latest'
+- 'gcr.io/${PROJECT_ID}/${_TOPIC}:${_BASE_TAG}'

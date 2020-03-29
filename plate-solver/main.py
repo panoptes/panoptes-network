@@ -10,38 +10,38 @@ import numpy as np
 from google.cloud import firestore
 from google.cloud import storage
 from google.cloud import pubsub
+from google.cloud import bigquery
 
 from astropy.io import fits
 
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.images.bayer import get_rgb_background
 from panoptes.utils import image_id_from_path
+from panoptes.utils import sequence_id_from_path
 from panoptes.utils.serializers import from_json
 from panoptes.utils.logger import logger
+from panoptes.utils import sources
 
 logger.enable('panoptes')
 logger.remove()
 logger.add(sys.stderr, format='{message}')
 
-try:
-    db = firestore.Client()
-except Exception as e:
-    print(f'Error getting firestore client: {e!r}')
-
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 PUBSUB_SUBSCRIPTION = 'plate-solve-read'
-
-# Storage
-try:
-    storage_client = storage.Client()
-except RuntimeError:
-    print(f"Can't load Google credentials, exiting")
-    sys.exit(1)
-
 RAW_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 PROCESSED_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-images')
 BACKGROUND_BUCKET_NAME = os.getenv('BACKGROUND_BUCKET_NAME', 'panoptes-backgrounds')
+SOURCES_BUCKET_NAME = os.getenv('SOURCES_BUCKET_NAME', 'panoptes-extracted-sources')
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
+
+# Storage
+try:
+    db = firestore.Client()
+    storage_client = storage.Client()
+    bq_client = bigquery.Client()
+except RuntimeError:
+    print(f"Can't load Google credentials, exiting")
+    sys.exit(1)
 
 
 def main():
@@ -124,6 +124,7 @@ def process_topic(image_doc_snap, data):
     background_config = data.get('background_config', {
         "camera_bias": 2048.,
         "filter_size": 42,
+        "box_size": (84, 84),
     })
     print(f"Staring plate-solving for FITS file {bucket_path}")
     if bucket_path is not None:
@@ -142,7 +143,8 @@ def process_topic(image_doc_snap, data):
                 processed_blob = processed_bucket.blob(bucket_path)
 
                 image_id = image_id_from_path(bucket_path)
-                print(f'Got image_id {image_id} for {bucket_path}')
+                sequence_id = sequence_id_from_path(bucket_path)
+                print(f'Got sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
 
                 # Download file
                 print(f'Downloading image for {bucket_path}.')
@@ -150,7 +152,18 @@ def process_topic(image_doc_snap, data):
                 with open(local_path, 'wb') as f:
                     fits_blob.download_to_file(f)
 
-                headers = {'FILENAME': processed_blob.public_url}
+                # Extract the sequence_id and image_id from the path directly.
+                # Note that this helps with some legacy units where the unit_id
+                # was given a friendly name, which then propogated into the sequence_id
+                # and image_id. This could potentially be removed in future although
+                # the path, sequence_id, and image_id should always match so should
+                # be okay to leave. wtgee 04-20
+
+                headers = {
+                    'FILENAME': processed_blob.public_url,
+                    'SEQID': sequence_id,
+                    'IMAGEID': image_id,
+                }
 
                 # Do the actual plate-solve.
                 print(f'Calling solve_field for {local_path} from {bucket_path}.')
@@ -169,6 +182,25 @@ def process_topic(image_doc_snap, data):
                 print(f'Adding metadata record to firestore for {solved_path}')
                 headers = fits_utils.getheader(solved_path)
                 add_header_to_db(image_doc_snap, headers)
+
+                # Source extraction.
+                print(f'Doing source extraction for {solved_path}')
+                point_sources = sources.lookup_point_sources(solved_path,
+                                                             catalog_match=True,
+                                                             bq_client=bq_client)
+
+                sources_path = solved_path.replace('.fits.fz', '.csv')
+                print(f'Saving sources to {sources_path}')
+                point_sources.to_csv(sources_path)
+
+                sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
+                sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
+
+                sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
+
+                sources_blob = sources_bucket.blob(sources_bucket_path)
+                sources_blob.upload_from_filename(sources_path)
+                print(f'{sources_path} uploaded to {sources_blob.public_url}')
 
             except Exception as e:
                 print(f'Problem with plate solving file: {e!r}')
