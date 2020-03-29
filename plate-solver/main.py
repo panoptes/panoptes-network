@@ -123,7 +123,7 @@ def process_topic(image_doc_snap, data):
     })
     background_config = data.get('background_config', {
         "camera_bias": 2048.,
-        "filter_size": 42,
+        "filter_size": 21,
         "box_size": (84, 84),
     })
     print(f"Staring plate-solving for FITS file {bucket_path}")
@@ -199,16 +199,27 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
                                                  bq_client=bq_client)
 
     # Add some of the FITS headers
-    key_list = [
-        'AIRMASS',
-        'EXPTIME',
-        'HA',
-        'MOONSEP',
-        'MOONFRAC',
-    ]
-    for header in key_list:
-        with suppress(KeyError):
-            point_sources[header.lower()] = headers[header]
+    point_sources['iso'] = headers['ISO']
+    point_sources['exptime'] = headers['EXPTIME']
+    point_sources['camtemp'] = headers['CAMTEMP'].split(' ')[0]  # '16 C'
+    point_sources['circconf'] = headers['CIRCCONF'].split(' ')[0]  # '0.019 mm'
+    point_sources['colortmp'] = headers['COLORTMP']
+    point_sources['measev'] = headers['MEASEV']
+    point_sources['measev2'] = headers['MEASEV2']
+    point_sources['measrggb'] = headers['MEASRGGB'].split(' ')  # = '455 1024 1024 784'
+    point_sources['whtlvln'] = headers['WHTLVLN']
+    point_sources['whtlvls'] = headers['WHTLVLS']
+    point_sources['redbal'] = headers['REDBAL']
+    point_sources['bluebal'] = headers['BLUEBAL']
+    point_sources['ra_mnt'] = headers['RA-MNT']
+    point_sources['ha_mnt'] = headers['HA-MNT']
+    point_sources['dec_mnt'] = headers['DEC-MNT']
+    point_sources['airmass'] = headers['AIRMASS']
+    point_sources['lat'] = headers['LAT']
+    point_sources['long'] = headers['LONG']
+    point_sources['elev'] = headers['ELEV']
+    point_sources['image_center_ra'] = headers['CRVAL1']
+    point_sources['image_center_dec'] = headers['CRVAL2']
 
     unit_id, camera_id, image_time = image_id.split('_')
     seq_time = sequence_id.split('_')[-1]
