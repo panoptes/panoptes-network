@@ -77,6 +77,7 @@ def main():
 
                 # Get image info.
                 bucket_path = data.get('bucket_path')
+
                 image_id = image_id_from_path(bucket_path)
                 print(f'Got image_id {image_id} for {bucket_path}')
 
@@ -122,7 +123,7 @@ def process_topic(image_doc_snap, data):
     })
     background_config = data.get('background_config', {
         "camera_bias": 2048.,
-        "filter_size": 11,
+        "filter_size": 3,
         "box_size": (84, 84),
     })
     print(f"Staring plate-solving for FITS file {bucket_path}")
