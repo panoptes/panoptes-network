@@ -77,7 +77,6 @@ def main():
 
                 # Get image info.
                 bucket_path = data.get('bucket_path')
-
                 image_id = image_id_from_path(bucket_path)
                 print(f'Got image_id {image_id} for {bucket_path}')
 

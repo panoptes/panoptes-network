@@ -18,5 +18,4 @@ RUN apt-get update && \
 COPY . /app
 WORKDIR /app
 
-# Clear existing entrypoint.
 CMD ["python", "-u", "main.py"]
