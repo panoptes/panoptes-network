@@ -262,7 +262,7 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
 
     sources_path = solved_path.replace('.fits.fz', '.csv.gz')
     print(f'Saving sources to {sources_path}')
-    point_sources.to_csv(sources_path)
+    point_sources.to_csv(sources_path, index=False)
 
     sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
     sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
