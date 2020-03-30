@@ -224,7 +224,7 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     point_sources['camera_meas_r'] = meas_r
     point_sources['camera_meas_g1'] = meas_g1
     point_sources['camera_meas_g2'] = meas_g2
-    point_sources['camera_meas_r'] = meas_b
+    point_sources['camera_meas_b'] = meas_b
 
     point_sources['camera_whtlvln'] = headers['WHTLVLN']
     point_sources['camera_whtlvls'] = headers['WHTLVLS']
