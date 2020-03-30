@@ -299,16 +299,18 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
             for color, back_data in zip('rgb', rgb_backs):
                 # Save background file as unsigned int16
                 back_hdu = fits.PrimaryHDU(data=back_data.background.astype(np.uint16), header=header)
-                rms_hdu = fits.ImageHDU(data=back_data.data.astype(np.uint16))
+                rms_hdu = fits.ImageHDU(data=back_data.data)
 
                 back_path = local_path.replace('.fits', f'-background-{color}.fits')
-                back_path = back_path.replace('.fz', '')
+                # back_path = back_path.replace('.fz', '')
                 print(f'Creating background file for {back_path}')
                 hdul = fits.HDUList([back_hdu, rms_hdu])
                 hdul.writeto(back_path, overwrite=True)
 
+                back_path = fits_utils.fpack(back_path)
+
                 back_bucket_name = bucket_path.replace('.fits', f'-background-{color}.fits')
-                back_bucket_name = back_bucket_name.replace('.fz', '')
+                # back_bucket_name = back_bucket_name.replace('.fz', '')
                 blob = back_bucket.blob(back_bucket_name)
                 print(f'Uploading background file for {back_path} to {blob.public_url}')
                 blob.upload_from_filename(back_path)
