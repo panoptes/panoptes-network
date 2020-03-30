@@ -30,7 +30,6 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 PUBSUB_SUBSCRIPTION = 'plate-solve-read'
 RAW_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 PROCESSED_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-images')
-BACKGROUND_BUCKET_NAME = os.getenv('BACKGROUND_BUCKET_NAME', 'panoptes-backgrounds')
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
 # Storage
@@ -299,7 +298,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
                                         in zip(rgb_backs, rgb_masks)]).sum(0)
             subtracted_data = data - full_background
 
-            back_bucket = storage_client.get_bucket(BACKGROUND_BUCKET_NAME)
+            back_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
             background_info = defaultdict(lambda: defaultdict(dict))
 
             for color, back_data in zip('rgb', rgb_backs):
