@@ -35,8 +35,11 @@ MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 # Storage
 try:
     db = firestore.Client()
-    storage_client = storage.Client()
     bq_client = bigquery.Client()
+    storage_client = storage.Client()
+
+    raw_bucket = storage_client.get_bucket(RAW_BUCKET_NAME)
+    processed_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
 except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
@@ -112,8 +115,6 @@ def process_topic(image_doc_snap, data):
     Returns:
         TYPE: Description
     """
-    raw_bucket_name = data.get('raw_bucket_name', RAW_BUCKET_NAME)
-    processed_bucket_name = data.get('raw_bucket_name', PROCESSED_BUCKET_NAME)
     bucket_path = data.get('bucket_path', None)
     solve_config = data.get('solve_config', {
         "skip_solved": False,
@@ -127,9 +128,6 @@ def process_topic(image_doc_snap, data):
     print(f"Staring plate-solving for FITS file {bucket_path}")
     if bucket_path is not None:
 
-        raw_bucket = storage_client.get_bucket(raw_bucket_name)
-        processed_bucket = storage_client.get_bucket(processed_bucket_name)
-
         with tempfile.TemporaryDirectory() as tmp_dir_name:
             print(f'Creating temp directory {tmp_dir_name} for {bucket_path}')
             try:
@@ -137,7 +135,7 @@ def process_topic(image_doc_snap, data):
 
                 fits_blob = raw_bucket.get_blob(bucket_path)
                 if not fits_blob:
-                    raise FileNotFoundError(f"Can't find {bucket_path} in {raw_bucket_name}")
+                    raise FileNotFoundError(f"Can't find {bucket_path} in {RAW_BUCKET_NAME}")
                 processed_blob = processed_bucket.blob(bucket_path)
 
                 image_id = image_id_from_path(bucket_path)
@@ -262,12 +260,10 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     point_sources.reindex(sorted(point_sources.columns), axis=1).to_csv(sources_path, index=False)
 
     sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
-    sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
-
-    sources_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
+    sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'fits'
 
     sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv.gz')
-    sources_blob = sources_bucket.blob(sources_bucket_path)
+    sources_blob = processed_bucket.blob(sources_bucket_path)
     sources_blob.upload_from_filename(sources_path)
     print(f'{sources_path} uploaded to {sources_blob.public_url}')
 
