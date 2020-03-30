@@ -303,7 +303,6 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
                 rms_hdu = fits.ImageHDU(data=back_data.background_rms.astype(np.uint16))
 
                 back_path = local_path.replace('.fits', f'-background-{color}.fits')
-                # back_path = back_path.replace('.fz', '')
                 print(f'Creating background file for {back_path}')
                 hdul = fits.HDUList([back_hdu, rms_hdu])
                 hdul.writeto(back_path, overwrite=True)
