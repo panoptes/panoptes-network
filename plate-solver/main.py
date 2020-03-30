@@ -31,7 +31,6 @@ PUBSUB_SUBSCRIPTION = 'plate-solve-read'
 RAW_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 PROCESSED_BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-images')
 BACKGROUND_BUCKET_NAME = os.getenv('BACKGROUND_BUCKET_NAME', 'panoptes-backgrounds')
-SOURCES_BUCKET_NAME = os.getenv('SOURCES_BUCKET_NAME', 'panoptes-extracted-sources')
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
 # Storage
@@ -267,7 +266,7 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     sources_bucket_path = bucket_path.replace('.fits.fz', '.csv')
     sources_bucket_path = sources_bucket_path.replace('.fits', '.csv')  # Can be just a 'csv'
 
-    sources_bucket = storage_client.get_bucket(SOURCES_BUCKET_NAME)
+    sources_bucket = storage_client.get_bucket(PROCESSED_BUCKET_NAME)
 
     sources_bucket_path = sources_bucket_path.replace('.csv', '-sources.csv.gz')
     sources_blob = sources_bucket.blob(sources_bucket_path)
