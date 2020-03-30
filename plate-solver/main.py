@@ -298,8 +298,9 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
 
             for color, back_data in zip('rgb', rgb_backs):
                 # Save background file as unsigned int16
-                back_hdu = fits.PrimaryHDU(data=back_data.background.astype(np.uint16), header=header)
-                rms_hdu = fits.ImageHDU(data=back_data.data)
+                back_hdu = fits.PrimaryHDU(data=back_data.background.astype(np.uint16),
+                                           header=header)
+                rms_hdu = fits.ImageHDU(data=back_data.background_rms.astype(np.uint16))
 
                 back_path = local_path.replace('.fits', f'-background-{color}.fits')
                 # back_path = back_path.replace('.fz', '')
