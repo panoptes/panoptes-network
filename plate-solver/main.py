@@ -240,9 +240,9 @@ def source_extraction(headers, solved_path, bucket_path, image_id, sequence_id):
     point_sources['mnt_dec'] = headers['DEC-MNT']
     point_sources['mnt_airmass'] = headers['AIRMASS']
 
-    point_sources['location_lat'] = headers['LAT']
-    point_sources['location_long'] = headers['LONG']
-    point_sources['location_elev'] = headers['ELEV']
+    point_sources['location_lat'] = headers['LAT-OBS']
+    point_sources['location_long'] = headers['LONG-OBS']
+    point_sources['location_elev'] = headers['ELEV-OBS']
 
     point_sources['image_center_ra'] = headers['CRVAL1']
     point_sources['image_center_dec'] = headers['CRVAL2']
@@ -295,7 +295,7 @@ def solve_file(local_path, background_config, solve_config, headers, image_doc_s
             print(f'Got background for {local_path}')
             # Create one array for the backgrounds, where any holes are filled with zeros.
             rgb_masks = bayer.get_rgb_masks(fits_utils.getdata(local_path))
-            full_background = np.array([np.ma.array(data=d0, mask=m0).filled(0)
+            full_background = np.array([np.ma.array(data=d0.background, mask=m0).filled(0)
                                         for d0, m0
                                         in zip(rgb_backs, rgb_masks)]).sum(0)
             subtracted_data = data - full_background
