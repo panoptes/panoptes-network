@@ -22,7 +22,8 @@ make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 # Storage
 storage_client = storage.Client()
 storage_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-raw-images'))
-timelapse_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-timelapse'))
+timelapse_bucket = storage_client.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
+temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
 
 
 def entry_point(data, context):
@@ -72,6 +73,13 @@ def process_topic(data):
 
     _, file_ext = os.path.splitext(bucket_path)
 
+    process_lookup = {
+        '.fits': process_fits,
+        '.fz': process_fits,
+        '.cr2': process_cr2,
+        '.jpg': lambda x: print(f'Saving {x}')
+    }
+
     # Check if has legeacy path
     path_parts = bucket_path.split('/')
     if len(path_parts) == 5:
@@ -81,17 +89,15 @@ def process_topic(data):
 
         bucket = storage_bucket
         if file_ext == '.mp4':
+            print(f'Timelapse. Moving {bucket_path} to timelapse bucket')
             bucket = timelapse_bucket
+        elif file_ext not in list(process_lookup.keys()):
+            print(f'Unknown extension. Moving {bucket_path} to temp bucket')
+            bucket = temp_bucket
 
         bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
 
         return
-
-    process_lookup = {
-        '.fits': process_fits,
-        '.fz': process_fits,
-        '.cr2': process_cr2,
-    }
 
     print(f"Processing {bucket_path}")
 
