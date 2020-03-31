@@ -1,10 +1,11 @@
 <template>
+  <v-container>
   <v-card class="mx-auto statCard" color="grey lighten-4">
     <v-list-item two-line>
       <v-list-item-content>
         <v-list-item-title class="caption text-uppercase">{{ name }}</v-list-item-title>
         <v-list-item-subtitle>
-          <span class="display-2 font-weight-black" v-text="avg.toFixed(2) || '—'"></span>
+          <span class="display-2" v-text="avg || '—'"></span>
           <strong v-if="avg">{{ units }}</strong>
         </v-list-item-subtitle>
       </v-list-item-content>
@@ -22,6 +23,7 @@
       ></v-sparkline>
     </v-sheet>
   </v-card>
+  </v-container>
 </template>
 
 <script>
@@ -34,9 +36,9 @@ export default {
 
         if (!sum && !length) return 0
 
-        return sum / length
+        return (sum / length).toFixed(2)
       } else {
-        return 0
+        return this.values
       }
     }
   },
@@ -52,7 +54,7 @@ export default {
       required: false
     },
     values: {
-      type: Array,
+      type: [Array, Number],
       required: true
     },
     showSparkline: {

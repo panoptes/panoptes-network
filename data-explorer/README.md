@@ -77,7 +77,7 @@ npm run web-dev
 This should output a message similar to:
 
 ```bash
- READY  Server listening on http://localhost:3000  
+ READY  Server listening on http://localhost:3000
 ```
 
 Visit the url in your web browser. There are various plugins for Chrome and Firefox that make debugging Vue applications easier.

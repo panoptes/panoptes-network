@@ -14,12 +14,13 @@ PANOPTES Network
     - [Deploying services](#deploying-services)
     - [Creating new services](#creating-new-services)
   - [Development](#development)
+    - [Setup](#setup)
 
 
 Software related to the wider PANOPTES network that ties the individual units together.
 This is a repository to host the various Google Cloud Platform services.
 
-Each subfolder defines a different service. 
+Each subfolder defines a different service.
 
 Each service is either a [Cloud Function](https://cloud.google.com/functions) or a [Cloud Run](https://cloud.google.com/run) instance, however all services are defined as web services that respond to HTTP JSON requests.
 
@@ -73,7 +74,7 @@ Unlike a traditional database, this means that there is no guarantee that a cert
 
 #### Unit
 
-Collection: `units`  
+Collection: `units`
 Document ID: `unit_id`
 
 ```py
@@ -97,12 +98,12 @@ tracking movement. Any movement of the mount (e.g. a meridian flip) will stop th
 the same target is observed next. Ideally a unit will have at least two simulataneous observations at any
 given time (one for each camera).
 
-Observations are organized by a `sequence_id` of the form: 
+Observations are organized by a `sequence_id` of the form:
 
 `<UNIT_ID>_<CAMERA_ID>_<SEQUENCE_START_TIME>`.
 
-Collection: `observations`  
-Document ID: `sequence_id`  
+Collection: `observations`
+Document ID: `sequence_id`
 Notes:
 
   * An observation will always have `ra` and `dec` columns but the values may be `null`. Typically this indicates the file has not been properly plate-solved.
@@ -126,11 +127,11 @@ Notes:
 
 An image corresponds to a single image from a single camera.
 
-Images are organized by an `image_id` of the form: 
+Images are organized by an `image_id` of the form:
 
 `<UNIT_ID>_<CAMERA_ID>_<IMAGE_START_TIME>`.
 
-Collection: `images`  
+Collection: `images`
 Document ID: `image_id`
 
 ```py
@@ -149,7 +150,7 @@ Document ID: `image_id`
     "sequence_id": "PAN001_14d3bd_20180216T110623",
     "status": "uploaded",
     "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>)
-  }    
+  }
 }
 ```
 
@@ -205,4 +206,36 @@ Development within the `panoptes-network` repository could be related to either 
 
 For the individual services the work is usually constrained to a single service/folder within this repository and the changes can be published according to the [Deploying services](#deploying-services) section above.
 
+### Setup
+
+You must first have an environment that has the approriate software installed.
+
+The easiest way to do this with an [Anaconda](https://www.anaconda.com/) environment. Assuming you already have `conda` installed (see link for details):
+
+```bash
+cd $PANDIR/panoptes-network
+
+# Create environment for panoptes-network
+conda create -n panoptes-network python=3.7 nodejs=10
+
+# Activate environment
+conda activate panoptes-network
+
+# Install python dependencies
+pip install -r requirements.txt
+
+# Install javascript dependencies
+npm run install-deps
+```
+
+The javascript dependencies will also install the [`firebase-tools`](https://firebase.google.com/docs/cli/) that are required to work with the local emulators.  These tools require that you login to firebase:
+
+```bash
+firebase login
+```
+
+This should open a browser and ask you to authenticate with your gmail account.
+
 For instructions on working with the Data Explorer, see the [Development section](data-explorer#data-explorer/README.md) of the README.
+
+> Note: You need to to have the Java OpenJDK to run the emulators. Details at [https://openjdk.java.net/install](https://openjdk.java.net/install).

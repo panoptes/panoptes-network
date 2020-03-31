@@ -19,9 +19,16 @@
       :items-per-page="perPage"
       :search="search"
       :loading="state.search.isSearching.observations"
-      order-by="time"
+      sort-by="time"
       class="elevation-1"
     >
+      <template v-slot:item.unit_id="{ item }">
+        <nuxt-link :to="'/units/' + item.unit_id">
+          {{
+          item.unit_id
+          }}
+        </nuxt-link>
+      </template>
       <template v-slot:item.sequence_id="{ item }">
         <nuxt-link :to="'/observations/' + item.sequence_id">
           {{
