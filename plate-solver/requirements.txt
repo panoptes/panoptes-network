@@ -1,5 +1,7 @@
-Flask==1.1.1
+astropy
+google-cloud-bigquery
 google-cloud-firestore
 google-cloud-pubsub
 google-cloud-storage
-gunicorn==19.9.0
+numpy
+panoptes-utils>=0.2.9

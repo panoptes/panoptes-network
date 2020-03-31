@@ -16,7 +16,7 @@ can be passed that affects how the images are converted.
 Endpoint: /make-rgb-fits
 
 Payload: JSON message of the form:
-```json
+```javascript
 {
 	'bucket_path': str,
 	'rawpy_options': dict,
