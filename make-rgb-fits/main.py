@@ -1,3 +1,4 @@
+import sys
 import os
 import rawpy
 import json
@@ -107,35 +108,27 @@ def process_topic(data, attributes=None):
     with suppress(KeyError):
         rawpy_options.update(data['rawpy_options'])
 
-    print(f'Using rawpy options')
+    print(f'Using rawpy options for {raw_file}')
     print(f'{rawpy_options}')
-
-    fits_file = raw_file.replace('.cr2', '.fits.fz')
-
-    print(f'CR2 File: {raw_file}')
-    print(f'FITS File: {fits_file}')
 
     # Download the file locally
     base_dir = os.path.dirname(raw_file)
     base_fn = os.path.basename(raw_file)
     base_name, ext = os.path.splitext(base_fn)
 
-    print('Getting CR2 file')
+    print(f'Getting CR2 file {raw_file}')
     cr2_storage_blob = bucket.get_blob(raw_file)
     tmp_fn = os.path.join(TMP_DIR, base_fn)
-    print(f'Downloading to {tmp_fn}')
+    print(f'Downloading to {tmp_fn} for {raw_file}')
     cr2_storage_blob.download_to_filename(tmp_fn)
 
-    # local_fits_file = cr2_storage_blob.download_to_filename(base_fn.replace('.cr2', '.fits.fz')
-
     # Read in with rawpy
-    print(f'Opening via rawpy')
+    print(f'Opening {raw_file} via rawpy')
     try:
         with rawpy.imread(tmp_fn) as raw:
             d0 = raw.postprocess(**rawpy_options)
-            print(f'Got raw data: {d0.shape}')
+            print(f'Got raw data: {d0.shape} {raw_file}')
 
-            # header = fits.getheader(raw_file.replace('.cr2', '.fits))
             print(f'Looping through the colors')
             for color, i in zip('rgb', range(3)):
                 c0 = d0[:, :, i]
@@ -144,19 +137,19 @@ def process_topic(data, attributes=None):
                 fn_out = f'{base_name}_{color}.fits'
                 fn_path = os.path.join(TMP_DIR, fn_out)
 
-                print(f'Writing {fn_out}')
+                print(f'Writing {fn_out} for {raw_file}')
                 hdul.writeto(fn_path, overwrite=True)
 
                 # Upload
-                print(f"Sending {fn_out} to temp bucket")
+                print(f"Sending {fn_out} to temp bucket for {raw_file}")
                 try:
                     bucket_fn = os.path.join(base_dir, fn_out)
                     upload_blob(fn_path, bucket_fn)
                 finally:
-                    print(f'Removing {fn_out}')
+                    print(f'Removing {fn_out} for {raw_file}')
                     os.remove(fn_path)
     finally:
-        print(f'Removing {tmp_fn}')
+        print(f'Removing {tmp_fn} for {raw_file}')
         os.remove(tmp_fn)
 
     return jsonify(success=True, msg=f"RGB FITS files made for {raw_file}")
@@ -169,6 +162,4 @@ def upload_blob(source_file_name, destination_blob_name):
 
     blob.upload_from_filename(source_file_name)
 
-    print('File {} uploaded to {}.'.format(
-        source_file_name,
-        destination_blob_name))
+    print(f'File {source_file_name} uploaded to {UPLOAD_BUCKET} {destination_blob_name}.')

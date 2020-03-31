@@ -1,6 +1,5 @@
 
 import os
-from contextlib import suppress
 
 from flask import jsonify
 from google.cloud import storage
@@ -14,7 +13,7 @@ BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
 def entry_point(request):
     """Return the FITS header from a file.
 
-    This endpoint looks for one parameters, `bucket_path`. If `bucket_path` 
+    This endpoint looks for one parameters, `bucket_path`. If `bucket_path`
     is present then the header information will be pulled from the file
     and returned as a json document.
 

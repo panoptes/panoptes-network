@@ -1,12 +1,12 @@
-Compress FITS
--------------
+Plate Solver
+------------
 
-A [Google Cloud Run](https://cloud.google.com/run/) service that will compress `.fits` files to `.fits.fz`.
+A [Google Cloud Run](https://cloud.google.com/run/) astronomical plate-solving service!
 
 This services is based on the `panoptes-utils` base docker image and uses the
-`panoptes.utils.images.fits.fpack` utility function.
+`panoptes.utils.images.fits.get_solve_field` utility function.
 
-The service is triggered automatically by the `image-uploaded` service when a `fits` file is received.
+The service is triggered automatically by the `record-image` service when a `fits` file is received.
 
 Note that all Cloud Run services are web servers responding on http ports. When using
 PubSub, GCP automatically performs some validation and delivers the PubSub message

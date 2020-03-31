@@ -3,15 +3,27 @@ import sys
 import json
 
 from google.cloud import pubsub
+from google.cloud import firestore
+from google.cloud import storage
+
+try:
+    db = firestore.Client()
+except Exception as e:
+    print(f'Error getting firestore client: {e!r}')
 
 publisher = pubsub.PublisherClient()
 
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 pubsub_base = f'projects/{project_id}/topics'
 
-add_header_topic = os.getenv('HEADER_topic', 'record-image')
-fits_packer_topic = os.getenv('FPACK_topic', 'compress-fits')
+plate_solve_topic = os.getenv('SOLVER_topic', 'plate-solve')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
+
+# Storage
+storage_client = storage.Client()
+storage_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-raw-images'))
+timelapse_bucket = storage_client.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
+temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
 
 
 def entry_point(data, context):
@@ -40,17 +52,13 @@ def entry_point(data, context):
 def process_topic(data):
     """Look for uploaded files and process according to the file type.
 
-    Triggered when file is uploaded to bucket.
+    Triggered when file is uploaded to bucket and forwards on to appropriate service.
 
-    FITS: Set header variables and then forward to endpoint for adding headers
-    to the metadatabase. The header is looked up from the file id, including the
-    storage bucket file generation id, which are stored into the headers.
+    This function first check to see if the file has the legacy field name in it,
+    and if so rename the file (which will trigger this function again with new name).
 
-    CR2: Trigger creation of timelapse and jpg images.
-
-    Example file id:
-
-    panoptes-raw-images/PAN001/14d3bd/20181011T134202/20181011T134333.fits.fz
+    Correct:   PAN001/14d3bd/20200319T111240/20200319T112708.fits.fz
+    Incorrect: PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
 
     Args:
         data (dict): The Cloud Functions event payload.
@@ -67,9 +75,29 @@ def process_topic(data):
 
     process_lookup = {
         '.fits': process_fits,
-        '.fz': process_fz,
+        '.fz': process_fits,
         '.cr2': process_cr2,
+        '.jpg': lambda x: print(f'Saving {x}')
     }
+
+    # Check if has legeacy path
+    path_parts = bucket_path.split('/')
+    if len(path_parts) == 5:
+        field_name = path_parts.pop(1)
+        new_path = '/'.join(path_parts)
+        print(f'Removed field name ["{field_name}"]: {bucket_path} -> {new_path}')
+
+        bucket = storage_bucket
+        if file_ext == '.mp4':
+            print(f'Timelapse. Moving {bucket_path} to timelapse bucket')
+            bucket = timelapse_bucket
+        elif file_ext not in list(process_lookup.keys()):
+            print(f'Unknown extension. Moving {bucket_path} to temp bucket')
+            bucket = temp_bucket
+
+        bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
+
+        return
 
     print(f"Processing {bucket_path}")
 
@@ -90,56 +118,9 @@ def send_pubsub_message(topic, data):
     publisher.publish(f'{pubsub_base}/{topic}', data)
 
 
-def process_fz(bucket_path):
-    """ Forward the headers to the -add-header-to-db Cloud Function.
-
-    Args:
-        bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
-    """
-    # Get some of the fields from the path.
-    unit_id, camera_id, seq_time, filename = bucket_path.split('/')
-
-    # Get the image time from the filename
-    image_time = filename.split('.')[0]
-
-    # Build the sequence and image ids
-    sequence_id = f'{unit_id}_{camera_id}_{seq_time}'
-    image_id = f'{unit_id}_{camera_id}_{image_time}'
-
-    headers = {
-        'PANID': unit_id,
-        'INSTRUME': camera_id,
-        'SEQTIME': seq_time,
-        'IMGTIME': image_time,
-        'SEQID': sequence_id,
-        'IMAGEID': image_id,
-        'FILENAME': bucket_path,
-        'PSTATE': 'fits_received'
-    }
-
-    # Send to add-header-to-db
-    send_pubsub_message(add_header_topic, {
-        'headers': headers,
-        'bucket_path': bucket_path,
-    })
-
-
 def process_fits(bucket_path):
-    """ Publish a message on the topic to trigger fits packing.
-
-    Args:
-        bucket_path (str): The relative (to the bucket) path of the file in the storage bucket.
-    """
-    send_pubsub_message(fits_packer_topic, dict(bucket_path=bucket_path))
+    send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
-    send_pubsub_message(make_rgb_topic, dict(cr2_file=bucket_path))
-
-
-if __name__ == '__main__':
-    PORT = int(os.getenv('PORT')) if os.getenv('PORT') else 8080
-
-    # This is used when running locally. Gunicorn is used to run the
-    # application on Cloud Run. See entrypoint in Dockerfile.
-    app.run(host='127.0.0.1', port=PORT, debug=True)
+    send_pubsub_message(make_rgb_topic, dict(bucket_path=bucket_path))
