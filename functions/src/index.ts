@@ -10,6 +10,8 @@ const increment = admin.firestore.FieldValue.increment(1)
 const decrement = admin.firestore.FieldValue.increment(-1)
 
 export const formatFirestoreRow = (data: any) => {
+  console.log('Formatting row');
+  console.log(data);
   // Turn into a time object.
   if ('time' in data && data['time'] !== null) {
     data['time'] = data['time'].toDate().toUTCString()

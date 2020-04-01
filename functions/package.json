@@ -1,9 +1,9 @@
 {
   "name": "functions",
   "scripts": {
-    "lint": "eslint .",
+    "lint": "tslint .",
     "build": "tslint -p tslint.json && tsc",
-    "serve": "npm run build && firebase emulators:start --only functions,firestore,hosting",
+    "serve": "npm run build && firebase emulators:start --only hosting,functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",

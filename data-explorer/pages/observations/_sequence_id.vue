@@ -1,9 +1,11 @@
 <template>
-  <v-layout column justify-center align-center>
-    <v-flex xs12 sm8 md6>
-      <ObservationDetail />
-    </v-flex>
-  </v-layout>
+  <v-container flex>
+    <v-row no-gutters>
+      <v-col>
+        <ObservationDetail />
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script>
@@ -17,6 +19,6 @@ export default {
   async fetch({ store, params }) {
     await store.dispatch('observation/GET_OBSERVATION', params.sequence_id)
     await store.dispatch('observation/GET_IMAGES', params.sequence_id)
-  }  
+  }
 }
 </script>

@@ -20,7 +20,7 @@ export default {
       { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-firestore.js' },
       { src: 'http://localhost:5000/__/firebase/7.7.0/firebase-functions.js' },
       { src: 'http://localhost:5000/__/firebase/init.js' }
-    ],    
+    ],
     link: [
       { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
     ]

@@ -20,6 +20,7 @@
       :search="search"
       :loading="state.search.isSearching.observations"
       sort-by="time"
+      sort-desc=true
       class="elevation-1"
     >
       <template v-slot:item.unit_id="{ item }">
@@ -38,15 +39,15 @@
       </template>
       <template v-slot:item.ra="{ item }">{{ item.ra | roundVal }}</template>
       <template v-slot:item.dec="{ item }">{{ item.dec | roundVal }}</template>
-      <template v-slot:item.time="{ item }">{{ item.time | moment('utc', 'YYYY-MM-DD HH:mm:ss') }}</template>
+      <template v-slot:item.time="{ item }">{{ item.time | moment('utc', 'YYYY-MM-DD HH:mm') }}</template>
       <template v-slot:item.status="{ item }">{{ item.status }}</template>
     </v-data-table>
-    <v-card-actions align="right">
+<!--     <v-card-actions align="right">
       <v-spacer />
-      <!-- <v-btn :disabled="state.search.hasResults" small>
+      <v-btn :disabled="state.search.hasResults" small>
         <v-icon>mdi-table</v-icon>Get CSV
-      </v-btn> -->
-    </v-card-actions>
+      </v-btn>
+    </v-card-actions> -->
   </v-card>
 </template>
 
@@ -86,10 +87,11 @@ export default {
         {
           text: 'Unit',
           value: 'unit_id',
-          sortable: true
+          sortable: true,
+          width: '0.8rem'
         },
         {
-          text: 'Sequence',
+          text: 'Observation ID',
           value: 'sequence_id',
           sortable: true
         },
@@ -109,19 +111,20 @@ export default {
           sortable: true
         },
         {
-          text: 'Date [UTC]',
-          value: 'time',
-          sortable: true
-        },
-        {
           text: 'Exptime [sec]',
           value: 'exptime',
           sortable: true
         },
+        // {
+        //   text: 'Status',
+        //   value: 'status',
+        //   sortable: true
+        // },
         {
-          text: 'Status',
-          value: 'status',
-          sortable: true
+          text: 'Date [UTC]',
+          value: 'time',
+          sortable: true,
+          width: 200
         }
         // { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
       ]
