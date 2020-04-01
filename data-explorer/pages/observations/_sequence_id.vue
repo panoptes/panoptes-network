@@ -1,11 +1,5 @@
 <template>
-  <v-container flex>
-    <v-row no-gutters>
-      <v-col>
-        <ObservationDetail />
-      </v-col>
-    </v-row>
-  </v-container>
+  <ObservationDetail />
 </template>
 
 <script>

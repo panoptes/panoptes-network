@@ -1,15 +1,15 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="8"></v-col>
-      <v-col cols="4">
+  <v-container fluid>
+    <v-row
+      dense
+      >
+      <v-col cols="3">
         <ObservationInfo />
       </v-col>
-    </v-row>
-    <v-row>
-      <v-col cols="8">
+      <v-col cols="6">
+        Plots here.
       </v-col>
-      <v-col cols="4">
+      <v-col cols="3">
         <ImageList />
       </v-col>
     </v-row>
