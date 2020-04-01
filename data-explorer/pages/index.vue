@@ -1,33 +1,36 @@
 <template>
-  <v-layout column justify-center align-center>
-    <v-flex xs12 sm8 md6>
-      <v-expansion-panels :value="openPanels" accordion flat multiple>
-        <!-- Observations -->
-        <v-expansion-panel>
-          <v-expansion-panel-header>
-            Observations ({{ observations.length }})
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <Observations :per-page="25" :dense="true" />
-          </v-expansion-panel-content>
-        </v-expansion-panel>
-
-        <!-- Lightcurves -->
-        <v-expansion-panel>
-          <v-expansion-panel-header>
-            Lightcurves ({{ lightcurves.length }})
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <div class="text-center">
-              <v-sheet class="yellow lighten-4">
-                Coming Soon!
-              </v-sheet>
-            </div>
-          </v-expansion-panel-content>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </v-flex>
-  </v-layout>
+  <v-container>
+    <v-row>
+      <v-col>
+          <!-- Observations -->
+          <v-card>
+            <v-card-title>
+              Observations ({{ observations.length }})
+            </v-card-title>
+            <v-card-text>
+              <Observations :per-page="10" :dense="true" />
+            </v-card-text>
+          </v-card>
+      </v-col>
+    </v-row>
+    <v-row>
+      <v-col>
+          <!-- Lightcurves -->
+          <v-card>
+            <v-card-title>
+              Lightcurves ({{ lightcurves.length }})
+            </v-card-title>
+            <v-card-text>
+              <div class="text-center">
+                <v-sheet class="yellow lighten-4">
+                  Coming Soon!
+                </v-sheet>
+              </div>
+            </v-card-text>
+          </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script>
