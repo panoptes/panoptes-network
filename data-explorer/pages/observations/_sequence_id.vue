@@ -1,6 +1,6 @@
 <template>
-  <v-layout>
-    <v-flex class="text-center">
+  <v-layout column justify-center align-center>
+    <v-flex xs12 sm8 md6>
       <ObservationDetail />
     </v-flex>
   </v-layout>

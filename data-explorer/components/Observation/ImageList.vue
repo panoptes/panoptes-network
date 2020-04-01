@@ -4,6 +4,7 @@
       :headers="headers"
       :items="images"
       :items-per-page="5"
+      dense=true
       sort-by="time"
       class="elevation-1">
         <template v-slot:item.image_id="{ item }">
@@ -44,7 +45,7 @@ export default {
   data() {
     return {
       headers: [
-        { text: 'ID', value: 'image_id' },
+        { text: 'ID', value: 'image_id',  },
         { text: 'Time', value: 'time' },
         { text: 'HA', value: 'ha_mnt' },
         { text: 'RA', value: 'ra_image' },

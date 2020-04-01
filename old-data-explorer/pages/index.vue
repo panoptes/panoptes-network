@@ -8,7 +8,7 @@
             Observations ({{ observations.length }})
           </v-expansion-panel-header>
           <v-expansion-panel-content>
-            <Observations :per-page="25" :dense="true" />
+            <Observations :per-page="5" :dense="true" />
           </v-expansion-panel-content>
         </v-expansion-panel>
 

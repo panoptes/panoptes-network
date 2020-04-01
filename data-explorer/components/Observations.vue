@@ -69,7 +69,7 @@ export default {
   props: {
     perPage: {
       type: Number,
-      default: 5
+      default: 25
     },
     dense: {
       type: Boolean,

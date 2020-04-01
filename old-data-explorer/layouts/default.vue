@@ -84,7 +84,7 @@ export default {
           to: '/units'
         },
         {
-          icon: 'mdi-image',
+          icon: 'mdi-image-filter',
           title: 'Observations',
           to: '/observations'
         },
