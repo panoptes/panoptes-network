@@ -3,13 +3,8 @@ import sys
 import json
 
 from google.cloud import pubsub
-from google.cloud import firestore
 from google.cloud import storage
 
-try:
-    db = firestore.Client()
-except Exception as e:
-    print(f'Error getting firestore client: {e!r}')
 
 publisher = pubsub.PublisherClient()
 
