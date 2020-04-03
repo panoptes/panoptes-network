@@ -1,21 +1,9 @@
 <template>
   <v-app dark>
-    <v-navigation-drawer
-      v-model="drawer"
-      :mini-variant="miniVariant"
-      :clipped="clipped"
-      fixed
-      app
-    >
+    <v-navigation-drawer v-model="drawer" :mini-variant="miniVariant" :clipped="clipped" fixed app>
       <v-list>
         <PanLogo />
-        <v-list-item
-          v-for="(item, i) in items"
-          :key="i"
-          :to="item.to"
-          router
-          exact
-        >
+        <v-list-item v-for="(item, i) in items" :key="i" :to="item.to" router exact>
           <v-list-item-action>
             <v-icon>{{ item.icon }}</v-icon>
           </v-list-item-action>
@@ -28,7 +16,9 @@
     <v-app-bar :clipped-left="clipped" fixed app>
       <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
       <v-toolbar-title style="width: 400px" class="ml-0 pl-4">
-        <span class="hidden-sm-and-down">{{ title }}</span>
+        <nuxt-link to="/">
+          <span class="hidden-sm-and-down">{{ title }}</span>
+        </nuxt-link>
       </v-toolbar-title>
       <SearchForm />
       <v-spacer />
@@ -56,7 +46,6 @@
     </v-footer>
   </v-app>
 </template>
-
 <script>
 import { mapState } from 'vuex'
 import SearchForm from '@/components/SearchForm.vue'
@@ -72,8 +61,7 @@ export default {
       clipped: false,
       drawer: false,
       fixed: false,
-      items: [
-        {
+      items: [{
           icon: 'mdi-home',
           title: 'Home',
           to: '/'
@@ -86,7 +74,7 @@ export default {
         {
           icon: 'mdi-image',
           title: 'Observations',
-          to: '/observations'
+          to: '/observations',
         },
         {
           icon: 'mdi-chart-bell-curve',
@@ -103,4 +91,5 @@ export default {
     ...mapState(['title'])
   }
 }
+
 </script>

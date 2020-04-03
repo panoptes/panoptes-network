@@ -37,7 +37,10 @@ export default {
   /*
   ** Plugins to load before mounting the App
   */
-  plugins: ['~/plugins/firebase.js', '~/plugins/moment.js'],
+  plugins: [
+    '~/plugins/firebase.js',
+    '~/plugins/moment.js'
+    ],
   /*
   ** Nuxt.js dev-modules
   */
@@ -69,7 +72,7 @@ export default {
       light: true,
       dark: false,
       themes: {
-        dark: {
+        light: {
           primary: '#607d8b',
           secondary: '#009688',
           accent: '#3f51b5',

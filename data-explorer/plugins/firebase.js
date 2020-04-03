@@ -12,6 +12,14 @@ export const storage = firebase.storage()
     //Funcs.useFunctionsEmulator('http://localhost:5001')
 //}
 
+auth.signInAnonymously().catch(function(error) {
+  // Handle Errors here.
+  var errorCode = error.code;
+  var errorMessage = error.message;
+  // ...
+});
+
+
 export default firebase
 
 

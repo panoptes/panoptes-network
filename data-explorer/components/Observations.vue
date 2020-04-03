@@ -1,28 +1,9 @@
 <template>
   <v-card outlined>
     <v-card-title>
-      <v-text-field
-        v-model="search"
-        append-icon="mdi-magnify"
-        label="Filter Observations"
-        single-line
-        hide-details
-      />
+      <v-text-field v-model="search" append-icon="mdi-magnify" label="Filter Observations" single-line hide-details />
     </v-card-title>
-
-    <v-data-table
-      id="obsTable"
-      v-model="selectedObservations"
-      :dense="dense"
-      :headers="fields"
-      :items="state.model.observations"
-      :items-per-page="perPage"
-      :search="search"
-      :loading="state.search.isSearching.observations"
-      sort-by="time"
-      sort-desc=true
-      class="elevation-1"
-    >
+    <v-data-table id="obsTable" v-model="selectedObservations" :dense="dense" :headers="fields" :items="state.model.observations" :items-per-page="perPage" :search="search" :loading="state.search.isSearching.observations" class="elevation-1">
       <template v-slot:item.unit_id="{ item }">
         <nuxt-link :to="'/units/' + item.unit_id">
           {{
@@ -31,7 +12,7 @@
         </nuxt-link>
       </template>
       <template v-slot:item.sequence_id="{ item }">
-        <nuxt-link :to="'/observations/' + item.sequence_id">
+        <nuxt-link :to="'/observation/' + item.sequence_id">
           {{
           item.sequence_id
           }}
@@ -42,7 +23,7 @@
       <template v-slot:item.time="{ item }">{{ item.time | moment('utc', 'YYYY-MM-DD HH:mm') }}</template>
       <template v-slot:item.status="{ item }">{{ item.status }}</template>
     </v-data-table>
-<!--     <v-card-actions align="right">
+    <!--     <v-card-actions align="right">
       <v-spacer />
       <v-btn :disabled="state.search.hasResults" small>
         <v-icon>mdi-table</v-icon>Get CSV
@@ -50,7 +31,6 @@
     </v-card-actions> -->
   </v-card>
 </template>
-
 <script>
 export default {
   name: 'Observations',
@@ -83,8 +63,7 @@ export default {
       selectedObservations: [],
       allowDownloads: false,
       rows: [],
-      fields: [
-        {
+      fields: [{
           text: 'Unit',
           value: 'unit_id',
           sortable: true,
@@ -136,13 +115,15 @@ export default {
     }
   }
 }
-</script>
 
+</script>
 <style scoped>
 a {
   color: #42b983;
 }
+
 #obsTable {
   font-family: monospace;
 }
+
 </style>
