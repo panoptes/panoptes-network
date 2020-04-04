@@ -465,6 +465,7 @@ def add_header_to_db(image_doc_snap, header):
                 'ha_mnt': header.get('HA-MNT'),
                 'ra_mnt': header.get('RA-MNT'),
                 'dec_mnt': header.get('DEC-MNT'),
+                'processed_time': firestore.SERVER_TIMESTAMP
             }
             try:
                 image_doc_snap.reference.set(image_data, merge=True)
