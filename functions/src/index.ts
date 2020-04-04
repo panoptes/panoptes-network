@@ -127,49 +127,51 @@ export const getUnits = functions.https.onCall(async (data, context) => {
   }
 })
 
-export const imagesCountIncrement = functions.firestore
-  .document('images/{imageId}')
-  .onCreate((snap, context) => {
-    // Get the unit_id from the image id.
-    const unitId = context.params.imageId.split('_')[0]
-    const observationId: string = snap.get('sequence_id')
+// export const imagesCountIncrement = functions.firestore
+//   .document('images/{imageId}')
+//   .onCreate((snap, context) => {
+//     // Get the unit_id from the image id.
+//     const unitId = context.params.imageId.split('_')[0]
+//     const observationId: string = snap.get('sequence_id')
 
-    const unitRef = db.collection('units').doc(unitId)
-    const obsRef = db.collection('observations').doc(observationId)
+//     const unitRef = db.collection('units').doc(unitId)
+//     const obsRef = db.collection('observations').doc(observationId)
 
-    return db.runTransaction((transaction) => {
-      return transaction.get(unitRef).then(() => {
-        transaction.update(unitRef, {
-          num_images: increment,
-        })
-        transaction.update(obsRef, {
-          num_images: increment,
-        })
-      })
-    })
-  })
+//     return db.runTransaction((transaction) => {
+//       return transaction.get(unitRef).then(() => {
+//         transaction.update(unitRef, {
+//           num_images: increment,
+//         })
+//         transaction.update(obsRef, {
+//           num_images: increment,
+//         })
+//       }).catch((err) => {
 
-export const imagesCountDecrement = functions.firestore
-  .document('images/{imageId}')
-  .onDelete((snap, context) => {
-    // Get the unit_id from the image id.
-    const unitId = context.params.imageId.split('_')[0]
-    const observationId: string = snap.get('sequence_id')
+//       })
+//     })
+//   })
 
-    const unitRef = db.collection('units').doc(unitId)
-    const obsRef = db.collection('observations').doc(observationId)
+// export const imagesCountDecrement = functions.firestore
+//   .document('images/{imageId}')
+//   .onDelete((snap, context) => {
+//     // Get the unit_id from the image id.
+//     const unitId = context.params.imageId.split('_')[0]
+//     const observationId: string = snap.get('sequence_id')
 
-    return db.runTransaction((transaction) => {
-      return transaction.get(unitRef).then(() => {
-        transaction.update(unitRef, {
-          num_images: decrement,
-        })
-        transaction.update(obsRef, {
-          num_images: decrement,
-        })
-      })
-    })
-  })
+//     const unitRef = db.collection('units').doc(unitId)
+//     const obsRef = db.collection('observations').doc(observationId)
+
+//     return db.runTransaction((transaction) => {
+//       return transaction.get(unitRef).then(() => {
+//         transaction.update(unitRef, {
+//           num_images: decrement,
+//         })
+//         transaction.update(obsRef, {
+//           num_images: decrement,
+//         })
+//       })
+//     })
+//   })
 
 export const obsevationsCountIncrement = functions.firestore
   .document('observations/{observationId}')
