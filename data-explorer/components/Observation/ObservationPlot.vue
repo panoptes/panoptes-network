@@ -1,27 +1,35 @@
 <template>
-  <v-row>
-    <v-col cols="12">
-      <div id="plotBoard">
-      </div>
-        <code>{{ background_info }}</code>
-    </v-col>
-  </v-row>
+  <v-card class="mx-auto">
+    <div id="plotBoard" v-if="background_info"></div>
+  </v-card>
 </template>
 <script>
 import { default as vegaEmbed } from 'vega-embed'
 
 export default {
   computed: {
-    observation: function() {
-      return this.$store.state.observation.observation
-    },
     background_info: function() {
       const bgList = []
-      this.$store.state.observation.images.forEach(img => {
+      this.$store.state.observations.images.forEach(img => {
         bgList.push(
-          { time: img.time, rms: img.background.rms.r, background: img.background.median.r, color: 'red' },
-          { time: img.time, rms: img.background.rms.g, background: img.background.median.g, color: 'green' },
-          { time: img.time, rms: img.background.rms.b, background: img.background.median.b, color: 'blue' },
+          {
+            time: img.time,
+            rms: img.background.rms.r,
+            background: img.background.median.r,
+            color: 'red'
+          },
+          {
+            time: img.time,
+            rms: img.background.rms.g,
+            background: img.background.median.g,
+            color: 'green'
+          },
+          {
+            time: img.time,
+            rms: img.background.rms.b,
+            background: img.background.median.b,
+            color: 'blue'
+          }
         )
       })
       return bgList
@@ -29,20 +37,32 @@ export default {
   },
   mounted: function() {
     this.$nextTick(function() {
-      vegaEmbed('#plotBoard', this.spec, { theme: 'quartz' })
+      this.spec.datasets.background = this.background_info
+      this.spec.datasets.selectedImage = this.$store.state.observations.selectedImage
+      // vegaEmbed('#plotBoard', this.spec)
     })
   },
   data() {
     return {
       spec: {
         $schema: 'https://vega.github.io/schema/vega-lite/v4.0.2.json',
-        config: { view: { continuousHeight: 300, continuousWidth: 400 } },
-        height: 300,
-        layer: [{
-            data: { values: this.background_info },
+        datasets: {
+          background: [],
+          selectedImage: []
+        },
+        data: { name: 'background' },
+        width: 600,
+        height: 250,
+        autosize: { type: 'fit', contains: 'padding' },
+        layer: [
+          {
             encoding: {
-              color: 'color:N',
-              x: { 'field': 'time', 'title': 'Time [UTC]', 'type': 'temporal' },
+              color: {
+                field: 'color',
+                type: 'nominal',
+                scale: { range: ['blue', 'green', 'red'] }
+              },
+              x: { field: 'time', title: 'Time [UTC]', type: 'temporal' },
               y: {
                 field: 'background',
                 scale: { zero: false },
@@ -50,11 +70,10 @@ export default {
                 type: 'quantitative'
               }
             },
-            mark: 'line',
+            mark: { type: 'line', point: true },
             title: 'Background'
           },
           {
-            data: { values: this.background_info },
             encoding: {
               color: {
                 field: 'color',
@@ -66,17 +85,19 @@ export default {
               y2: { field: 'ymax' }
             },
             mark: 'errorbar',
-            title: 'Background',
-            transform: [{ as: 'ymin', calculate: 'datum.background-datum.rms' },
+            transform: [
+              { as: 'ymin', calculate: 'datum.background-datum.rms' },
               { as: 'ymax', calculate: 'datum.background+datum.rms' }
             ]
+          },
+          {
+            data: { name: 'selectedImage' },
+            encoding: { x: { field: 'time', type: 'temporal' } },
+            mark: { strokeWidth: 2, type: 'rule' }
           }
-        ],
-        width: 600
+        ]
       }
-
     }
   }
 }
-
 </script>

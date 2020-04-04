@@ -1,7 +1,7 @@
 <template>
   <v-row dense>
     <v-col cols="3">
-      <UnitInfo :unit="unit" v-if="unit"/>
+      <UnitInfo :unit="unit" v-if="unit" />
     </v-col>
   </v-row>
 </template>
@@ -14,20 +14,18 @@ export default {
   name: 'UnitInfoPage',
   computed: {
     unit: function() {
-      return this.$store.state.unit.selectedUnit
+      return this.$store.state.units.selectedUnit
     }
   },
   components: {
     UnitInfo
   },
   mounted: function() {
-    this.$nextTick(function() {
-    })
+    this.$nextTick(function() {})
   },
   data: () => ({}),
   async fetch({ store, params }) {
-    await store.dispatch('unit/GET_UNITS', params.unit_id)
+    await store.dispatch('units/GET_UNITS', params.unit_id)
   }
 }
-
 </script>

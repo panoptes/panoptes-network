@@ -44,7 +44,7 @@ export default {
     }
   },
   async fetch({ store }) {
-    await store.dispatch('unit/GET_UNITS')
+    await store.dispatch('units/GET_UNITS')
   }
 }
 

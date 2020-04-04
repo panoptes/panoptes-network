@@ -1,41 +1,66 @@
 <template>
-  <v-card outlined>
+  <v-card outlined class="mx-auto" v-resize="onResize">
     <v-card-title>
-      <v-text-field v-model="search" append-icon="mdi-magnify" label="Filter Observations" single-line hide-details />
+      <v-text-field
+        v-model="search"
+        append-icon="mdi-magnify"
+        label="Filter Observations"
+        single-line
+        hide-details
+      />
     </v-card-title>
-    <v-data-table id="obsTable" v-model="selectedObservations" :dense="dense" :headers="fields" :items="state.model.observations" :items-per-page="perPage" :search="search" :loading="state.search.isSearching.observations" class="elevation-1">
-      <template v-slot:item.unit_id="{ item }">
-        <nuxt-link :to="'/units/' + item.unit_id">
-          {{
-          item.unit_id
-          }}
-        </nuxt-link>
+    <v-data-table
+      id="obsTable"
+      v-model="selectedObservations"
+      :dense="dense"
+      :headers="fields"
+      :items="observations"
+      :items-per-page="perPage"
+      :search="search"
+      :loading="isSearching"
+      :hide-default-headers="isMobile"
+      :class="{mobile: isMobile}"
+    >
+      <template slot="item" slot-scope="props">
+        <tr v-if="!isMobile">
+          <td class="text-xs-right">
+            <nuxt-link :to="'/unit/' + props.item.unit_id">{{props.item.unit_id }}</nuxt-link>
+          </td>
+          <td class="text-xs-right">
+            <nuxt-link :to="'/observation/' + props.item.sequence_id">{{props.item.sequence_id }}</nuxt-link>
+          </td>
+          <td class="text-xs-right">{{ props.item.field_name }}</td>
+          <td class="text-xs-right">{{ props.item.ra }}</td>
+          <td class="text-xs-right">{{ props.item.dec }}</td>
+          <td class="text-xs-right">{{ props.item.exptime }}</td>
+          <td class="text-xs-right">{{ props.item.time | moment('utc', 'YYYY-MM-DD HH:mm')}}</td>
+        </tr>
+        <tr v-else>
+          <td>
+            <ObservationSummary :observation="props.item" />
+          </td>
+        </tr>
       </template>
-      <template v-slot:item.sequence_id="{ item }">
-        <nuxt-link :to="'/observation/' + item.sequence_id">
-          {{
-          item.sequence_id
-          }}
-        </nuxt-link>
-      </template>
-      <template v-slot:item.ra="{ item }">{{ item.ra | roundVal }}</template>
-      <template v-slot:item.dec="{ item }">{{ item.dec | roundVal }}</template>
-      <template v-slot:item.time="{ item }">{{ item.time | moment('utc', 'YYYY-MM-DD HH:mm') }}</template>
-      <template v-slot:item.status="{ item }">{{ item.status }}</template>
     </v-data-table>
     <!--     <v-card-actions align="right">
       <v-spacer />
       <v-btn :disabled="state.search.hasResults" small>
         <v-icon>mdi-table</v-icon>Get CSV
       </v-btn>
-    </v-card-actions> -->
+    </v-card-actions>-->
   </v-card>
 </template>
 <script>
+import ObservationSummary from '@/components/Observation/Summary'
+
 export default {
   name: 'Observations',
+  components: {
+    ObservationSummary
+  },
   filters: {
-    formatUnitId: (value) => {
+    formatUnitId: value => {
+      /* This will format the unit_id with PAN and pre-pended zeros */
       // Silly formatting
       let unitId = 'PAN000'
       const l = -1 * value.toFixed(0).length
@@ -43,8 +68,22 @@ export default {
       unitId += value
       return unitId
     },
-    roundVal: (value) => {
+    roundVal: value => {
       return parseFloat(value).toFixed(3)
+    }
+  },
+  computed: {
+    observations() {
+      return this.$store.state.observations.observations
+    },
+    isSearching() {
+      return this.$store.state.observations.isSearching
+    }
+  },
+  methods: {
+    onResize() {
+      if (window.innerWidth < 769) this.isMobile = true
+      else this.isMobile = false
     }
   },
   props: {
@@ -62,8 +101,9 @@ export default {
       search: '',
       selectedObservations: [],
       allowDownloads: false,
-      rows: [],
-      fields: [{
+      isMobile: false,
+      fields: [
+        {
           text: 'Unit',
           value: 'unit_id',
           sortable: true,
@@ -108,14 +148,8 @@ export default {
         // { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
       ]
     }
-  },
-  computed: {
-    state() {
-      return this.$store.state
-    }
   }
 }
-
 </script>
 <style scoped>
 a {
@@ -125,5 +159,4 @@ a {
 #obsTable {
   font-family: monospace;
 }
-
 </style>

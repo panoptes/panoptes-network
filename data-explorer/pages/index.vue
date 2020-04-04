@@ -2,32 +2,26 @@
   <v-container>
     <v-row>
       <v-col>
-          <!-- Observations -->
-          <v-card>
-            <v-card-title>
-              Observations ({{ observations.length }})
-            </v-card-title>
-            <v-card-text>
-              <Observations :per-page="10" :dense="true" />
-            </v-card-text>
-          </v-card>
+        <!-- Observations -->
+        <v-card>
+          <v-card-title>Observations ({{ observations.length }})</v-card-title>
+          <v-card-text>
+            <Observations :per-page="10" :dense="true" />
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
     <v-row>
       <v-col>
-          <!-- Lightcurves -->
-          <v-card>
-            <v-card-title>
-              Lightcurves ({{ lightcurves.length }})
-            </v-card-title>
-            <v-card-text>
-              <div class="text-center">
-                <v-sheet class="yellow lighten-4">
-                  Coming Soon!
-                </v-sheet>
-              </div>
-            </v-card-text>
-          </v-card>
+        <!-- Lightcurves -->
+        <v-card>
+          <v-card-title>Lightcurves</v-card-title>
+          <v-card-text>
+            <div class="text-center">
+              <v-sheet class="yellow lighten-4">Coming Soon!</v-sheet>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
   </v-container>
@@ -42,20 +36,15 @@ export default {
   components: {
     Observations
   },
-  data: () => ({
-    openPanels: [0, 1]
-  }),
+  data: () => ({}),
   computed: {
     observations() {
-      return this.$store.state.model.observations
-    },
-    lightcurves() {
-      return this.$store.state.model.lightcurves
+      return this.$store.state.observations.observations
     }
   },
   async fetch({ store }) {
     // Lookup the most recent on page load.
-    await store.dispatch('model/GET_RECENT')
+    await store.dispatch('observations/GET_RECENT')
   }
 }
 </script>

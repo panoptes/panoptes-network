@@ -1,21 +1,19 @@
 <template>
   <v-card>
-
+    <code>
+      {{ observation }}
+    </code>
   </v-card>
 </template>
 <script>
-import { mapMutations } from 'vuex'
 
 export default {
   name: 'LinkList',
   components: {},
   computed: {
-    images: function() {
-      return this.$store.state.observation.images
-    },
-    image_url: function() {
-      return this.selected[0].bucket_path.replace('processed', 'raw').replace('.fits.fz', '.jpg')
-    },
+    observation: function() {
+      return this.$store.state.observations.selectedObservation
+    }
   },
   mounted: function() {
     this.$nextTick(function() {

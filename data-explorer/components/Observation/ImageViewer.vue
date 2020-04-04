@@ -20,7 +20,6 @@
             <v-progress-circular indeterminate color="purple"></v-progress-circular>
           </v-row>
         </template>
-        </v-img>
       </v-card>
     </v-col>
   </v-row>
@@ -30,7 +29,9 @@ export default {
   name: 'ImageViewer',
   computed: {
     image_url: function() {
-      return this.selected.bucket_path.replace('processed', 'raw').replace('.fits.fz', '.jpg')
+      return this.selected.bucket_path
+        .replace('processed', 'raw')
+        .replace('.fits.fz', '.jpg')
     },
     selected: function() {
       return this.$store.state.observation.selectedImage[0] || null
@@ -42,5 +43,4 @@ export default {
     }
   }
 }
-
 </script>

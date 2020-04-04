@@ -11,7 +11,9 @@
           <v-tab-item>
             <ObservationPlot />
           </v-tab-item>
-          <v-tab-item>Links here</v-tab-item>
+          <v-tab-item>
+            <LinkList />
+          </v-tab-item>
         </v-tabs>
       </v-col>
       <v-col cols="3">
@@ -24,17 +26,19 @@
 import ObservationInfo from '@/components/Observation/ObservationInfo'
 import ObservationPlot from '@/components/Observation/ObservationPlot'
 import ImageList from '@/components/Observation/ImageList'
+import LinkList from '@/components/Observation/LinkList'
 
 export default {
   name: 'Observation',
   components: {
     ObservationInfo,
     ObservationPlot,
-    ImageList
+    ImageList,
+    LinkList
   },
   async fetch({ store, params }) {
-    await store.dispatch('observation/GET_OBSERVATION', params.sequence_id)
-    await store.dispatch('observation/GET_IMAGES', params.sequence_id)
+    await store.dispatch('observations/GET_OBSERVATION', params.sequence_id)
+    await store.dispatch('observations/GET_IMAGES', params.sequence_id)
   }
 }
 
