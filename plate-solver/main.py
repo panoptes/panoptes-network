@@ -434,6 +434,7 @@ def add_header_to_db(image_doc_snap, header):
                 'ra': header.get('CRVAL1'),
                 'dec': header.get('CRVAL2'),
                 'status': 'receiving_files',
+                'processed_time': firestore.SERVER_TIMESTAMP
             }
 
             try:
