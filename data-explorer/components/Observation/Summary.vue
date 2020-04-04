@@ -14,6 +14,8 @@
         Coords: {{ observation.ra }}&deg;  {{ observation.dec }} &deg;
         <br />
         Exptime: {{ observation.exptime }} seconds
+        <br />
+        Images: {{ observation.num_images }}
       </div>
     </v-card-text>
   </v-card>

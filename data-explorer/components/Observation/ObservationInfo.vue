@@ -23,8 +23,8 @@
           <v-list-item-content>
             <v-list-item-subtitle>RA / Dec</v-list-item-subtitle>
             <v-list-item-title class="subtitle-1">
-              {{ observation.ra }} &deg;
-              {{ observation.dec }} &deg;
+              {{ observation.ra }}&deg;
+              {{ observation.dec }}&deg;
             </v-list-item-title>
           </v-list-item-content>
         </v-list-item>

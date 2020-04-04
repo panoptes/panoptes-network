@@ -32,7 +32,7 @@ export const actions = {
     await commit('SET_SEARCHING', true)
     if (state.observations.length == 0) {
       return DB.collection('observations')
-        .orderBy('time', 'desc')
+        .orderBy('processed_time', 'desc')
         .limit(100)
         .onSnapshot(async function (querySnapshot) {
           var obs = []
@@ -61,7 +61,7 @@ export const actions = {
         querySnapshot.forEach(async (doc) => {
           const data = doc.data()
           data['image_id'] = doc.id
-          
+
           images.push(formatFirestoreRow(data))
         });
         await commit('SET_IMAGES', images)

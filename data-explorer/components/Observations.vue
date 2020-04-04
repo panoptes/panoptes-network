@@ -34,6 +34,7 @@
           <td class="text-xs-right">{{ props.item.dec }}</td>
           <td class="text-xs-right">{{ props.item.exptime }}</td>
           <td class="text-xs-right">{{ props.item.time | moment('utc', 'YYYY-MM-DD HH:mm')}}</td>
+          <td class="text-xs-right">{{ props.item.num_images }}</td>
         </tr>
         <tr v-else>
           <td>
@@ -107,7 +108,7 @@ export default {
           text: 'Unit',
           value: 'unit_id',
           sortable: true,
-          width: '0.8rem'
+          width: 20
         },
         {
           text: 'Observation ID',
@@ -132,7 +133,8 @@ export default {
         {
           text: 'Exptime [sec]',
           value: 'exptime',
-          sortable: true
+          sortable: true,
+          width: 35
         },
         // {
         //   text: 'Status',
@@ -143,9 +145,15 @@ export default {
           text: 'Date [UTC]',
           value: 'time',
           sortable: true,
-          width: 200
-        }
-        // { text: 'Image Count', value: 'image_count', sortable: true, type: 'number' },
+          width: 170
+        },
+        {
+          text: 'Images',
+          value: 'num_images',
+          sortable: true,
+          type: 'number',
+          width: 20
+        },
       ]
     }
   }
