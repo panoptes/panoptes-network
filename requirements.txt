@@ -1,4 +1,3 @@
-altair
 click
 google-auth
 google-cloud-firestore
