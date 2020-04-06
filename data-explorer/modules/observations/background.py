@@ -20,7 +20,7 @@ class Module(BaseModule):
         self.title = None
 
     def make_plot(self):
-        self.plot = figure(title='',
+        self.plot = figure(title='Observaton Info: Airmass, Background',
                            x_axis_type='datetime',
                            name="observation_background",
                            toolbar_location='above',
