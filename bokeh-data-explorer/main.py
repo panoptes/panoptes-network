@@ -23,25 +23,6 @@ def fetch_data(sequence_id):
     return results
 
 
-# def update(attrname, old, new_sequence_id):
-#     timer.text = f'(Executing {len(models)} queries...)'
-#     for module in modules:
-#         getattr(module, 'busy')()
-
-#     try:
-#         results = fetch_data(new_sequence_id)
-#     except Exception as e:
-#         print(f'Error getting sequence_id={new_sequence_id}: {e!r}')
-#         timer.text = f'Invalid Sequence ID'
-#     else:
-#         for module in modules:
-#             model = model_lookup[module.id]
-#             getattr(module, 'update_model')(results[model])
-
-#         for module in modules:
-#             getattr(module, 'unbusy')()
-
-
 models = [
     Model.get_model('images')
 ]
