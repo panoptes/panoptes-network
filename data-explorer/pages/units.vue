@@ -40,7 +40,7 @@ export default {
   }),
   computed: {
     units() {
-      return this.$store.state.unit.units
+      return this.$store.state.units.units
     }
   },
   async fetch({ store }) {

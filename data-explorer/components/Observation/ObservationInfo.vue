@@ -53,7 +53,7 @@
           <v-list-item-content>
             <v-list-item-subtitle>Unit ID</v-list-item-subtitle>
             <v-list-item-title class="subtitle-1">
-              <nuxt-link :to="'/units/' + observation.unit_id">{{ observation.unit_id }}</nuxt-link>
+              <nuxt-link :to="'/unit/' + observation.unit_id">{{ observation.unit_id }}</nuxt-link>
             </v-list-item-title>
           </v-list-item-content>
         </v-list-item>
