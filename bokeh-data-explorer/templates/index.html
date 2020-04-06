@@ -6,7 +6,7 @@
   <head>
     {% block inner_head %}
       <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
       <title>{% block title %}{{ title | e if title else "Bokeh Plot" }}{% endblock %}</title>
       {% block preamble %}{% endblock %}
       {% block resources %}
@@ -19,32 +19,32 @@
       {% endblock %}
       {% block postamble %}{% endblock %}
     {% endblock %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.8.0/css/bulma.min.css">
-    <script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/mustard-ui@latest/dist/css/mustard-ui.min.css">
   </head>
   {% endblock %}
   {% block body %}
   <body>
-  <section class="section">
-    <div class="container">
-      <h1 class="title">Data Explorer</h1>
-    {% block inner_body %}
-      {% block contents %}
-        {% for doc in docs %}
-          {{ embed(doc) if doc.elementid }}
-          {% for root in doc.roots %}
-            <div class="box">
-              {% block root scoped %}
-                {{ embed(root) | indent(10) }}
-              {% endblock %}
-            </div>
-          {% endfor %}
-        {% endfor %}
-      {% endblock %}
-      {{ plot_script | indent(8) }}
-    {% endblock %}
-    </div>
-  </section>
+    <h3 class="title">Data Explorer</h3>
+    <div class="row">
+      <div class="col col-lg-12">
+        {% block inner_body %}
+          {% block contents %}
+            {% for doc in docs %}
+              {{ embed(doc) if doc.elementid }}
+              {% for root in doc.roots %}
+                <div class="card">
+                  {% block root scoped %}
+                    {{ embed(root) | indent(10) }}
+                  {% endblock %}
+                </div>
+              {% endfor %}
+            {% endfor %}
+          {% endblock %}
+          {{ plot_script | indent(8) }}
+        {% endblock %}
+        </div>
+      </div>
+  </div>
   </body>
   {% endblock %}
 </html>

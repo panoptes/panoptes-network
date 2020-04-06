@@ -13,10 +13,9 @@ class Module(BaseModule):
     def __init__(self, source):
         super().__init__(source)
         self.data_table = None
-        self.title = None
+        self.title = Paragraph()
 
     def make_plot(self):
-        self.title = Paragraph(css_classes=['is-pulled-right'])
         self.set_title()
 
         column_width = 300  # pixels
@@ -30,13 +29,20 @@ class Module(BaseModule):
                                         TableColumn(field='airmass', title='Airmass', width=5, formatter=NumberFormatter(format="0.00")),
                                     ]
                                     )
+
+        def select_row(attr, old, new):
+            self.update_plot()
+
+        self.source.selected.on_change('indices', select_row)
+
         return column(
             self.data_table,
             self.title
         )
 
-    def update_plot(self, dataframe):
-        self.source.data.update(dataframe)
+    def update_plot(self, dataframe=None):
+        # self.source.data.update(dataframe)
+        self.set_title()
 
     def busy(self):
         self.title.text = 'Updating...'

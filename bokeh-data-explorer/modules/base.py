@@ -24,7 +24,7 @@ class BaseModule:
     def make_plot(self, dataframe):
         raise NotImplementedError
 
-    def update_plot(self, dataframe):
+    def update_plot(self, dataframe=None):
         raise NotImplementedError
 
     def busy(self):

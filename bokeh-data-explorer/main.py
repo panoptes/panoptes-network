@@ -11,7 +11,7 @@ from bokeh.models import ColumnDataSource
 from models import images as images_model
 import modules.images.table
 import modules.images.previewer
-# import modules.background
+import modules.observations.background
 
 
 sequence_id = 'PAN008_62b062_20190924T115032'
@@ -68,18 +68,16 @@ results = fetch_data(sequence_id)
 
 model_lookup = {
     'modules.images.table': 'models.images',
-    'modules.images.previewer': 'models.images'
+    'modules.images.previewer': 'models.images',
+    'modules.observations.background': 'models.images'
 }
 
 modules = [
     modules.images.table.Module(results['models.images']),
     modules.images.previewer.Module(results['models.images']),
-    # modules.background.Module()
+    modules.observations.background.Module(results['models.images']),
 ]
 
-
-sequence_id_input = TextInput(value=sequence_id, title="Sequence ID:")
-sequence_id_input.on_change("value", update)
 
 blocks = {}
 for module in modules:
@@ -88,12 +86,15 @@ for module in modules:
     blocks[module.id] = block
 
 curdoc().add_root(
-    column(
-        row(column(
+    row(
+        column(
+            blocks['modules.observations.background'],
+        ),
+        column(
             blocks['modules.images.previewer'],
             blocks['modules.images.table'],
             timer
-        )),
+        )
     )
 )
 curdoc().title = "Data Explorer"
