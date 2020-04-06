@@ -24,9 +24,10 @@
   {% endblock %}
   {% block body %}
   <body>
+    <section class="section-secondary">
     <h3 class="title">Data Explorer</h3>
     <div class="row">
-      <div class="col col-lg-12">
+        <div class="col">
         {% block inner_body %}
           {% block contents %}
             {% for doc in docs %}
@@ -44,7 +45,7 @@
         {% endblock %}
         </div>
       </div>
-  </div>
+    </section>
   </body>
   {% endblock %}
 </html>

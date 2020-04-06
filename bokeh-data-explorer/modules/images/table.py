@@ -17,7 +17,7 @@ class Module(BaseModule):
     def make_plot(self):
         self.set_title()
 
-        column_width = 300  # pixels
+        column_width = 324  # pixels
 
         self.data_table = DataTable(source=self.model.data_source,
                                     width=column_width,
@@ -35,8 +35,8 @@ class Module(BaseModule):
         self.model.data_source.selected.on_change('indices', select_row)
 
         return column(
-            self.data_table,
-            self.title
+            self.title,
+            self.data_table
         )
 
     # def update_plot(self):

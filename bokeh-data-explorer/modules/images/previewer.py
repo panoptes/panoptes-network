@@ -7,7 +7,7 @@ TITLE = ''
 
 IMG_TAG = """
 <a href="{0}" target="_blank">
-  <img src="{0}" alt="Loading..." width=320 height=160>
+  <img src="{0}" alt="Loading..." width=324, height=216>
 </a>
 """
 

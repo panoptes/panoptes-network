@@ -20,11 +20,13 @@ class Module(BaseModule):
         self.title = None
 
     def make_plot(self):
-        self.plot = figure(title='Observation',
+        self.plot = figure(title='',
                            x_axis_type='datetime',
                            name="observation_background",
                            toolbar_location='above',
-                           tools=self.TOOLS
+                           tools=self.TOOLS,
+                           width=800,
+                           height=400
                            )
         self.plot.xaxis.axis_label = 'Time [UTC]'
         self.plot.yaxis.axis_label = 'Counts [ADU]'
