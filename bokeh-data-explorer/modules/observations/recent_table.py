@@ -23,7 +23,7 @@ class Module(BaseModule):
                                         TableColumn(
                                             field='unit_id',
                                             title='Unit',
-                                            width=10),
+                                            width=5),
                                         TableColumn(
                                             field='sequence_id',
                                             title='Observation ID',
@@ -58,15 +58,10 @@ class Module(BaseModule):
                                             width=10),
                                     ])
 
-        def select_row(attr, old, new):
-            self.set_title()
-
-        self.model.data_source.selected.on_change('indices', select_row)
-
         return column(self.data_table)
 
     def update_plot(self, dataframe=None):
-        self.summary.text = self.get_template()
+        pass
 
     def busy(self):
         pass

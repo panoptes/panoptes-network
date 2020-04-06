@@ -39,10 +39,8 @@ class Module(BaseModule):
             self.data_table
         )
 
-    # def update_plot(self):
-    #     if dataframe is not None:
-    #         self.model.data_source.data.update(dataframe)
-    #     self.set_title()
+    def update_plot(self):
+        self.set_title()
 
     def busy(self):
         self.set_title('Updating...')

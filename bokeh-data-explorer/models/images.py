@@ -22,3 +22,4 @@ class Model(BaseModel):
             self.data_frame = json_normalize(data_rows, sep='_')
             self.data_source = ColumnDataSource(self.data_frame)
             self._sequence_id = sequence_id
+            self.data_source.selected.indices = [0]

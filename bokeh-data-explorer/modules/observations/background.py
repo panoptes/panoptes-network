@@ -1,3 +1,4 @@
+from contextlib import suppress
 import pandas as pd
 
 from bokeh.plotting import figure
@@ -12,10 +13,9 @@ TITLE = ''
 class Module(BaseModule):
     def __init__(self, model):
         super().__init__(model)
-        # Make a copy
         self.background_table = self.make_background_table()
         self.airmass_table = self.make_airmass_table()
-        self.line_source = None
+        self.vertical_line_source = None
         self.plot = None
         self.title = None
 
@@ -52,7 +52,7 @@ class Module(BaseModule):
 
     def make_airmass_plot(self):
         # Create an airmass range.
-        self.plot.extra_y_ranges['airmass'] = Range1d(5.6, 1)
+        self.plot.extra_y_ranges['airmass'] = Range1d(2, 1)
 
         self.plot.line(x='time', y='airmass',
                        source=self.airmass_table,
@@ -70,7 +70,7 @@ class Module(BaseModule):
     def make_vertical_line(self):
         # Vertical line marker at selected image.
         selected_time = self.background_table.time[self.model.data_source.selected.indices[0]]
-        self.line_source = ColumnDataSource(pd.DataFrame({
+        self.vertical_line_source = ColumnDataSource(pd.DataFrame({
             'y_min': [0],
             'y_max': self.background_table.median_value.max(),
             'x_start': selected_time,
@@ -82,12 +82,20 @@ class Module(BaseModule):
                         line_alpha=0.5,
                         line_dash='dashed',
                         )
-        self.plot.add_glyph(self.line_source, glyph)
+        self.plot.add_glyph(self.vertical_line_source, glyph)
 
     def update_plot(self, dataframe=None):
         # Update marker line.
-        new_time = self.model.data_frame.time.iloc[self.model.data_source.selected.indices[0]]
-        self.line_source.data.update(pd.DataFrame({
+        self.background_table = self.make_background_table()
+        self.airmass_table = self.make_airmass_table()
+
+        selected_index = 0
+        with suppress(IndexError):
+            selected_index = self.model.data_source.selected.indices[0]
+
+        # Update vertical line.
+        new_time = self.model.data_frame.time.iloc[selected_index]
+        self.vertical_line_source.data.update(pd.DataFrame({
             'x_start': new_time,
             'x_end': new_time
         }, index=[0]))
