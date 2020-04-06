@@ -28,9 +28,6 @@ class Module(BaseModule):
                            width=800,
                            height=400
                            )
-        self.plot.xaxis.axis_label = 'Time [UTC]'
-        self.plot.yaxis.axis_label = 'Counts [ADU]'
-        self.plot.background_fill_color = "#fafafa"
 
         # Add listen event
         def select_row(attr, old, new):
@@ -41,6 +38,11 @@ class Module(BaseModule):
         self.make_background_plot()
         self.make_airmass_plot()
         self.make_vertical_line()
+
+        self.plot.xaxis.axis_label = 'Time [UTC]'
+        self.plot.yaxis.axis_label = 'Counts [ADU]'
+        self.plot.background_fill_color = "#fafafa"
+        self.plot.legend.location = 'bottom_left'
 
         return column(self.plot)
 
