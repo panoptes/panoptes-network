@@ -1,25 +1,24 @@
-import requests
-import pandas as pd
+from bokeh.models import ColumnDataSource
+from pandas import json_normalize
 
 from models.base import BaseModel
 
 
 class Model(BaseModel):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._sequence_id = None
 
-    def fetch_data(self, sequence_id):
-
-        url = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-images'
-        # print(f'Getting documents for {sequence_id}')
-
-        res = requests.post(url, json=dict(sequence_id=sequence_id, tidy=False))
-
-        if res.ok:
-            images = pd.DataFrame(res.json())
-            images['image_path'] = images.bucket_path.str.replace('processed', 'raw').str.replace('.fits.fz', '.jpg')
-            images.time = pd.to_datetime(images.time, unit='s')
-            images.sort_values(by='time', inplace=True)
-
-        return images
+    def get_documents(self, sequence_id):
+        assert sequence_id is not None
+        if sequence_id != self._sequence_id:
+            images_query = self.collection.where('sequence_id', '==', sequence_id)
+            data_rows = [
+                dict(image_id=d.id, **d.to_dict())
+                for d
+                in images_query.stream()
+            ]
+            self.data_frame = json_normalize(data_rows, sep='_')
+            self.data_source = ColumnDataSource(self.data_frame)
+            self._sequence_id = sequence_id

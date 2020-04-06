@@ -14,21 +14,19 @@
 
 class BaseModule:
 
-    def __init__(self, source):
-        self.id = self.__module__
-        self.source = source
+    TOOLS = "pan,wheel_zoom,box_zoom,box_select,reset,save"
 
-    def fetch_data(self, state):
+    def __init__(self, model):
+        self.id = self.__module__
+        self.model = model
+
+    def update_model(self, model):
+        self.model = model
+
+    def make_plot(self, *args, **kwargs):
         raise NotImplementedError
 
-    def make_plot(self):
-        # Add listen event
-        def select_row(attr, old, new):
-            self.update_plot()
-
-        self.source.selected.on_change('indices', select_row)
-
-    def update_plot(self, dataframe=None):
+    def update_plot(self, *args, **kwargs):
         raise NotImplementedError
 
     def busy(self):

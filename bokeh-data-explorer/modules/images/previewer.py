@@ -13,29 +13,35 @@ IMG_TAG = """
 
 
 class Module(BaseModule):
-    def __init__(self, source):
-        super().__init__(source)
+    def __init__(self, model):
+        super().__init__(model)
         self.title = Paragraph()
 
-        self.source.selected.indices = [0]
-        image_url = self.source.data['image_path'][0]
+        self.model.data_source.selected.indices = [0]
+        bucket_path = self.model.data_frame.bucket_path.iloc[0]
+        image_url = bucket_path.replace('processed', 'raw').replace('.fits.fz', '.jpg')
         self.image = Div(text=IMG_TAG.format(image_url))
 
     def make_plot(self):
-        super().make_plot()
+        # Add listen event
+        def select_row(attr, old, new):
+            self.update_plot()
+
+        self.model.data_source.selected.on_change('indices', select_row)
 
         return column(self.title, self.image)
 
     def update_plot(self, dataframe=None):
         try:
-            selected_index = self.source.selected.indices[0]
+            selected_index = self.model.data_source.selected.indices[0]
         except IndexError:
             print(f'No index')
             selected_index = 0
 
-        self.title.text = self.source.data['image_id'][selected_index]
+        self.title.text = self.model.data_frame.image_id.iloc[selected_index]
 
-        new_url = self.source.data['image_path'][selected_index]
+        bucket_path = self.model.data_frame.bucket_path.iloc[selected_index]
+        new_url = bucket_path.replace('processed', 'raw').replace('.fits.fz', '.jpg')
         self.image.text = IMG_TAG.format(new_url)
 
     def busy(self):

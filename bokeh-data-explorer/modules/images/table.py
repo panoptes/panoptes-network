@@ -10,9 +10,8 @@ TITLE = 'Total images: '
 
 
 class Module(BaseModule):
-    def __init__(self, source):
-        super().__init__(source)
-        self.data_table = None
+    def __init__(self, model):
+        super().__init__(model)
         self.title = Paragraph()
 
     def make_plot(self):
@@ -20,7 +19,7 @@ class Module(BaseModule):
 
         column_width = 300  # pixels
 
-        self.data_table = DataTable(source=self.source,
+        self.data_table = DataTable(source=self.model.data_source,
                                     width=column_width,
                                     index_position=None,
                                     columns=[
@@ -31,24 +30,28 @@ class Module(BaseModule):
                                     )
 
         def select_row(attr, old, new):
-            self.update_plot()
+            self.set_title()
 
-        self.source.selected.on_change('indices', select_row)
+        self.model.data_source.selected.on_change('indices', select_row)
 
         return column(
             self.data_table,
             self.title
         )
 
-    def update_plot(self, dataframe=None):
-        # self.source.data.update(dataframe)
-        self.set_title()
+    # def update_plot(self):
+    #     if dataframe is not None:
+    #         self.model.data_source.data.update(dataframe)
+    #     self.set_title()
 
     def busy(self):
-        self.title.text = 'Updating...'
+        self.set_title('Updating...')
 
     def unbusy(self):
         self.set_title()
 
-    def set_title(self):
-        self.title.text = f'{TITLE} {len(self.source.data)}'
+    def set_title(self, text=None):
+        if text is None:
+            text = f'{TITLE} {len(self.model.data_frame)}'
+
+        self.title.text = text
