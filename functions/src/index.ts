@@ -5,7 +5,3 @@ admin.initializeApp({
   credential: admin.credential.applicationDefault()
 })
 
-const db = admin.firestore()
-const increment = admin.firestore.FieldValue.increment(1)
-const decrement = admin.firestore.FieldValue.increment(-1)
-

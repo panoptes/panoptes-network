@@ -1,6 +1,6 @@
 # Bokeh basics
 from bokeh.io import curdoc
-from bokeh.layouts import column, row
+from bokeh.layouts import column, row, gridplot
 from bokeh.models import Panel, Tabs
 from bokeh.models.widgets import Div
 
@@ -60,33 +60,17 @@ heading = Div(text='<h3 class="title">Data Explorer</h3>',
               height=80,
               sizing_mode="stretch_width")
 
-# entire layout can fill the space it is in
-
-observation_list_tab = Panel(title='Recent Observations',
-                             child=row(
-                                 blocks['modules.observations.recent_table'],
-                                 sizing_mode='stretch_both',
-                             ))
 
 observation_tab = Panel(title='Observation',
-                        child=row(
-                            column(
-                                blocks['modules.observations.summary'],
-                                sizing_mode='stretch_both',
-                            ),
-                            column(
-                                blocks['modules.observations.background'],
-                                sizing_mode='stretch_both',
-                            ),
-                            column(
-                                blocks['modules.images.previewer'],
-                                blocks['modules.images.table'],
-                                sizing_mode='stretch_both',
-                            )
+                        child=gridplot([[
+                            blocks['modules.observations.summary'],
+                            blocks['modules.observations.background'],
+                            blocks['modules.images.previewer'], blocks['modules.images.table'],
+                        ]]
                         ))
 
 tabs = Tabs(tabs=[
-    observation_list_tab,
+    blocks['modules.observations.recent_table'],
     observation_tab
 ])
 layout = column(heading, row(tabs), sizing_mode="stretch_both")

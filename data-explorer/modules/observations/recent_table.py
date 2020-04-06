@@ -2,8 +2,11 @@ from bokeh.models.widgets import DataTable
 from bokeh.models.widgets import TableColumn
 from bokeh.models.widgets import NumberFormatter
 from bokeh.models.widgets import DateFormatter
+from bokeh.models import Panel
 from bokeh.layouts import column
+
 from modules.base import BaseModule
+
 
 TITLE = ''
 
@@ -58,7 +61,9 @@ class Module(BaseModule):
                                             width=10),
                                     ])
 
-        return column(self.data_table)
+        return Panel(title='Recent Observations',
+                     child=column(self.data_table),
+                     )
 
     def update_plot(self, dataframe=None):
         pass
