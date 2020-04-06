@@ -21,8 +21,12 @@ class BaseModule:
     def fetch_data(self, state):
         raise NotImplementedError
 
-    def make_plot(self, dataframe):
-        raise NotImplementedError
+    def make_plot(self):
+        # Add listen event
+        def select_row(attr, old, new):
+            self.update_plot()
+
+        self.source.selected.on_change('indices', select_row)
 
     def update_plot(self, dataframe=None):
         raise NotImplementedError

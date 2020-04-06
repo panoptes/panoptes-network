@@ -22,10 +22,7 @@ class Module(BaseModule):
         self.image = Div(text=IMG_TAG.format(image_url))
 
     def make_plot(self):
-        def select_row(attr, old, new):
-            self.update_plot()
-
-        self.source.selected.on_change('indices', select_row)
+        super().make_plot()
 
         return column(self.title, self.image)
 

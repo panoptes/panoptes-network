@@ -11,41 +11,45 @@ TITLE = ''
 class Module(BaseModule):
     def __init__(self, source):
         super().__init__(source)
-        self.data_table = self.make_datatable()
+        # Make a copy
+        self.images_table = pd.DataFrame(self.source.data)
+        self.background_table = self.make_background_table()
+        self.airmass_table = self.make_airmass_table()
         self.line_source = None
         self.plot = None
         self.title = None
 
     def make_plot(self):
-        p = figure(title='Background', x_axis_type='datetime', name="observation_background")
-        p.xaxis.axis_label = 'Time [UTC]'
-        p.yaxis.axis_label = 'Counts [ADU]'
+        super().make_plot()
 
+        self.plot = figure(title='Background',
+                           x_axis_type='datetime',
+                           name="observation_background")
+        self.plot.xaxis.axis_label = 'Time [UTC]'
+        self.plot.yaxis.axis_label = 'Counts [ADU]'
+
+        self.make_background_plot()
+        self.make_vertical_line()
+
+        return column(self.plot)
+
+    def make_background_plot(self):
         for color in ['red', 'green', 'blue']:
-            src = ColumnDataSource(self.data_table.query('color == @color'))
-            p.line(x='time', y='median_value', source=src, color=color)
-            p.circle(x='time', y='median_value', source=src, color=color)
+            src = ColumnDataSource(self.background_table.query('color == @color'))
+            self.plot.line(x='time', y='median_value', source=src, color=color)
+            self.plot.circle(x='time', y='median_value', source=src, color=color)
 
+    def make_vertical_line(self):
         # Vertical line marker at selected image.
-        selected_time = self.data_table.time[self.source.selected.indices[0]]
-
-        self.plot = p
-
-        def select_row(attr, old, new):
-            self.update_plot()
-
-        self.source.selected.on_change('indices', select_row)
-
+        selected_time = self.background_table.time[self.source.selected.indices[0]]
         self.line_source = ColumnDataSource(pd.DataFrame({
             'y_min': [0],
-            'y_max': self.data_table.median_value.max(),
+            'y_max': self.background_table.median_value.max(),
             'x_start': selected_time,
             'x_end': selected_time
         }, index=[0]))
         glyph = Segment(x0='x_start', y0='y_min', x1='x_end', y1='y_max')
-        p.add_glyph(self.line_source, glyph)
-
-        return column(self.plot)
+        self.plot.add_glyph(self.line_source, glyph)
 
     def update_plot(self, dataframe=None):
         # Update marker line.
@@ -67,18 +71,16 @@ class Module(BaseModule):
 
         self.title.text = self.source.data['image_id'][selected_index]
 
-    def make_datatable(self):
-        # Make a copy
-        images = pd.DataFrame(self.source.data)
+    def make_background_table(self):
 
         # Get the time and median, melt into tidy format and then split color into separate column.
-        bg_median = images.filter(regex='background_median|^time') \
+        bg_median = self.images_table.filter(regex='background_median|^time') \
             .melt(id_vars=['time'], var_name='metric', value_name='median_value')
         bg_median = bg_median.join(bg_median.metric.str.split('_', expand=True)) \
             .drop(columns=[0, 1, 'metric']).rename(columns={2: 'color'})
 
         # Same as above for rms.
-        bg_rms = images.filter(regex='background_rms|^time') \
+        bg_rms = self.images_table.filter(regex='background_rms|^time') \
             .melt(id_vars=['time'], var_name='metric', value_name='rms')
         bg_rms = bg_rms.join(bg_rms.metric.str.split('_', expand=True)) \
             .drop(columns=[0, 1, 'metric']).rename(columns={2: 'color'})
@@ -87,3 +89,10 @@ class Module(BaseModule):
         bg_df = bg_median.merge(bg_rms)
         bg_df.color = bg_df.color.map({'r': 'red', 'g': 'green', 'b': 'blue'})
         return bg_df
+
+    def make_airmass_table(self):
+        airmass_table = self.images_table.filter(regex='airmass|^time') \
+            .melt(id_vars=['time'], var_name='metric', value_name='airmass') \
+            .drop(columns=['metric'])
+
+        return airmass_table
