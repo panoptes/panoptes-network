@@ -94,7 +94,7 @@ class Module(BaseModule):
         for i, color in enumerate(['red', 'green', 'blue']):
             row = self.background_table.query('time == @new_time & color == @color').iloc[0]
             self.plot.legend.items[i] = LegendItem(
-                label=f'{color[0].upper()} μ={row.median_value:7.2f} σ={row.rms:5.2f}',
+                label=f'BG {color[0].upper()} μ={row.median_value:7.2f} σ={row.rms:5.2f}',
                 renderers=[self.plot.renderers[i * 2]],
             )
 
