@@ -13,8 +13,7 @@ TITLE = ''
 class Module(BaseModule):
     def __init__(self, model):
         super().__init__(model)
-        self.background_table = self.make_background_table()
-        self.airmass_table = self.make_airmass_table()
+        self.fetch_data()
         self.vertical_line_source = None
         self.plot = None
         self.title = None
@@ -88,15 +87,17 @@ class Module(BaseModule):
 
     def update_plot(self, dataframe=None):
         # Update marker line.
-        self.background_table = self.make_background_table()
-        self.airmass_table = self.make_airmass_table()
 
+        print('Getting new index')
         selected_index = 0
         with suppress(IndexError):
             selected_index = self.model.data_source.selected.indices[0]
 
+        print('selected_index={selected_index}')
+
         # Update vertical line.
         new_time = self.model.data_frame.time.iloc[selected_index]
+        print(f'new_time={new_time}')
         self.vertical_line_source.data.update(pd.DataFrame({
             'x_start': new_time,
             'x_end': new_time
@@ -104,6 +105,7 @@ class Module(BaseModule):
 
         # Update RGB legend.
         for i, color in enumerate(['red', 'green', 'blue']):
+            print(f'Looking up {color}')
             row = self.background_table.query('time == @new_time & color == @color').iloc[0]
             self.plot.legend.items[i] = LegendItem(
                 label=f'BG {color[0].upper()} μ={row.median_value:7.2f} σ={row.rms:5.2f}',
@@ -111,6 +113,7 @@ class Module(BaseModule):
             )
 
         # Update airmass legend.
+        print(f'Updating airmass')
         airmass = self.airmass_table.query('time == @new_time').iloc[0].airmass
         self.plot.legend.items[-1] = LegendItem(
             label=f'Airmass = {airmass:.2f}',
@@ -122,6 +125,10 @@ class Module(BaseModule):
 
     def unbusy(self):
         pass
+
+    def fetch_data(self):
+        self.background_table = self.make_background_table()
+        self.airmass_table = self.make_airmass_table()
 
     def make_background_table(self):
 

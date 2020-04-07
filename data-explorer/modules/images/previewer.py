@@ -20,7 +20,7 @@ class Module(BaseModule):
         self.model.data_source.selected.indices = [0]
         bucket_path = self.model.data_frame.bucket_path.iloc[0]
         image_url = bucket_path.replace('processed', 'raw').replace('.fits.fz', '.jpg')
-        self.image = Div(text=IMG_TAG.format(image_url))
+        self.image = Div(text=IMG_TAG.format(image_url), width=3234, height=216)
 
     def make_plot(self):
         # Add listen event

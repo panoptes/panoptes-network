@@ -58,22 +58,22 @@ recent_obs_model.data_source.selected.on_change('indices', select_observation)
 # heading fills available width
 heading = Div(text='<h3 class="title">Data Explorer</h3>',
               height=80,
-              sizing_mode="stretch_width")
+              sizing_mode="stretch_both")
 
 
 observation_tab = Panel(title='Observation',
                         child=gridplot([[
                             blocks['modules.observations.summary'],
                             blocks['modules.observations.background'],
-                            blocks['modules.images.previewer'], blocks['modules.images.table'],
+                            column(blocks['modules.images.previewer'], blocks['modules.images.table']),
                         ]]
                         ))
 
 tabs = Tabs(tabs=[
     blocks['modules.observations.recent_table'],
     observation_tab
-])
-layout = column(heading, row(tabs), sizing_mode="stretch_both")
+], sizing_mode='stretch_width')
+layout = column(heading, row(tabs), sizing_mode="stretch_width")
 
 
 # Lay out the current document.

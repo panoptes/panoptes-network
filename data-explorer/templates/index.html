@@ -25,8 +25,6 @@
   {% block body %}
   <body>
     <section class="section-secondary">
-    <div class="row">
-        <div class="col">
         {% block inner_body %}
           {% block contents %}
             {% for doc in docs %}
@@ -42,8 +40,6 @@
           {% endblock %}
           {{ plot_script | indent(8) }}
         {% endblock %}
-        </div>
-      </div>
     </section>
   </body>
   {% endblock %}
