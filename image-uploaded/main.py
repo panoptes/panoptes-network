@@ -4,6 +4,12 @@ import json
 
 from google.cloud import pubsub
 from google.cloud import storage
+from google.cloud import firestore
+
+from dateutil.parser import parse as date_parse
+
+from panoptes.utils import image_id_from_path
+from panoptes.utils import sequence_id_from_path
 
 
 publisher = pubsub.PublisherClient()
@@ -19,6 +25,8 @@ storage_client = storage.Client()
 storage_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-raw-images'))
 timelapse_bucket = storage_client.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
 temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
+
+firestore_db = firestore.Client()
 
 
 def entry_point(data, context):
@@ -114,8 +122,42 @@ def send_pubsub_message(topic, data):
 
 
 def process_fits(bucket_path):
+    print(f'Recording {bucket_path} in firestore db.')
+    add_records_to_db(bucket_path)
     send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
     send_pubsub_message(make_rgb_topic, dict(bucket_path=bucket_path))
+
+
+def add_records_to_db(bucket_path):
+    image_id = image_id_from_path(bucket_path)
+    sequence_id = sequence_id_from_path(bucket_path)
+
+    unit_id, camera_id, sequence_time = sequence_id.split('_')
+    image_time = image_id.split('_')[-1]
+
+    # Make observation record
+    seq_data = {
+        'unit_id': unit_id,
+        'camera_id': camera_id,
+        'time': date_parse(sequence_time),
+        'status': 'receiving_files',
+        'processed_time': firestore.SERVER_TIMESTAMP,
+        'num_images': firestore.Increment(1)
+    }
+
+    firestore_db.document(f'observations/{sequence_id}').set(seq_data, merge=True)
+
+    # Make image record.
+    image_data = {
+        'sequence_id': sequence_id,
+        'time': date_parse(image_time),
+        'bucket_path': bucket_path,
+        'status': 'received',
+        'solved': False,
+        'received_time': firestore.SERVER_TIMESTAMP
+    }
+
+    firestore_db.document(f'images/{image_id}').set(image_data, merge=True)
