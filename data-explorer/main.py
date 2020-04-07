@@ -4,56 +4,56 @@ from bokeh.layouts import column, row, gridplot
 from bokeh.models import Panel, Tabs
 from bokeh.models.widgets import Div
 
-from models import Model
-import modules.images.table
-import modules.images.previewer
-import modules.observations.background
-import modules.observations.summary
-import modules.observations.recent_table
+from models.observations import Model as ObservationModel
 
-# Fetch the initial data.
-images_model = Model.get_model('images')
-observation_model = Model.get_model('observations')
-recent_obs_model = Model.get_model('observations')
-recent_obs_model.get_recent(limit=100)
+from modules.observations.recent_table import Module as ObservationsRecentTable
+from modules.observations.summary import Module as ObservationSummary
+from modules.observations.summary_plot import Module as ObservationSummaryPlot
+from modules.images.table import Module as ImagesTable
+from modules.images.previewer import Module as ImagePreviewer
+
+
+models = {
+    'observations': ObservationModel().make_datasource()
+}
+
 
 sequence_id = 'PAN012_358d0f_20180824T035917'
 
-images_model.get_documents(sequence_id)
-observation_model.get_document(sequence_id)
-
-modules = [
-    modules.images.table.Module(images_model),
-    modules.images.previewer.Module(images_model),
-    modules.observations.background.Module(images_model),
-    modules.observations.summary.Module(observation_model),
-    modules.observations.recent_table.Module(recent_obs_model),
+module_list = [
+    ObservationsRecentTable,
+    ObservationSummary,
+    ObservationSummaryPlot,
+    ImagePreviewer,
+    ImagesTable,
 ]
+
+modules = {}
+for module_class in module_list:
+    print(f'Initializing {module_class}')
+    # Pass the observations model.
+    module = module_class(models['observations'])
+    modules[module.id] = module
+
+print(f'Initialized {len(modules)} modules: {modules.keys()}')
 
 # Get all the bokeh blocks.
 blocks = {module.id: getattr(module, 'make_plot')() for module in modules}
 
 
 def select_observation(attr, old_index, new_index):
-    new_sequence_id = recent_obs_model.data_frame.sequence_id.iloc[new_index].values[0]
+    new_sequence_id = models['observations'].data_source.data['sequence_id'][new_index]
     print(f'Selecting new observation: {new_sequence_id}')
-    try:
-        images_model.get_documents(new_sequence_id)
-        observation_model.get_document(new_sequence_id, force=True)
-    except Exception as e:
-        print(f'Error setting observation: {e!r}')
-    else:
-        # Update modules
-        for module in modules:
-            try:
-                getattr(module, 'update_plot')()
-            except Exception as e2:
-                print(f'Error updating {module.id}: {e2!r}')
-    finally:
-        observation_tab.title = f'Observation {new_sequence_id}'
+    # Update modules
+    for module in modules:
+        try:
+            getattr(module, 'update_plot')()
+        except Exception as e2:
+            print(f'Error updating {module.id}: {e2!r}')
 
 
-recent_obs_model.data_source.selected.on_change('indices', select_observation)
+# Set up an event for when the selected observation changes.
+models['observations'].data_source.selected.on_change('indices', select_observation)
 
 # heading fills available width
 heading = Div(text='<h3 class="title">Data Explorer</h3>',

@@ -8,27 +8,42 @@ from models.base import BaseModel
 class Model(BaseModel):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._sequence_id = None
-        self._recent_docs = None
+        super().__init__('observations', *args, **kwargs)
 
-    def get_recent(self, limit=100):
-        """Get the recent observation documents.
+    def make_datasource(self, query_fn=None, limit=100, *args, **kwargs):
+        """Make the datasource.
 
-        Builds a DataFrame and ColumnDataSource for the collection.
+        By default this will pull the most recent observations. You can pass a
+        `query_fn` callable that has a `google.cloud.firestore.collection.CollectionReference`
+        as the first and only parameter.  This function should return a
+        `google.cloud.firestore.query.Query` instance.
 
         Args:
-            limit (int, optional): Limit returned number of documents, default 100.
+            query_fn (callable|None, optional): A callable function to get the data from the collection. See description for details.
+            limit (int, optional): Limit the number of documents, default 100.
+            *args: Description
+            **kwargs: Description
         """
-        obs_query = self.collection.order_by('time', direction='DESCENDING').limit(limit)
+        # Default search for recent documents.
+        if query_fn is None:
+            self.query_object = self.collection \
+                .order_by('time', direction='DESCENDING').limit(limit)
+        else:
+            self.query_object = query_fn(self.collection)
+
+        # Collect all the documents.
         data_rows = [
             dict(sequence_id=d.id, **d.to_dict())
             for d
-            in obs_query.stream()
+            in self.query_object.stream()
         ]
-        self.data_frame = pd.DataFrame(data_rows).fillna({'num_images': 0})
-        self.data_source = ColumnDataSource(self.data_frame)
-        self.data_source.selected.indices = [0]
+        data_frame = pd.DataFrame(data_rows).fillna({'num_images': 0})
+        self.data_source = ColumnDataSource(data_frame)
+
+        # Set an initial index.
+        # self.data_source.selected.indices = [0]
+
+        return self
 
     def get_document(self, sequence_id, force=False):
         """Returns a specific document given by the sequence_id

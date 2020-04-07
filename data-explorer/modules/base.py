@@ -20,8 +20,11 @@ class BaseModule:
         self.id = self.__module__
         self.model = model
 
-    def update_model(self, model):
-        self.model = model
+    def update_model(self, new_data):
+        self.model.data_source.update(new_data)
+
+    def update_selected(self, new_selected):
+        self.model.data_source.selected.indices = [new_selected]
 
     def make_plot(self, *args, **kwargs):
         raise NotImplementedError

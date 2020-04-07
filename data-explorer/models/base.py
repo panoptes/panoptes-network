@@ -13,7 +13,8 @@ class BaseModel:
         self.collection_name = collection_name
         self.collection = self._firestore_db.collection(self.collection_name)
 
-        self._data_source = None
+        self.query_object = None
+        self.data_source = None
 
     def make_datasource(self, *args, **kwargs):
         raise NotImplementedError
