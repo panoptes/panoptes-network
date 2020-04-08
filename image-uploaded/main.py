@@ -113,19 +113,17 @@ def process_topic(data):
 
 def send_pubsub_message(topic, data):
     print(f"Sending message to {topic}: {data!r}")
-    data = json.dumps(data).encode()
-
-    def callback(future):
-        message_id = future.result()
-        print(f'Pubsub message to {topic} received: {message_id}')
-
-    publisher.publish(f'{pubsub_base}/{topic}', data)
+    publisher.publish(f'{pubsub_base}/{topic}', json.dumps(data).encode())
 
 
 def process_fits(bucket_path):
-    print(f'Recording {bucket_path} in firestore db.')
-    add_records_to_db(bucket_path)
-    send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
+    try:
+        add_records_to_db(bucket_path)
+    except Exception as e:
+        print(f'Error adding metadata for {bucket_path}: {e!r}')
+    else:
+        # Continue processing image if metadata insert successful.
+        send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
 def process_cr2(bucket_path):
@@ -144,13 +142,14 @@ def add_records_to_db(bucket_path):
     Args:
         bucket_path (str): Path to file in bucket.
     """
+    print(f'Recording {bucket_path} metadata.')
     image_id = image_id_from_path(bucket_path)
     sequence_id = sequence_id_from_path(bucket_path)
 
     unit_id, camera_id, sequence_time = sequence_id.split('_')
     image_time = image_id.split('_')[-1]
 
-    # Make image record.
+    # Make image document.
     image_data = {
         'sequence_id': sequence_id,
         'time': date_parse(image_time),
@@ -159,22 +158,18 @@ def add_records_to_db(bucket_path):
         'solved': False,
         'received_time': firestore.SERVER_TIMESTAMP
     }
+    # Upsert observation document
+    seq_data = {
+        'unit_id': unit_id,
+        'camera_id': camera_id,
+        'time': date_parse(sequence_time),
+        'status': 'receiving_files',
+        'modified_time': firestore.SERVER_TIMESTAMP,
+        'num_images': firestore.Increment(1)
+    }
 
-    try:
-        firestore_db.document(f'images/{image_id}').create(image_data)
-    except Exception:
-        # Record already exists, don't do anything else.
-        pass
-    else:
-        # Created new image record, so also increment num_imaages for the observation.
-        # Make observation record
-        seq_data = {
-            'unit_id': unit_id,
-            'camera_id': camera_id,
-            'time': date_parse(sequence_time),
-            'status': 'receiving_files',
-            'modified_time': firestore.SERVER_TIMESTAMP,
-            'num_images': firestore.Increment(1)
-        }
-
-        firestore_db.document(f'observations/{sequence_id}').set(seq_data, merge=True)
+    # Add the image document and upsert the observation document in transaction.
+    batch = firestore_db.batch()
+    batch.create(firestore_db.document(f'images/{image_id}'), image_data)
+    batch.set(firestore_db.document(f'observations/{sequence_id}'), seq_data, merge=True)
+    batch.commit()
