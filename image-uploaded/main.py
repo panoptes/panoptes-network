@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-from contextlib import suppress
 
 from google.cloud import pubsub
 from google.cloud import storage
