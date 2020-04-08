@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+from contextlib import suppress
 
 from google.cloud import pubsub
 from google.cloud import storage
@@ -132,32 +133,48 @@ def process_cr2(bucket_path):
 
 
 def add_records_to_db(bucket_path):
+    """Adds image informantion to firestore db.
+
+    This function will first try to insert an `images` document for the file at
+    the given `bucket_path`. If a record currently exists no further processing
+    is done. If a new record is inserted, then this is the first time the image
+    has been processed, so we also increment the corresponding `num_images`
+    (and `modified_time`) fields in the corresponding `observations` document.
+
+    Args:
+        bucket_path (str): Path to file in bucket.
+    """
     image_id = image_id_from_path(bucket_path)
     sequence_id = sequence_id_from_path(bucket_path)
 
     unit_id, camera_id, sequence_time = sequence_id.split('_')
     image_time = image_id.split('_')[-1]
 
-    # Make observation record
-    seq_data = {
-        'unit_id': unit_id,
-        'camera_id': camera_id,
-        'time': date_parse(sequence_time),
-        'status': 'receiving_files',
-        'processed_time': firestore.SERVER_TIMESTAMP,
-        'num_images': firestore.Increment(1)
-    }
-
-    firestore_db.document(f'observations/{sequence_id}').set(seq_data, merge=True)
-
     # Make image record.
     image_data = {
         'sequence_id': sequence_id,
         'time': date_parse(image_time),
         'bucket_path': bucket_path,
-        'status': 'received',
+        'status': 'uploaded',
         'solved': False,
         'received_time': firestore.SERVER_TIMESTAMP
     }
 
-    firestore_db.document(f'images/{image_id}').set(image_data, merge=True)
+    try:
+        firestore_db.document(f'images/{image_id}').create(image_data)
+    except Exception:
+        # Record already exists, don't do anything else.
+        pass
+    else:
+        # Created new image record, so also increment num_imaages for the observation.
+        # Make observation record
+        seq_data = {
+            'unit_id': unit_id,
+            'camera_id': camera_id,
+            'time': date_parse(sequence_time),
+            'status': 'receiving_files',
+            'modified_time': firestore.SERVER_TIMESTAMP,
+            'num_images': firestore.Increment(1)
+        }
+
+        firestore_db.document(f'observations/{sequence_id}').set(seq_data, merge=True)
