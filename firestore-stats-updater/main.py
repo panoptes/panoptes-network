@@ -30,8 +30,10 @@ def observations_entry(data, context):
     stat_week_key = f'stats/{sequence_year}_{sequence_week:02d}_{unit_id}'
     if context.event_type.endswith('create'):
         num_observations = firestore.Increment(1)
+        obs_list_operation = firestore.ArrayUnion([sequence_id])
     elif context.event_type.endswith('delete'):
         num_observations = firestore.Increment(-1)
+        obs_list_operation = firestore.ArrayRemove([sequence_id])
 
     stats = {
         'year': sequence_year,
@@ -39,6 +41,7 @@ def observations_entry(data, context):
         'week': sequence_week,
         'unit_id': unit_id,
         'num_observations': num_observations,
+        'observations': obs_list_operation
     }
     counters = {'num_observations': num_observations}
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
@@ -70,18 +73,18 @@ def images_entry(data, context):
 
     stat_week_key = f'stats/{image_year}_{image_week:02d}_{unit_id}'
 
+    exptime = 0  # Unknown
     if context.event_type.endswith('create'):
         doc = data['value']
-        num_images = 1
-        with suppress(KeyError):
-            exptime = round(doc['fields']['exptime']['doubleValue'])
+        mult = 1
     elif context.event_type.endswith('delete'):
         doc = data['oldValue']
-        num_images = -1
-        with suppress(KeyError):
-            exptime = -1 * round(doc['fields']['exptime']['doubleValue'])
+        mult = -1
 
-    num_images = firestore.Increment(num_images)
+    with suppress(KeyError):
+        exptime = mult * round(float(list(doc['fields']['exptime'].values())[0]))
+
+    num_images = firestore.Increment(mult)
     exptime = firestore.Increment(round(exptime / 60, 2))  # Exptime as tenths of minutes.
 
     stats = {
