@@ -162,8 +162,11 @@ def add_records_to_db(bucket_path):
 
     header = lookup_fits_header(bucket_path)
 
+    logger.debug(f'Getting sequence_id and image_id from {bucket_path}')
     image_id = image_id_from_path(bucket_path)
+    logger.debug(f'image_id={image_id}')
     sequence_id = sequence_id_from_path(bucket_path)
+    logger.debug(f'sequence_id={sequence_id}')
 
     unit_id, camera_id, sequence_time = sequence_id.split('_')
 
@@ -303,8 +306,9 @@ def lookup_fits_header(bucket_path):
                                                    end=end_byte)
 
         # Loop over 80-char lines
-        for j in range(0, len(b_string), 80):
+        for i, j in enumerate(range(0, len(b_string), 80)):
             item_string = b_string[j: j + 80].decode()
+            logger.trace(f'Fits header line {i}: {item_string}')
 
             # End of FITS Header, stop streaming
             if item_string.startswith('END'):
@@ -337,4 +341,5 @@ def lookup_fits_header(bucket_path):
 
         card_num += 1
 
+    logger.debug(f'Headers: {headers}')
     return headers
