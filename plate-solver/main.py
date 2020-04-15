@@ -53,7 +53,7 @@ def main():
     streaming_pull_future = subscriber.subscribe(
         subscription_path,
         callback=process_message,
-        flow_control=pubsub_v1.types.FlowControl(max_messages=MAX_MESSAGES)
+        flow_control=pubsub_v1.types.FlowControl(max_messages=int(MAX_MESSAGES))
     )
 
     print(f'Listening for messages on {subscription_path}')
@@ -130,6 +130,26 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
     tmp_dir_name = tempfile.TemporaryDirectory()
     print(f'Creating temp directory {tmp_dir_name} for {bucket_path}')
 
+    # Extract the sequence_id and image_id from the path directly.
+    # Note that this helps with some legacy units where the unit_id
+    # was given a friendly name, which then propagated into the sequence_id
+    # and image_id. This could potentially be removed in future although
+    # the path, sequence_id, and image_id should always match so should
+    # be okay to leave. wtgee 04-20
+    image_id = image_id_from_path(bucket_path)
+    sequence_id = sequence_id_from_path(bucket_path)
+    print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
+
+    image_doc_ref = firestore_db.document(f'images/{image_id}')
+    image_solved = image_doc_ref.get(['solved']).get('solved', False)
+
+    if image_solved:
+        print(f'Image has been solved, skipping.')
+        return
+
+    # Blob for solved image.
+    incoming_blob = incoming_bucket.blob(bucket_path)
+
     # Download image from storage bucket.
     local_path = download_file(tmp_dir_name, bucket_path)
 
@@ -144,25 +164,10 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
             "filter_size": 3,
             "box_size": (84, 84),
         }
-    print(f"Staring plate-solving for FITS file {bucket_path}")
-
-    solved_file = None
+    print(f"Starting plate-solving for FITS file {bucket_path}")
 
     data = fits_utils.getdata(local_path)
     header = fits_utils.getheader(local_path)
-
-    # Blob for solved image.
-    incoming_blob = incoming_bucket.blob(bucket_path)
-
-    image_id = image_id_from_path(bucket_path)
-    sequence_id = sequence_id_from_path(bucket_path)
-    print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
-    # Extract the sequence_id and image_id from the path directly.
-    # Note that this helps with some legacy units where the unit_id
-    # was given a friendly name, which then propagated into the sequence_id
-    # and image_id. This could potentially be removed in future although
-    # the path, sequence_id, and image_id should always match so should
-    # be okay to leave. wtgee 04-20
 
     header.update(dict(FILENAME=incoming_blob.public_url, SEQID=sequence_id, IMAGEID=image_id))
     bg_header = header.copy()
@@ -256,15 +261,22 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
     print(f'Uploading {solved_path} to {outgoing_blob.public_url}')
     outgoing_blob.upload_from_filename(solved_path)
 
-    # Record the metadata in firestore.
-    firestore_db.document(f'images/{image_id}').set({
-        'status': 'solved',
-        'public_url': outgoing_blob.public_url,
-        **background_info
-    },
-        merge=True)
+    image_doc_updates = dict(
+        status='solved',
+        solved=True,
+        public_url=outgoing_blob.public_url,
+        ra_image=solved_header.get('CRVAL1'),
+        dec_image=solved_header.get('CRVAL2')
+    )
 
-    return 'solved'
+    # Record the metadata in firestore.
+    batch = firestore_db.batch()
+    batch.set(
+        image_doc_ref,
+        image_doc_updates,
+        merge=True
+    )
+    batch.commit()
 
 
 if __name__ == '__main__':
