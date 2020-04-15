@@ -1,7 +1,8 @@
 astropy
-google-cloud-bigquery[pandas]
+google-cloud-bigquery[pandas,pyarrow]
 google-cloud-firestore
 google-cloud-pubsub
 google-cloud-storage
 numpy
-panoptes-utils>=0.2.9
+pandas
+panoptes-utils>=0.2.10

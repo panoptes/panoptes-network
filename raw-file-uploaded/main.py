@@ -36,9 +36,11 @@ make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 # Storage
 storage_client = storage.Client()
-storage_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-raw-images'))
+incoming_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-incoming'))
+observations_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-observations'))
 timelapse_bucket = storage_client.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
 temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
+raw_archive_bucket = storage_client.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
 
 firestore_db = firestore.Client()
 
@@ -97,7 +99,7 @@ def process_topic(message, attributes):
         '.fits': process_fits,
         '.fz': process_fits,
         '.cr2': process_cr2,
-        '.jpg': lambda f: logger.debug(f'Saving {f}'),
+        '.jpg': process_jpg,
     }
 
     # Check if has legecy path
@@ -106,39 +108,56 @@ def process_topic(message, attributes):
         field_name = path_parts.pop(1)
         new_path = '/'.join(path_parts)
         logger.debug(f'Removed field name ["{field_name}"], moving: {bucket_path} -> {new_path}')
-        storage_bucket.rename_blob(storage_bucket.get_blob(bucket_path), new_path)
+        incoming_bucket.rename_blob(incoming_bucket.get_blob(bucket_path), new_path)
         return
 
     # Check if invalid extension and move to different bucket.
     if file_ext == '.mp4':
-        logger.debug(f'Timelapse. Moving {bucket_path} -> {timelapse_bucket}')
-        timelapse_bucket.rename_blob(storage_bucket.get_blob(bucket_path), bucket_path)
+        move_blob_to_bucket(bucket_path, timelapse_bucket)
         return
     elif file_ext not in list(process_lookup.keys()):
-        logger.debug(f'Unhandled extension [{file_ext}]. Moving {bucket_path} -> {temp_bucket}')
-        temp_bucket.rename_blob(storage_bucket.get_blob(bucket_path), bucket_path)
+        logger.debug(f'No handling for {file_ext}, moving to temp bucket')
+        move_blob_to_bucket(bucket_path, temp_bucket)
         return
 
+    logger.debug(f"Processing {bucket_path}")
     try:
-        logger.debug(f"Processing {bucket_path}")
         process_lookup[file_ext](bucket_path)
     except KeyError as e:
-        raise Exception(f'No handling for {file_ext}: {e!r}')
+        raise Exception(f'Error processing {bucket_path}: {e!r}')
 
 
 def process_fits(bucket_path):
-    if 'pointing' not in bucket_path:
-        add_records_to_db(bucket_path)
-    # try:
-    # except Exception as e:
-    #     logger.debug(f'Error adding metadata for {bucket_path}: {e!r}')
-    # else:
-    #     # Continue processing image if metadata insert successful.
-    #     send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
+    """Record and move the FITS images.
+
+    Record the metadata for all observation images in the firestore db. Move a copy
+    of the image to the archive bucket as well as to the observations bucks.
+
+    Skip recording the metadata for the pointing images but still move them.
+
+    Args:
+        bucket_path (str): The relative path in a google storage bucket.
+    """
+    try:
+        if 'pointing' not in bucket_path:
+            add_records_to_db(bucket_path)
+    except Exception as e:
+        logger.error(f'Error adding firestore record for {bucket_path}: {e!r}')
+    else:
+        copy_blob_to_bucket(bucket_path, raw_archive_bucket)
+
+        # Send to plate solver.
+        send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
+
 
 
 def process_cr2(bucket_path):
-    send_pubsub_message(make_rgb_topic, dict(bucket_path=bucket_path))
+    copy_blob_to_bucket(bucket_path, raw_archive_bucket)
+    move_blob_to_bucket(bucket_path, observations_bucket)
+
+
+def process_jpg(bucket_path):
+    move_blob_to_bucket(bucket_path, observations_bucket)
 
 
 def add_records_to_db(bucket_path):
@@ -159,16 +178,21 @@ def add_records_to_db(bucket_path):
         e: Description
     """
     logger.debug(f'Recording {bucket_path} metadata.')
-
     header = lookup_fits_header(bucket_path)
+    logger.debug(f'Getting sequence_id and image_id from {bucket_path!r}')
 
-    logger.debug(f'Getting sequence_id and image_id from {bucket_path}')
-    image_id = image_id_from_path(bucket_path)
-    logger.debug(f'image_id={image_id}')
-    sequence_id = sequence_id_from_path(bucket_path)
-    logger.debug(f'sequence_id={sequence_id}')
+    try:
+        image_id = image_id_from_path(str(bucket_path))
+        sequence_id = sequence_id_from_path(bucket_path)
+        unit_id, camera_id, sequence_time = sequence_id.split('_')
+    except Exception:
+        # The above are failing on certain cloud functions for unknown reasons.
+        unit_id, camera_id, sequence_time, image_filename = bucket_path.split('/')
+        image_time = image_filename.split('.')[0]
+        sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
+        image_id = f'{unit_id}_{camera_id}_{image_time}'
 
-    unit_id, camera_id, sequence_time = sequence_id.split('_')
+    logger.debug(f'Found sequence_id={sequence_id} image_id={image_id}')
 
     # Scrub all the entries
     for k, v in header.items():
@@ -232,6 +256,7 @@ def add_records_to_db(bucket_path):
             logger.debug(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
 
             image_message = {
+                'unit_id': unit_id,
                 'sequence_id': sequence_id,
                 'time': img_time,
                 'bucket_path': bucket_path,
@@ -253,6 +278,7 @@ def add_records_to_db(bucket_path):
         batch.commit()
 
     except Exception as e:
+        logger.error(f'Error in adding record: {e!r}')
         raise e
 
     return True
@@ -263,11 +289,31 @@ def send_pubsub_message(topic, data):
 
     We send the data as the message body for legacy support
     but also unwrap the dict here to set as attribute as well.
+
+    Note that data needs to be encoded but attributes do not.
     """
     logger.debug(f"Sending message to {topic}: {data!r}")
 
     publisher.publish(f'{pubsub_base}/{topic}', json.dumps(data).encode(), **data)
 
+
+def move_blob_to_bucket(blob_name, new_bucket, remove=True):
+    """Copy the blob from the incoming bucket to the `new_bucket`.
+
+    Args:
+        blob_name (str): The relative path to the blob.
+        new_bucket (str): The name of the bucket where we move/copy the file.
+        remove (bool, optional): If file should be removed afterwards, i.e. a move, or just copied.
+            Default True as per the function name.
+    """
+    logger.debug(f'Moving {blob_name} → {new_bucket}')
+    incoming_bucket.copy_blob(incoming_bucket.get_blob(blob_name), new_bucket)
+    if remove:
+        incoming_bucket.delete_blob(blob_name)
+
+def copy_blob_to_bucket(*args, **kwargs):
+    kwargs['remove'] = False
+    move_blob_to_bucket(*args, **kwargs)
 
 def lookup_fits_header(bucket_path):
     """Read the FITS header from storage.
@@ -295,7 +341,7 @@ def lookup_fits_header(bucket_path):
     headers = dict()
 
     logger.debug(f'Looking up header for file: {bucket_path}')
-    storage_blob = storage_bucket.get_blob(bucket_path)
+    storage_blob = incoming_bucket.get_blob(bucket_path)
 
     streaming = True
     while streaming:
