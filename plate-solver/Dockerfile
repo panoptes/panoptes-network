@@ -2,7 +2,7 @@ ARG base_tag=latest
 
 FROM gcr.io/panoptes-exp/panoptes-utils:$base_tag
 
-COPY ./requirements.txt /requirements.txt
+COPY ./requirements.txt /
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

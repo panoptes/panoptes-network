@@ -23,8 +23,8 @@ logger.add(sys.stdout,
            diagnose=True
            )
 
-
-FITS_HEADER_URL = os.getenv('FITS_HEADER_URL', 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
+FITS_HEADER_URL = os.getenv('FITS_HEADER_URL',
+                            'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
 
 publisher = pubsub.PublisherClient()
 
@@ -38,9 +38,11 @@ make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 storage_client = storage.Client()
 incoming_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-incoming'))
 observations_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-observations'))
-timelapse_bucket = storage_client.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
+timelapse_bucket = storage_client.get_bucket(
+    os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
 temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
-raw_archive_bucket = storage_client.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
+raw_archive_bucket = storage_client.get_bucket(
+    os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
 
 firestore_db = firestore.Client()
 
@@ -100,9 +102,10 @@ def process_topic(message, attributes):
         '.fz': process_fits,
         '.cr2': process_cr2,
         '.jpg': process_jpg,
+        '.mp4': process_timelapse,
     }
 
-    # Check if has legecy path
+    # Check for legacy path: UNIT_ID/FIELD_NAME/CAMERA_ID/SEQUENCE_TIME/IMAGE_TIME
     path_parts = bucket_path.split('/')
     if len(path_parts) == 5:
         field_name = path_parts.pop(1)
@@ -111,20 +114,12 @@ def process_topic(message, attributes):
         incoming_bucket.rename_blob(incoming_bucket.get_blob(bucket_path), new_path)
         return
 
-    # Check if invalid extension and move to different bucket.
-    if file_ext == '.mp4':
-        move_blob_to_bucket(bucket_path, timelapse_bucket)
-        return
-    elif file_ext not in list(process_lookup.keys()):
-        logger.debug(f'No handling for {file_ext}, moving to temp bucket')
-        move_blob_to_bucket(bucket_path, temp_bucket)
-        return
-
     logger.debug(f"Processing {bucket_path}")
     try:
         process_lookup[file_ext](bucket_path)
     except KeyError as e:
-        raise Exception(f'Error processing {bucket_path}: {e!r}')
+        logger.warning(f'No handling for {file_ext}, moving to temp bucket')
+        process_unknown(bucket_path)
 
 
 def process_fits(bucket_path):
@@ -144,24 +139,36 @@ def process_fits(bucket_path):
     except Exception as e:
         logger.error(f'Error adding firestore record for {bucket_path}: {e!r}')
     else:
+        # Archive file.
         copy_blob_to_bucket(bucket_path, raw_archive_bucket)
 
         # Send to plate solver.
         send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
 
 
-
 def process_cr2(bucket_path):
+    """Move cr2 to archive and observation bucket"""
     copy_blob_to_bucket(bucket_path, raw_archive_bucket)
     move_blob_to_bucket(bucket_path, observations_bucket)
 
 
 def process_jpg(bucket_path):
+    """Move jpgs to observation bucket"""
     move_blob_to_bucket(bucket_path, observations_bucket)
 
 
+def process_timelapse(bucket_path):
+    """Move jpgs to observation bucket"""
+    move_blob_to_bucket(bucket_path, timelapse_bucket)
+
+
+def process_unknown(bucket_path):
+    """Move unknown extensions to the temp bucket."""
+    move_blob_to_bucket(bucket_path, temp_bucket)
+
+
 def add_records_to_db(bucket_path):
-    """Add FITS image info to metafirestore_db.
+    """Add FITS image info to firestore_db.
 
     Note:
         This function doesn't check header for proper entries and
@@ -215,6 +222,7 @@ def add_records_to_db(bucket_path):
 
         batch = firestore_db.batch()
 
+        # Create unit and observation documents if needed.
         if not seq_doc_snap.exists:
             logger.debug(f'Making new document for observation {sequence_id}')
             # If no sequence doc then probably no unit id. This is just to minimize
@@ -226,52 +234,52 @@ def add_records_to_db(bucket_path):
 
             # Add a units doc if it doesn't exist.
             if not unit_doc_snap.exists:
-                unit_message = {
-                    'name': header.get('OBSERVER', ''),
-                    'location': firestore.GeoPoint(header['LAT-OBS'], header['LONG-OBS']),
-                    'elevation': float(header.get('ELEV-OBS')),
-                    'status': 'active'  # Assuming we are active since we received files.
-                }
+                unit_message = dict(
+                    name=header.get('OBSERVER', ''),
+                    location=firestore.GeoPoint(header['LAT-OBS'],
+                                                header['LONG-OBS']),
+                    elevation=float(header.get('ELEV-OBS')),
+                    status='active'
+                )
                 batch.create(unit_doc_ref, unit_message)
 
             if not seq_doc_snap.exists:
-                seq_message = {
-                    'unit_id': unit_id,
-                    'camera_id': camera_id,
-                    'time': sequence_time,
-                    'exptime': header.get('EXPTIME'),
-                    'project': header.get('ORIGIN'),  # Project PANOPTES
-                    'software_version': header.get('CREATOR', ''),
-                    'field_name': header.get('FIELD', ''),
-                    'iso': header.get('ISO'),
-                    'ra': header.get('CRVAL1'),
-                    'dec': header.get('CRVAL2'),
-                    'status': 'receiving_files',
-                    'received_time': firestore.SERVER_TIMESTAMP,
-                }
+                seq_message = dict(
+                    unit_id=unit_id,
+                    camera_id=camera_id,
+                    time=sequence_time,
+                    exptime=header.get('EXPTIME'),
+                    project=header.get('ORIGIN'),
+                    software_version=header.get('CREATOR', ''),
+                    field_name=header.get('FIELD', ''),
+                    iso=header.get('ISO'),
+                    ra=header.get('CRVAL1'),
+                    dec=header.get('CRVAL2'),
+                    status='receiving_files',
+                    received_time=firestore.SERVER_TIMESTAMP)
                 logger.debug(f"Adding new sequence: {seq_message!r}")
                 batch.create(seq_doc_ref, seq_message)
 
+        # Create image document if needed.
         if not image_doc_snap.exists:
             logger.debug(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
 
-            image_message = {
-                'unit_id': unit_id,
-                'sequence_id': sequence_id,
-                'time': img_time,
-                'bucket_path': bucket_path,
-                'status': 'received',
-                'airmass': header.get('AIRMASS'),
-                'exptime': header.get('EXPTIME'),
-                'moonfrac': header.get('MOONFRAC'),
-                'moonsep': header.get('MOONSEP'),
-                'ra_image': header.get('CRVAL1'),
-                'dec_image': header.get('CRVAL2'),
-                'ha_mnt': header.get('HA-MNT'),
-                'ra_mnt': header.get('RA-MNT'),
-                'dec_mnt': header.get('DEC-MNT'),
-                'received_time': firestore.SERVER_TIMESTAMP
-            }
+            image_message = dict(
+                unit_id=unit_id,
+                sequence_id=sequence_id,
+                time=img_time,
+                bucket_path=bucket_path,
+                status='received',
+                airmass=header.get('AIRMASS'),
+                exptime=header.get('EXPTIME'),
+                moonfrac=header.get('MOONFRAC'),
+                moonsep=header.get('MOONSEP'),
+                ra_image=header.get('CRVAL1'),
+                dec_image=header.get('CRVAL2'),
+                ha_mnt=header.get('HA-MNT'),
+                ra_mnt=header.get('RA-MNT'),
+                dec_mnt=header.get('DEC-MNT'),
+                received_time=firestore.SERVER_TIMESTAMP)
             logger.debug(f'Adding image: {image_message!r}')
             batch.create(image_doc_ref, image_message)
 
@@ -311,9 +319,11 @@ def move_blob_to_bucket(blob_name, new_bucket, remove=True):
     if remove:
         incoming_bucket.delete_blob(blob_name)
 
+
 def copy_blob_to_bucket(*args, **kwargs):
     kwargs['remove'] = False
     move_blob_to_bucket(*args, **kwargs)
+
 
 def lookup_fits_header(bucket_path):
     """Read the FITS header from storage.

@@ -1,8 +1,6 @@
+-e git+git://github.com/panoptes/panoptes-utils.git@develop#egg=panoptes-utils
 astropy
-google-cloud-bigquery[pandas,pyarrow]
 google-cloud-firestore
 google-cloud-pubsub
 google-cloud-storage
 numpy
-pandas
-panoptes-utils>=0.2.10
