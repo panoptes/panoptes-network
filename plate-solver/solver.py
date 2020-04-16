@@ -31,7 +31,7 @@ try:
     firestore_db = firestore.Client()
     storage_client = storage.Client()
     incoming_bucket = storage_client.get_bucket(INCOMING_BUCKET)
-    observations_bucket = storage_client.get_bucket(IMAGES_BUCKET)
+    raw_images_bucket = storage_client.get_bucket(IMAGES_BUCKET)
 except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
@@ -156,6 +156,7 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
 
                 # Save and compress the background file.
                 fits.HDUList(hdu_list).writeto(back_path, overwrite=True)
+                back_path = fits_utils.fpack(back_path)
         except Exception as e:
             print(f'Problem getting background for {local_path}: {e!r}')
 
@@ -169,7 +170,7 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
 
         print(f'Plate solving background subtracted {new_local_path} with args: {solve_config!r}')
         solve_info = fits_utils.get_solve_field(new_local_path, **solve_config)
-        solved_path = solve_info['solved_fits_file'].replace('.new', '.fits')
+        solved_path = solve_info['solved_fits_file']
 
         # Save over original file with new headers but old data.
         print(f'Creating new plate-solved file for {new_local_path} from {solved_path}')
@@ -183,14 +184,13 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
         solved_path = fits_utils.fpack(solved_path)
 
         #  Upload the plate-solved image.
-        outgoing_blob = observations_bucket.blob(bucket_path)
+        outgoing_blob = raw_images_bucket.blob(bucket_path)
         print(f'Uploading {solved_path} to {outgoing_blob.public_url}')
         outgoing_blob.upload_from_filename(solved_path)
 
         # Save the background alongside the normal image.
         back_bucket_name = bucket_path.replace('.fits', f'-background.fits')
-        back_bucket_name = back_bucket_name.replace('.fz', '')
-        blob = observations_bucket.blob(back_bucket_name)
+        blob = raw_images_bucket.blob(back_bucket_name)
         print(f'Uploading background file for {back_path} to {blob.public_url}')
         blob.upload_from_filename(back_path)
 

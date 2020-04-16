@@ -35,14 +35,12 @@ plate_solve_topic = os.getenv('SOLVER_topic', 'plate-solve')
 make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
 
 # Storage
-storage_client = storage.Client()
-incoming_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-incoming'))
-observations_bucket = storage_client.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-observations'))
-timelapse_bucket = storage_client.get_bucket(
-    os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
-temp_bucket = storage_client.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
-raw_archive_bucket = storage_client.get_bucket(
-    os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
+sc = storage.Client()
+incoming_bucket = sc.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-incoming'))
+raw_images_bucket = sc.get_bucket(os.getenv('RAW_BUCKET_NAME', 'panoptes-raw-images'))
+timelapse_bucket = sc.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
+temp_bucket = sc.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
+raw_archive_bucket = sc.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
 
 firestore_db = firestore.Client()
 
@@ -149,12 +147,12 @@ def process_fits(bucket_path):
 def process_cr2(bucket_path):
     """Move cr2 to archive and observation bucket"""
     copy_blob_to_bucket(bucket_path, raw_archive_bucket)
-    move_blob_to_bucket(bucket_path, observations_bucket)
+    move_blob_to_bucket(bucket_path, raw_images_bucket)
 
 
 def process_jpg(bucket_path):
     """Move jpgs to observation bucket"""
-    move_blob_to_bucket(bucket_path, observations_bucket)
+    move_blob_to_bucket(bucket_path, raw_images_bucket)
 
 
 def process_timelapse(bucket_path):
