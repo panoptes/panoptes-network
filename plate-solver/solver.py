@@ -69,16 +69,26 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
         print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
 
         image_doc_ref = firestore_db.document(f'images/{image_id}')
-        image_solved = False
-        with suppress(KeyError):
-            image_solved = image_doc_ref.get(['solved']).get('solved')
+        image_doc_snap = image_doc_ref.get(['solved', 'background_median'])
 
-        if image_solved:
-            print(f'Image has been solved, skipping.')
-            return
+        try:
+            image_solved = image_doc_snap.get('solved')
+        except KeyError:
+            image_solved = False
+
+        try:
+            has_background = len(image_doc_snap.get('background_median')) > 0
+        except KeyError:
+            has_background = False
 
         # Blob for solved image.
         incoming_blob = incoming_bucket.blob(bucket_path)
+
+        if image_solved and has_background:
+            print(f'Image has been solved with background, moving image to raw bucket.')
+            incoming_bucket.copy_blob(incoming_blob, raw_images_bucket)
+            incoming_bucket.delete_blob(bucket_path)
+            return
 
         # Download image from storage bucket.
         local_path = download_file(tmp_dir_name, bucket_path)
