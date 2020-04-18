@@ -1,13 +1,13 @@
 import os
+import subprocess
 import sys
 import time
-import subprocess
 
+from google.cloud import exceptions
 from google.cloud import firestore
 from google.cloud import pubsub
 from google.cloud import pubsub_v1
 from google.cloud import storage
-
 from panoptes.utils import image_id_from_path
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
@@ -78,6 +78,7 @@ def process_message(message):
     processing_ref.set(dict(image_ids=firestore.ArrayUnion([image_id])), merge=True)
 
     t0 = time.time()
+    solve_successful = False
     try:
         solve_cmd = ['/app/solver.py', '--bucket-path', bucket_path]
         print(f'Submitting {solve_cmd}')
@@ -88,6 +89,7 @@ def process_message(message):
                                            timeout=timeout)
         print(f'Plate solve completed successfully for {bucket_path}')
         print(f'{bucket_path} solver output: {completed_process.stdout}')
+        solve_successful = False
     except subprocess.CalledProcessError as e:
         print(f'Error in {bucket_path} plate solve script: {e!r}')
         print(f'{bucket_path} solver stdout: {e.stdout}')
@@ -95,15 +97,22 @@ def process_message(message):
         print(f'{bucket_path} solver output: {e.output}')
         firestore_db.document(f'images/{image_id}').set(dict(status='error'), merge=True)
 
-        error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
-        print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
+        try:
+            error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
+            print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
+        except exceptions.NotFound:
+            print(f'Error deleting after error, {bucket_path} blob path not found')
     except Exception as e:
         print(f'Error in {bucket_path} plate solve: {e!r}')
-        error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
-        print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
+
+        try:
+            error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
+            print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
+        except exceptions.NotFound:
+            print(f'Error deleting after error, {bucket_path} blob path not found')
     finally:
         t1 = time.time()
-        print(f'{bucket_path} plate solve ran in {t1 - t0:0.2f} seconds')
+        print(f'{bucket_path} solved in {t1 - t0:0.2f} secs. Solve success: {solve_successful}')
         processing_ref.set(dict(image_ids=firestore.ArrayRemove([image_id])), merge=True)
         message.ack()
 

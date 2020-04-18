@@ -3,20 +3,17 @@
 import os
 import sys
 import tempfile
-from contextlib import suppress
-
-import numpy as np
 
 import click
+import numpy as np
+from astropy.io import fits
+from google.cloud import exceptions
 from google.cloud import firestore
 from google.cloud import storage
-
-from astropy.io import fits
-
 from panoptes.utils import image_id_from_path
 from panoptes.utils import sequence_id_from_path
-from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.images import bayer
+from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.logger import logger
 
 logger.enable('panoptes')
@@ -86,9 +83,13 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
 
         if image_solved and has_background:
             print(f'Image has been solved with background, moving image to raw bucket.')
-            incoming_bucket.copy_blob(incoming_blob, raw_images_bucket)
-            incoming_bucket.delete_blob(bucket_path)
-            return
+            try:
+                incoming_bucket.copy_blob(incoming_blob, raw_images_bucket)
+                incoming_blob.delete()
+            except exceptions.NotFound as e:
+                print(f'Trouble moving {bucket_path} blob to raw images: {e!r}')
+            finally:
+                return
 
         # Download image from storage bucket.
         local_path = download_file(tmp_dir_name, bucket_path)
@@ -203,6 +204,12 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
         blob = raw_images_bucket.blob(back_bucket_name)
         print(f'Uploading background file for {back_path} to {blob.public_url}')
         blob.upload_from_filename(back_path)
+
+        print(f'Removing from incoming bucket')
+        try:
+            incoming_blob.delete()
+        except exceptions.NotFound as e:
+            print(f'Error deleting {incoming_blob}')
 
         print(f'Recording metadata for {bucket_path}')
         image_doc_updates = dict(
