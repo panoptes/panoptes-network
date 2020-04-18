@@ -1,3 +1,4 @@
 bokeh
+flask-cors
 google-cloud-firestore
 pandas

@@ -16,9 +16,10 @@ class BaseModule:
 
     TOOLS = "pan,wheel_zoom,box_zoom,box_select,reset,save"
 
-    def __init__(self, model):
+    def __init__(self, model=None):
         self.id = self.__module__
         self.model = model
+        self.table = None
 
     def update_model(self, new_data):
         self.model.data_source.update(new_data)

@@ -1,16 +1,15 @@
 from bokeh.models import ColumnDataSource
-from pandas import json_normalize
-
 from models.base import BaseModel
+from pandas import json_normalize
 
 
 class Model(BaseModel):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__('images', *args, **kwargs)
         self._sequence_id = None
 
-    def get_documents(self, sequence_id):
+    def get_data(self, sequence_id):
         assert sequence_id is not None
         if sequence_id != self._sequence_id:
             images_query = self.collection.where('sequence_id', '==', sequence_id)

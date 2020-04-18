@@ -1,81 +1,74 @@
-# Bokeh basics
+import holoviews as hv
 from bokeh.io import curdoc
-from bokeh.layouts import column, row, gridplot
-from bokeh.models import Panel, Tabs
-from bokeh.models.widgets import Div
+from bokeh.layouts import layout
+
+# Bokeh basics
+
+hv.extension('bokeh', 'matplotlib')
+renderer = hv.renderer('bokeh').instance(mode='server')
 
 from models.observations import Model as ObservationModel
+from models.stats import Model as StatsModel
 
-from modules.observations.recent_table import Module as ObservationsRecentTable
-from modules.observations.summary import Module as ObservationSummary
-from modules.observations.summary_plot import Module as ObservationSummaryPlot
-from modules.images.table import Module as ImagesTable
-from modules.images.previewer import Module as ImagePreviewer
+from modules.observations.table import Module as ObservationsRecentTable
+from modules.stats.table import Module as StatsTable
+
+# from modules.observations.summary import Module as ObservationSummary
+# from modules.observations.summary_plot import Module as ObservationSummaryPlot
+# from modules.images.table import Module as ImagesTable
+# from modules.images.previewer import Module as ImagePreviewer
 
 
 models = {
-    'observations': ObservationModel().make_datasource()
+    'observations': ObservationModel().get_data(),
+    'stats': StatsModel().get_data()
 }
 
-
-sequence_id = 'PAN012_358d0f_20180824T035917'
-
 module_list = [
-    ObservationsRecentTable,
-    ObservationSummary,
-    ObservationSummaryPlot,
-    ImagePreviewer,
-    ImagesTable,
+    ObservationsRecentTable(models['observations']),
+    StatsTable(models['stats']),
+    # ObservationSummary,
+    # ObservationSummaryPlot,
+    # ImagePreviewer,
+    # ImagesTable,
 ]
 
-modules = {}
-for module_class in module_list:
-    print(f'Initializing {module_class}')
-    # Pass the observations model.
-    module = module_class(models['observations'])
-    modules[module.id] = module
+print(f'Initialized {len(module_list)} modules')
 
-print(f'Initialized {len(modules)} modules: {modules.keys()}')
+doc = curdoc()
 
-# Get all the bokeh blocks.
-blocks = {module.id: getattr(module, 'make_plot')() for module in modules}
+# Render all the bokeh blocks.
+blocks = {
+    module.id: renderer.get_plot(getattr(module, 'make_plot')(), doc)
+    for module
+    in module_list
+}
 
-
-def select_observation(attr, old_index, new_index):
-    new_sequence_id = models['observations'].data_source.data['sequence_id'][new_index]
-    print(f'Selecting new observation: {new_sequence_id}')
-    # Update modules
-    for module in modules:
-        try:
-            getattr(module, 'update_plot')()
-        except Exception as e2:
-            print(f'Error updating {module.id}: {e2!r}')
-
-
-# Set up an event for when the selected observation changes.
-models['observations'].data_source.selected.on_change('indices', select_observation)
-
-# heading fills available width
-heading = Div(text='<h3 class="title">Data Explorer</h3>',
-              height=80,
-              sizing_mode="stretch_both")
+# def select_observation(attr, old_index, new_index):
+#     """ Event call back when new observation is selected. """
+#     new_sequence_id = models['observations'].data_source.data['sequence_id'][new_index]
+#     print(f'Selecting new observation: {new_sequence_id}')
+#     # Update modules
+#     for module in modules:
+#         try:
+#             getattr(module, 'update_plot')()
+#         except Exception as e2:
+#             print(f'Error updating {module.id}: {e2!r}')
+#
+#
+# # Set up an event for when the selected observation changes.
+# models['observations'].data_source.selected.on_change('indices', select_observation)
 
 
-observation_tab = Panel(title='Observation',
-                        child=gridplot([[
-                            blocks['modules.observations.summary'],
-                            blocks['modules.observations.background'],
-                            column(blocks['modules.images.previewer'], blocks['modules.images.table']),
-                        ]]
-                        ))
+# layout = points + hv.DynamicMap(selected_info, streams=[selection])
 
-tabs = Tabs(tabs=[
-    blocks['modules.observations.recent_table'],
-    observation_tab
-], sizing_mode='stretch_width')
-layout = column(heading, row(tabs), sizing_mode="stretch_width")
+# Combine the holoviews plot and widgets in a layout
+plot = layout([
+    [
+        blocks['modules.observations.table'].state,
+        blocks['modules.stats.table'].state,
+    ]
+], sizing_mode='stretch_both')
 
-
-# Lay out the current document.
-curdoc().add_root(layout)
-curdoc().title = "Data Explorer"
+doc.add_root(plot)
+doc.title = 'Modified title'
