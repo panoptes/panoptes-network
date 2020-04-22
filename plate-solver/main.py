@@ -74,8 +74,6 @@ def process_message(message):
         return
 
     image_id = image_id_from_path(bucket_path)
-    processing_ref = firestore_db.document(f'processing/plate-solve')
-    processing_ref.set(dict(image_ids=firestore.ArrayUnion([image_id])), merge=True)
 
     t0 = time.time()
     solve_successful = False
@@ -87,13 +85,12 @@ def process_message(message):
                                            stderr=subprocess.STDOUT,
                                            check=True,
                                            timeout=timeout)
-        print(f'Plate solve completed successfully for {bucket_path}')
+        print(f'Solving completed successfully for {bucket_path} in {time.time() - t0:.0f} sec')
         print(f'{bucket_path} solver output: {completed_process.stdout}')
-        solve_successful = False
+        solve_successful = True
     except subprocess.CalledProcessError as e:
         print(f'Error in {bucket_path} plate solve script: {e!r}')
         print(f'{bucket_path} solver stdout: {e.stdout}')
-        print(f'{bucket_path} solver stderr: {e.stderr}')
         print(f'{bucket_path} solver output: {e.output}')
         firestore_db.document(f'images/{image_id}').set(dict(status='error'), merge=True)
 
@@ -102,6 +99,8 @@ def process_message(message):
             print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
         except exceptions.NotFound:
             print(f'Error deleting after error, {bucket_path} blob path not found')
+    except FileNotFoundError:
+        print(f'Unable to download {bucket_path}, skipping.')
     except Exception as e:
         print(f'Error in {bucket_path} plate solve: {e!r}')
 
@@ -112,8 +111,7 @@ def process_message(message):
             print(f'Error deleting after error, {bucket_path} blob path not found')
     finally:
         t1 = time.time()
-        print(f'{bucket_path} solved in {t1 - t0:0.2f} secs. Solve success: {solve_successful}')
-        processing_ref.set(dict(image_ids=firestore.ArrayRemove([image_id])), merge=True)
+        print(f'{bucket_path} finished in {t1 - t0:0.2f} secs. Solve success: {solve_successful}')
         message.ack()
 
 
