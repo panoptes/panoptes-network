@@ -1,23 +1,25 @@
-import os
-from google.cloud import firestore
-
-project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
+import param
 
 
-class BaseModel:
+class BaseModel(param.Parameterized):
+    
+    collection = param.String()
 
-    def __init__(self, collection_name):
+    def __init__(self, collection_name, firestore_client=None):
         self.id = self.__module__
-        self._firestore_db = firestore.Client(project=project_id)
 
         self.collection_name = collection_name
-        self.collection = self._firestore_db.collection(self.collection_name)
+        self.collection = firestore_client.collection(self.collection_name)
 
         self.query_object = None
         self.data_source = None
+        self.df = None
 
-    def make_datasource(self, *args, **kwargs):
-        raise NotImplementedError
 
-    def get_documents(self, *args, **kwargs):
-        raise NotImplementedError
+    @param.depends()
+    def table(self):
+        pass
+
+    @param.depends()
+    def plot(self):
+        pass

@@ -1,5 +1,6 @@
 from bokeh.models import Div
 from bokeh.layouts import column
+
 from modules.base import BaseModule
 
 TITLE = ''

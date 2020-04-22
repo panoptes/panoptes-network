@@ -5,7 +5,6 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Segment
 from bokeh.models import LinearAxis, Range1d, LegendItem
 from bokeh.layouts import column
-
 from modules.base import BaseModule
 
 TITLE = ''
@@ -26,11 +25,17 @@ class Module(BaseModule):
         self.plot = figure(title='Observaton Info: Airmass, Background',
                            x_axis_type='datetime',
                            name="observation_background",
-                           toolbar_location='above',
+                           toolbar_location='below',
                            tools=self.TOOLS,
                            width=800,
                            height=400
                            )
+
+        # Add listen event
+        def select_row(attr, old, new):
+            self.update_plot()
+
+        self.model.data_source.selected.on_change('indices', select_row)
 
         self.make_background_plot()
         self.make_airmass_plot()
@@ -123,6 +128,10 @@ class Module(BaseModule):
 
     def unbusy(self):
         pass
+
+    def fetch_data(self):
+        self.background_table = self.make_background_table()
+        self.airmass_table = self.make_airmass_table()
 
     def make_background_table(self):
 

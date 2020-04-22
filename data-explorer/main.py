@@ -1,74 +1,87 @@
+import os
+from google.cloud import firestore
+
 import holoviews as hv
 from bokeh.io import curdoc
-from bokeh.layouts import layout
+import panel as pn
 
-# Bokeh basics
+import pandas as pd  # noqa
+import hvplot.pandas  # noqa
 
-hv.extension('bokeh', 'matplotlib')
-renderer = hv.renderer('bokeh').instance(mode='server')
+PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
+FIRESTORE_DB = firestore.Client(project=PROJECT_ID)
 
-from models.observations import Model as ObservationModel
-from models.stats import Model as StatsModel
+from models.observations import ObservationsExplorer
+from models.stats import Stats
 
-from modules.observations.table import Module as ObservationsRecentTable
-from modules.stats.table import Module as StatsTable
+models = dict(
+    observations=ObservationsExplorer(firestore_client=FIRESTORE_DB),
+    stats=Stats(firestore_client=FIRESTORE_DB)
+)
 
-# from modules.observations.summary import Module as ObservationSummary
-# from modules.observations.summary_plot import Module as ObservationSummaryPlot
-# from modules.images.table import Module as ImagesTable
-# from modules.images.previewer import Module as ImagePreviewer
-
-
-models = {
-    'observations': ObservationModel().get_data(),
-    'stats': StatsModel().get_data()
-}
-
-module_list = [
-    ObservationsRecentTable(models['observations']),
-    StatsTable(models['stats']),
-    # ObservationSummary,
-    # ObservationSummaryPlot,
-    # ImagePreviewer,
-    # ImagesTable,
-]
-
-print(f'Initialized {len(module_list)} modules')
+print(f'Initialized {len(models)} models')
 
 doc = curdoc()
 
-# Render all the bokeh blocks.
-blocks = {
-    module.id: renderer.get_plot(getattr(module, 'make_plot')(), doc)
-    for module
-    in module_list
+plots = {
+    model_name: getattr(model, 'plot')()
+    for model_name, model
+    in models.items()
 }
 
-# def select_observation(attr, old_index, new_index):
-#     """ Event call back when new observation is selected. """
-#     new_sequence_id = models['observations'].data_source.data['sequence_id'][new_index]
-#     print(f'Selecting new observation: {new_sequence_id}')
-#     # Update modules
-#     for module in modules:
-#         try:
-#             getattr(module, 'update_plot')()
-#         except Exception as e2:
-#             print(f'Error updating {module.id}: {e2!r}')
-#
-#
-# # Set up an event for when the selected observation changes.
-# models['observations'].data_source.selected.on_change('indices', select_observation)
+observations = models['observations']
+stats = models['stats']
 
+obs_tab = pn.Row(
+    pn.Row(
+        pn.Tabs(
+            ('Recent Observations', pn.pane.Markdown('## Recent Observations')),
+            ('Search', pn.WidgetBox(
+                pn.Param(
+                    observations.param,
+                    widgets={
+                        'unit_id': pn.widgets.MultiChoice
+                    }
+                ),
+                min_width=325,
+                min_height=600,
 
-# layout = points + hv.DynamicMap(selected_info, streams=[selection])
+            )),
+        ),
+        observations.plot,
+        min_width=800,
+    ),
+)
 
-# Combine the holoviews plot and widgets in a layout
-plot = layout([
-    [
-        blocks['modules.observations.table'].state,
-        blocks['modules.stats.table'].state,
-    ]
-], sizing_mode='stretch_both')
+stats_tab = pn.Column(
+    stats.plot,
+    pn.WidgetBox(
+        pn.Param(
+            stats.param,
+            widgets={
+                'year': dict(
+                    type=pn.widgets.IntSlider,
+                    start=int(stats.df.year.min()),
+                    end=int(stats.df.year.max()),
+                ),
+                'metric': dict(
+                    type=pn.widgets.RadioBoxGroup,
+                )
+            },
+        ),
+    )
+)
 
-doc.add_root(plot)
-doc.title = 'Modified title'
+layout = pn.Column(
+    pn.Row(
+        pn.pane.Markdown('# PANOPTES Data Explorer', sizing_mode='stretch_width'),
+    ),
+    pn.Tabs(
+        ('Observations', obs_tab),
+        ('Stats', stats_tab),
+    ),
+    sizing_mode='stretch_width'
+).get_root()
+
+doc.add_root(layout)
+doc.title = 'PANOPTES Data Explorer'
