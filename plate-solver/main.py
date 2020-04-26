@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import suppress
 
 from google.cloud import exceptions
 from google.cloud import firestore
@@ -74,6 +75,14 @@ def process_message(message):
         return
 
     image_id = image_id_from_path(bucket_path)
+
+    if image_id is None:
+        print(f'Skipping invalid image_id for {bucket_path}: {image_id}')
+        # Remove from incoming bucket (it's already archived).
+        with suppress(exceptions.NotFound):
+            incoming_bucket.blob(bucket_path).delete()
+        message.ack()
+        return
 
     t0 = time.time()
     solve_successful = False
