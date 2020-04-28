@@ -63,3 +63,4 @@ sftp-config.json
 var
 TODO.md
 .spyproject
+venv/*

@@ -1,5 +1,4 @@
 import param
-import pandas as pd
 import panel as pn
 import hvplot.pandas  # noqa
 from datetime import datetime as dt
@@ -88,19 +87,7 @@ class ObservationsExplorer(param.Parameterized):
             **kwargs: Description
         """
         # Default search for recent documents.
-        if query_fn is None:
-            self.query_object = self.collection \
-                .order_by('time', direction='DESCENDING').limit(limit)
-        else:
-            self.query_object = query_fn(self.collection)
-
-        # Collect all the documents.
-        data_rows = [
-            dict(sequence_id=d.id, **d.to_dict())
-            for d
-            in self.query_object.stream()
-        ]
-        self.df = pd.DataFrame(data_rows).fillna({'num_images': 0})
+        self.df = get_data()
 
         self.df['month_name'] = self.df.time.apply(lambda t: t.month_name())
         self.df['week'] = self.df.time.apply(lambda t: t.week)
