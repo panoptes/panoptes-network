@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 import panel as pn
-import holoviews as hv
 
-from modules.explorer import ObservationsExplorer
+from modules.observations import ObservationsExplorer
 
 pn.extension()
 
