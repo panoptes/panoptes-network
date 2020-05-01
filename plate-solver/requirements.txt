@@ -1,7 +1,6 @@
 astropy
-google-cloud-bigquery
 google-cloud-firestore
 google-cloud-pubsub
 google-cloud-storage
 numpy
-panoptes-utils>=0.2.9
+panoptes-utils>=0.2.12

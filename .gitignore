@@ -55,10 +55,12 @@ htmlcov
 lib-cov
 logs
 MANIFEST
-node_modules/
+**/node_modules/**
 parts
 pids
 sdist
 sftp-config.json
 var
 TODO.md
+.spyproject
+venv/*

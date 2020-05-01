@@ -1,0 +1,7 @@
+bokeh
+flask-cors
+google-cloud-firestore
+pandas
+panel
+pendulum
+hvplot

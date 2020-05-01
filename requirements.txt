@@ -1,2 +1,6 @@
+click
+google-auth
+google-cloud-firestore
 halo
-panoptes-utils
+mock
+panoptes-utils>=0.2.12

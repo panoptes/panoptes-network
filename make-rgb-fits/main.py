@@ -12,10 +12,12 @@ from google.cloud import storage
 from astropy.io import fits
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-incoming')
 UPLOAD_BUCKET = os.getenv('UPLOAD_BUCKET', 'panoptes-rgb-images')
+ARCHIVE_BUCKET = os.getenv('ARCHIVE_BUCKET', 'panoptes-raw-archive')
 client = storage.Client(project=PROJECT_ID)
 bucket = client.get_bucket(BUCKET_NAME)
+archive_bucket = client.get_bucket(ARCHIVE_BUCKET)
 
 TMP_DIR = '/tmp'
 
@@ -151,14 +153,17 @@ def process_topic(data, attributes=None):
     finally:
         print(f'Removing {tmp_fn} for {raw_file}')
         os.remove(tmp_fn)
+        print(f'Moving {raw_file} to {ARCHIVE_BUCKET}')
+        bucket.copy_blob(cr2_storage_blob, archive_bucket)
+        bucket.delete_blob(cr2_storage_blob)
 
     return jsonify(success=True, msg=f"RGB FITS files made for {raw_file}")
 
 
 def upload_blob(source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
-    bucket = client.get_bucket(UPLOAD_BUCKET)
-    blob = bucket.blob(destination_blob_name)
+    upload_bucket = client.get_bucket(UPLOAD_BUCKET)
+    blob = upload_bucket.blob(destination_blob_name)
 
     blob.upload_from_filename(source_file_name)
 
