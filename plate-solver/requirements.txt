@@ -1,6 +1,6 @@
--e git+git://github.com/panoptes/panoptes-utils.git@develop#egg=panoptes-utils
 astropy
 google-cloud-firestore
 google-cloud-pubsub
 google-cloud-storage
 numpy
+panoptes-utils>=0.2.12
