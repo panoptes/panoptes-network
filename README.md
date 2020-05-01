@@ -86,6 +86,9 @@ Document ID: `unit_id`
             "latitude": 19.54,    # degrees
             "longitude": -155.58  # degrees
         },
+        "num_images": 139299,
+        "num_observations": 3618,
+        "total_minutes_exptime": 259657.21
         "status": "active"
     }
 }
@@ -93,7 +96,7 @@ Document ID: `unit_id`
 
 #### Observation
 
-An observation is a sequence of images from a single camera taken from a single unit during one continuous
+An observation is a sequence of images taken from a single camera from a single unit during one continuous
 tracking movement. Any movement of the mount (e.g. a meridian flip) will stop the current observation, even if
 the same target is observed next. Ideally a unit will have at least two simulataneous observations at any
 given time (one for each camera).
@@ -118,7 +121,10 @@ Notes:
         "dec": 28.4376569571,
         "exptime": 120,
         "status": "receiving_files",
-        "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>)
+        "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 6, 23, tzinfo=<UTC>),
+        "received_time": DatetimeWithNanoseconds(2020, 5, 1, 11, 6, 23, tzinfo=<UTC>),
+        "num_images": 10,
+        "total_minutes_exptime": 20
     }
 }
 ```
@@ -147,8 +153,10 @@ Document ID: `image_id`
     "moonsep": 21.88964559220797,
     "airmass": 1.126544582361047,
     "bucket_path": "PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
+    "public_url": "https://storage.googleapis.com/panoptes-raw-images/PAN001/14d3bd/20180216T110623/20180216T112430.fits.fz",
     "sequence_id": "PAN001_14d3bd_20180216T110623",
-    "status": "uploaded",
+    "status": "solved",
+    "solved": True,
     "time": DatetimeWithNanoseconds(2018, 2, 16, 11, 24, 30, tzinfo=<UTC>)
   }
 }
@@ -175,10 +183,8 @@ There are a few different categories of services that are in use on the panoptes
 
 | Service                                        | Trigger | Description                                                     |
 | ---------------------------------------------- | ------- | --------------------------------------------------------------- |
-| [`image-uploaded`](image-uploaded/README.md)   | Bucket  | Simple foward to next service based on file type.               |
-| [`compress-fits`](compress-fits/README.md)     | PubSub  | Compresses all `.fits` to `.fits.fz`.                           |
+| [`raw-file-uploaded`](image-uploaded/README.md)   | Bucket  | Simple foward to next service based on file type.               |
 | [`make-rgb-fits`](make-rgb-fits/README.md)     | PubSub  | Makes interpolated RGB `.fits` from `.CR2` file.                |
-| [`record-image`](record-image/README.md)       | PubSub  | Records header and metadata from `.fits.fz` files.              |
 | [`lookup-field`](lookup-field/README.md)       | Http    | A simple service to lookup astronomical sources by search term. |
 | [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.                      |
 
@@ -201,6 +207,8 @@ Services are either written in Python or JavaScript.
 See https://github.com/firebase/functions-samples
 
 ## Development
+
+> See also the [Development](https://github.com/panoptes/panoptes-utils/#development) section of `panoptes-utils` for an easier docker version. 
 
 Development within the `panoptes-network` repository could be related to either the updating of individual GCP services or could be related to [Data Explorer](#data-explorer).
 
