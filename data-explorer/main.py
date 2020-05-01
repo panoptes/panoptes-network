@@ -1,87 +1,43 @@
-import os
-from google.cloud import firestore
+#!/usr/bin/env python
 
-import holoviews as hv
-from bokeh.io import curdoc
 import panel as pn
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import firestore
+from jinja2 import Environment, FileSystemLoader
+from modules.observations import ObservationsExplorer
+from modules.stats import Stats
 
-import pandas as pd  # noqa
-import hvplot.pandas  # noqa
+pn.extension()
 
-PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
-FIRESTORE_DB = firestore.Client(project=PROJECT_ID)
+# Load the templates
+env = Environment(loader=FileSystemLoader('./templates'))
+main_template = env.get_template('main.html')
 
-from models.observations import ObservationsExplorer
-from models.stats import Stats
+# TODO Override the notebook template so it renders well.
+tmpl = pn.Template(main_template)
 
-models = dict(
-    observations=ObservationsExplorer(firestore_client=FIRESTORE_DB),
-    stats=Stats(firestore_client=FIRESTORE_DB)
-)
+# Load the modules we want.
+obs_explorer = ObservationsExplorer(name='Search Observations')
+stats = Stats(name='Overall Stats',
+              firestore_client=firestore.Client(project='panoptes-exp',
+                                                credentials=AnonymousCredentials()))
 
-print(f'Initialized {len(models)} models')
+# This is mostly just to show how to pass variables.
+tmpl.add_variable('app_title', 'PANOPTES Data Explorer')
 
-doc = curdoc()
+# Create the layout we want for the obsExplorer
+tmpl.add_panel('obsExplorer',
+               pn.Column(
+                   pn.Row(
+                       obs_explorer.widget_box,
+                       obs_explorer.table,
+                   )
+               ))
 
-plots = {
-    model_name: getattr(model, 'plot')()
-    for model_name, model
-    in models.items()
-}
+tmpl.add_panel('statsExplorer', pn.Row(stats.widget_box, stats.plot))
+tmpl.add_variable('total_hours', int(stats.df['Total Hours'].sum()))
+tmpl.add_variable('total_images', int(stats.df['Images'].sum()))
+tmpl.add_variable('total_observations', int(stats.df['Observations'].sum()))
+tmpl.add_variable('total_units', len(stats.df['Unit'].unique()))
 
-observations = models['observations']
-stats = models['stats']
-
-obs_tab = pn.Row(
-    pn.Row(
-        pn.Tabs(
-            ('Recent Observations', pn.pane.Markdown('## Recent Observations')),
-            ('Search', pn.WidgetBox(
-                pn.Param(
-                    observations.param,
-                    widgets={
-                        'unit_id': pn.widgets.MultiChoice
-                    }
-                ),
-                min_width=325,
-                min_height=600,
-
-            )),
-        ),
-        observations.plot,
-        min_width=800,
-    ),
-)
-
-stats_tab = pn.Column(
-    stats.plot,
-    pn.WidgetBox(
-        pn.Param(
-            stats.param,
-            widgets={
-                'year': dict(
-                    type=pn.widgets.IntSlider,
-                    start=int(stats.df.year.min()),
-                    end=int(stats.df.year.max()),
-                ),
-                'metric': dict(
-                    type=pn.widgets.RadioBoxGroup,
-                )
-            },
-        ),
-    )
-)
-
-layout = pn.Column(
-    pn.Row(
-        pn.pane.Markdown('# PANOPTES Data Explorer', sizing_mode='stretch_width'),
-    ),
-    pn.Tabs(
-        ('Observations', obs_tab),
-        ('Stats', stats_tab),
-    ),
-    sizing_mode='stretch_width'
-).get_root()
-
-doc.add_root(layout)
-doc.title = 'PANOPTES Data Explorer'
+tmpl.servable()

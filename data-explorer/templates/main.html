@@ -1,0 +1,173 @@
+{% extends base %}
+
+<!-- goes in head -->
+{% block postamble %}
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+    <!-- Bulma Version 0.8.x-->
+    <link rel="stylesheet" href="https://unpkg.com/bulma@0.8.0/css/bulma.min.css"/>
+    <style>
+        html, body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            height: 100%;
+            background: #ECF0F3;
+        }
+
+        nav.navbar {
+            border-top: 4px solid #276cda;
+            margin-bottom: 1rem;
+        }
+
+        .navbar-item, .navbar-link {
+            font-weight: 700;
+        }
+
+        .columns {
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        .menu-label {
+            color: #8F99A3;
+            letter-spacing: 1.3;
+            font-weight: 700;
+        }
+
+        .menu-list a {
+            color: #0F1D38;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .menu-list a:hover {
+            background-color: transparent;
+            color: #276cda;
+        }
+
+        .menu-list a.is-active {
+            background-color: transparent;
+            color: #276cda;
+            font-weight: 700;
+        }
+
+        .card {
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.18);
+            margin-bottom: 2rem;
+        }
+
+        .card-header-title {
+        }
+
+        .info-tiles .subtitle {
+            font-weight: 300;
+            color: #8F99A3;
+        }
+
+        .hero.welcome .title, .hero.welcome .subtitle {
+            color: hsl(192, 17%, 99%);
+        }
+
+        .card .content {
+            font-size: 14px;
+        }
+
+        .card-table .table {
+            margin-bottom: 0;
+        }
+
+        .events-card .card-table {
+            max-height: 500px;
+            overflow: no-display;
+        }
+    </style>
+{% endblock %}
+
+<!-- goes in body -->
+{% block contents %}
+
+    <!-- START NAV -->
+    <nav class="navbar is-white">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item brand-text" href="/">
+                    PANOPTES Data Explorer
+                </a>
+                <div class="navbar-burger burger" data-target="navMenu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div id="navMenu" class="navbar-menu">
+                <div class="navbar-end">
+                    <a class="navbar-item" href="https://projectpanoptes.org">
+                        Project PANOPTES
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </nav>
+    <!-- END NAV -->
+    <div class="container-fluid">
+                <section>
+                    <div class="columns is-desktop">
+                        <div class="column is-4">
+                            <div class="tile is-ancestor has-text-centered">
+                                <div class="tile is-parent">
+                                    <article class="tile is-child box">
+                                        <p class="title">{{ total_hours }}</p>
+                                        <p class="subtitle">Hours Exptime</p>
+                                    </article>
+                                </div>
+                                <div class="tile is-parent">
+                                    <article class="tile is-child box">
+                                        <p class="title">{{ total_images }}</p>
+                                        <p class="subtitle">Images</p>
+                                    </article>
+                                </div>
+                            </div>
+                            <div class="tile is-ancestor has-text-centered">
+                                <div class="tile is-parent">
+                                    <article class="tile is-child box">
+                                        <p class="title">{{ total_observations }}</p>
+                                        <p class="subtitle">Observations</p>
+                                    </article>
+                                </div>
+                                <div class="tile is-parent">
+                                    <article class="tile is-child box">
+                                        <p class="title">{{ total_units }}</p>
+                                        <p class="subtitle">Active Units</p>
+                                    </article>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-8">
+                            <div class="card events-card">
+                                <div class="card-table">
+                                    <div class="content">
+                                        {{ embed(roots.statsExplorer) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section>
+                    <div class="card events-card">
+                        <header class="card-header">
+                            <p class="card-header-title">
+                                Observations
+                            </p>
+                        </header>
+                        <div class="card-table">
+                            <div class="content">
+                                {{ embed(roots.obsExplorer) }}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+{% endblock %}

@@ -1,6 +1,7 @@
-import param
-import pandas as pd
 import hvplot.pandas  # noqa
+import pandas as pd  # noqa
+import panel as pn
+import param
 
 from astropy import units as u
 
@@ -9,28 +10,29 @@ COLLECTION = 'stats'
 
 class Stats(param.Parameterized):
     year = param.Selector()
-    metric = param.Selector(default='num_images')
+    metric = param.Selector(default='Images')
 
     def __init__(self, firestore_client, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._firestore_db = firestore_client
         self.collection = self._firestore_db.collection(COLLECTION)
-        self.get_data(*args, **kwargs)
+        self.df = None
+        self.get_data()
 
         # Set some default for the params now that we have data.
-        self.param.year.objects = sorted(self.df.year.unique().tolist())
+        self.param.year.objects = sorted(self.df.Year.unique().tolist())
         self.year = 2020
 
         self.param.metric.objects = self.df.select_dtypes(include='float64').columns.tolist()
-        self.metric = 'total_hours_exptime'
+        self.metric = 'Total Hours'
 
     @param.depends('year', 'metric')
     def plot(self):
         self.get_data()
         year = self.year
         metric = self.metric
-        df2 = self.df.query('year == @year').copy()
-        df2 = df2.reset_index().sort_values(by=['unit_id', 'week']).set_index(['week'])
+        df2 = self.df.query('Year == @year').copy()
+        df2 = df2.reset_index().sort_values(by=['Unit', 'Week']).set_index(['Week'])
         title = '{} {}={}'.format(
             year,
             metric.title().replace('_', ' '),
@@ -40,21 +42,28 @@ class Stats(param.Parameterized):
         return df2.hvplot.bar(
             y=metric,
             stacked=True,
-            by='unit_id',
+            by='Unit',
             title=title,
             rot=90
         )
 
+    def widget_box(self):
+        return pn.WidgetBox(
+            pn.Param(
+                self.param,
+                widgets={
+                    'year': pn.widgets.RadioButtonGroup,
+                    'metric': pn.widgets.RadioBoxGroup,
+                }
+            ),
+        )
+
     def get_data(self):
         # Get a real time column
-        try:
-            stats_df = pd.read_csv('stats.csv')
-        except FileNotFoundError:
-            stats_rows = [d.to_dict()
-                          for d
-                          in self.collection.where('year', '>=', 2018).stream()]
-            stats_df = pd.DataFrame(stats_rows)
-            stats_df.to_csv('stats.csv')
+        stats_rows = [d.to_dict()
+                      for d
+                      in self.collection.where('year', '>=', 2018).stream()]
+        stats_df = pd.DataFrame(stats_rows)
 
         hours = (stats_df.total_minutes_exptime * u.minute).values.to(u.hour).value
 
@@ -66,18 +75,18 @@ class Stats(param.Parameterized):
             format='%Y%W %a'
         )
 
-        columns = [
-            'unit_id',
-            'week',
-            'year',
-            'num_images',
-            'num_observations',
-            'total_minutes_exptime',
-            'total_hours_exptime'
-        ]
+        columns = {
+            'unit_id': 'Unit',
+            'week': 'Week',
+            'year': 'Year',
+            'num_images': 'Images',
+            'num_observations': 'Observations',
+            'total_minutes_exptime': 'Total Minutes',
+            'total_hours_exptime': 'Total Hours'
+        }
 
         # Reorder
-        stats_df = stats_df.reindex(columns=columns)
+        stats_df = stats_df.reindex(columns=list(columns.keys()))
 
         stats_df.sort_index(inplace=True)
         stats_df.drop(columns=['week', 'year'], inplace=True)
@@ -94,6 +103,8 @@ class Stats(param.Parameterized):
 
         stats_df['year'] = stats_df.index.year
         stats_df['week'] = stats_df.index.week
-        stats_df = stats_df.reset_index(drop=True).set_index(['week'])
+
+        stats_df = stats_df.rename(columns=columns)
+        stats_df = stats_df.reset_index(drop=True).set_index(['Week'])
 
         self.df = stats_df.sort_index()
