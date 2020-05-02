@@ -99,12 +99,13 @@ def process_message(message):
         solve_successful = True
     except subprocess.CalledProcessError as e:
         print(f'Error in {bucket_path} plate solve script: {e!r}')
-        print(f'{bucket_path} solver stdout: {e.stdout}')
         print(f'{bucket_path} solver output: {e.output}')
         firestore_db.document(f'images/{image_id}').set(dict(status='error'), merge=True)
 
         try:
-            error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
+            image_blob = incoming_bucket.blob(bucket_path)
+            error_blob = incoming_bucket.copy_blob(image_blob, error_bucket)
+            image_blob.delete()
             print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
         except exceptions.NotFound:
             print(f'Error deleting after error, {bucket_path} blob path not found')
