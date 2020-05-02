@@ -20,3 +20,8 @@ server with 4 processes.
 
 The service is based upon the Google [BigQuery Bokeh Dashboard](https://cloud.google.com/solutions/bokeh-and-bigquery-dashboards)
 tutorial.
+
+### Development
+
+For developing locally, the Firestore emulator should be installed rather than using
+real network access. Read the [setup instructions](https://firebase.google.com/docs/rules/emulator-setup) for details.
