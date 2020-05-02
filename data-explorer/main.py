@@ -28,14 +28,17 @@ tmpl.add_panel('obsExplorer',
                    pn.Row(
                        obs_explorer.widget_box,
                        obs_explorer.table,
-                       obs_explorer.image_box
-                   )
+                       obs_explorer.image_box,
+                       sizing_mode='stretch_both',
+                   ),
+                   sizing_mode='stretch_both',
                ))
 
 tmpl.add_panel('statsExplorer',
                pn.Row(
                    stats.widget_box,
                    stats.plot,
+                   sizing_mode='stretch_both',
                ))
 
 tmpl.add_variable('total_hours', int(stats.df['Total Hours'].sum()))

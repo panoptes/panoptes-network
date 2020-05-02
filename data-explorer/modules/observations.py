@@ -166,8 +166,8 @@ class ObservationsExplorer(param.Parameterized):
                 }
             ),
             self.search_button,
-            sizing_mode='scale_width',
-            width=300
+            sizing_mode='stretch_both',
+            max_width=320
         )
 
     @param.depends('images_df')
@@ -179,8 +179,9 @@ class ObservationsExplorer(param.Parameterized):
         data_table = DataTable(
             source=self.image_source,
             columns=columns,
-            width=300,
-            index_position=None
+            max_width=300,
+            index_position=None,
+            sizing_mode='stretch_both',
         )
 
         print(self.images_df)
@@ -190,23 +191,60 @@ class ObservationsExplorer(param.Parameterized):
     @param.depends('observation_df')
     def table(self):
         columns = [
-            TableColumn(field="unit_id", title="Unit ID", width=100),
-            TableColumn(field="sequence_id", title="Sequence ID", width=500),
-            TableColumn(field="field_name", title="Field Name", width=350),
-            TableColumn(field="ra", title="RA", formatter=NumberFormatter(format="0.000"), width=100),
-            TableColumn(field="dec", title="dec", formatter=NumberFormatter(format="0.000"), width=100),
-            TableColumn(field="time", title="time", formatter=DateFormatter(format='%Y-%m-%d %H:%M'), width=200),
-            TableColumn(field="num_images", title="Images", width=75),
-            TableColumn(field="exptime", title="Exptime [sec]", formatter=NumberFormatter(format="0.00"), width=150),
-            TableColumn(field="total_minutes_exptime", title="Total Minutes", formatter=NumberFormatter(format="0.0"),
-                        width=150),
+            TableColumn(
+                field="unit_id",
+                title="Unit ID",
+                width=60,
+            ),
+            TableColumn(
+                field="field_name",
+                title="Field Name",
+                width=240,
+            ),
+            TableColumn(
+                field="ra",
+                title="RA",
+                formatter=NumberFormatter(format="0.000"),
+                width=70,
+            ),
+            TableColumn(
+                field="dec",
+                title="dec",
+                formatter=NumberFormatter(format="0.000"),
+                width=70,
+            ),
+            TableColumn(
+                field="time",
+                title="time",
+                formatter=DateFormatter(format='%Y-%m-%d %H:%M'),
+                width=160,
+            ),
+            TableColumn(
+                field="num_images",
+                title="Images",
+                width=40,
+            ),
+            TableColumn(
+                field="exptime",
+                title="Exptime [sec]",
+                formatter=NumberFormatter(format="0.00"),
+                width=60,
+            ),
+            TableColumn(
+                field="total_minutes_exptime",
+                title="Total Minutes",
+                formatter=NumberFormatter(format="0.0"),
+                width=60,
+            ),
         ]
 
         data_table = DataTable(
             source=self.observation_source,
             columns=columns,
-            width=1000,
             index_position=None,
+            min_width=1100,
+            fit_columns=True,
+            sizing_mode='stretch_both',
         )
 
         return data_table

@@ -81,6 +81,11 @@
             max-height: 500px;
             overflow: no-display;
         }
+
+        .bk-root .bk-data-table .slick-row {
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
     </style>
 {% endblock %}
 
@@ -156,16 +161,10 @@
             </div>
         </section>
         <section>
-            <div class="card events-card">
-                <header class="card-header">
-                    <p class="card-header-title">
-                        Observations
-                    </p>
-                </header>
+            <div class="card">
+                <div class="card-header-title">Observations</div>
                 <div class="card-table">
-                    <div class="content">
-                        {{ embed(roots.obsExplorer) }}
-                    </div>
+                    {{ embed(roots.obsExplorer) }}
                 </div>
             </div>
         </section>
