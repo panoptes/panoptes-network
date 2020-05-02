@@ -112,62 +112,62 @@
     </nav>
     <!-- END NAV -->
     <div class="container-fluid">
-                <section>
-                    <div class="columns is-desktop">
-                        <div class="column is-4">
-                            <div class="tile is-ancestor has-text-centered">
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_hours }}</p>
-                                        <p class="subtitle">Hours Exptime</p>
-                                    </article>
-                                </div>
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_images }}</p>
-                                        <p class="subtitle">Images</p>
-                                    </article>
-                                </div>
-                            </div>
-                            <div class="tile is-ancestor has-text-centered">
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_observations }}</p>
-                                        <p class="subtitle">Observations</p>
-                                    </article>
-                                </div>
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_units }}</p>
-                                        <p class="subtitle">Active Units</p>
-                                    </article>
-                                </div>
-                            </div>
+        <section>
+            <div class="columns is-desktop">
+                <div class="column is-4">
+                    <div class="tile is-ancestor has-text-centered">
+                        <div class="tile is-parent is-info">
+                            <article class="tile is-child box">
+                                <p class="title">{{ total_hours }}</p>
+                                <p class="subtitle">Hours Exptime</p>
+                            </article>
                         </div>
-                        <div class="column is-8">
-                            <div class="card events-card">
-                                <div class="card-table">
-                                    <div class="content">
-                                        {{ embed(roots.statsExplorer) }}
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="tile is-parent is-success">
+                            <article class="tile is-child box">
+                                <p class="title">{{ total_images }}</p>
+                                <p class="subtitle">Images</p>
+                            </article>
                         </div>
                     </div>
-                </section>
-                <section>
+                    <div class="tile is-ancestor has-text-centered">
+                        <div class="tile is-parent is-primary">
+                            <article class="tile is-child box">
+                                <p class="title">{{ total_observations }}</p>
+                                <p class="subtitle">Observations</p>
+                            </article>
+                        </div>
+                        <div class="tile is-parent is-warning">
+                            <article class="tile is-child box">
+                                <p class="title">{{ total_units }}</p>
+                                <p class="subtitle">Active Units</p>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-8">
                     <div class="card events-card">
-                        <header class="card-header">
-                            <p class="card-header-title">
-                                Observations
-                            </p>
-                        </header>
                         <div class="card-table">
                             <div class="content">
-                                {{ embed(roots.obsExplorer) }}
+                                {{ embed(roots.statsExplorer) }}
                             </div>
                         </div>
                     </div>
-                </section>
+                </div>
             </div>
+        </section>
+        <section>
+            <div class="card events-card">
+                <header class="card-header">
+                    <p class="card-header-title">
+                        Observations
+                    </p>
+                </header>
+                <div class="card-table">
+                    <div class="content">
+                        {{ embed(roots.obsExplorer) }}
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
 {% endblock %}

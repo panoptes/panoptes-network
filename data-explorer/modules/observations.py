@@ -8,8 +8,11 @@ import pendulum
 from astropy.coordinates import SkyCoord
 from bokeh.models import (ColumnDataSource, DataTable, DateFormatter,
                           NumberFormatter, TableColumn)
+from panoptes.utils.data import get_metadata
 from panoptes.utils.data import search_observations
+from panoptes.utils.logger import logger
 
+logger.enable('panoptes')
 pn.extension()
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
@@ -24,8 +27,12 @@ class ObservationsExplorer(param.Parameterized):
         precedence=-1  # Don't show widget
     )
 
-    df = param.DataFrame(
+    observation_df = param.DataFrame(
         doc='The DataFrame for the observations.',
+        precedence=-1  # Don't show widget
+    )
+    images_df = param.DataFrame(
+        doc='The DataFrame for the images from the selected observations.',
         precedence=-1  # Don't show widget
     )
 
@@ -41,7 +48,7 @@ class ObservationsExplorer(param.Parameterized):
         label='Search radius [degrees]',
         doc='Search radius [degrees]',
         default=5.0,
-        bounds=(0, 180),
+        bounds=(0, 25),
         softbounds=(1, 15)
     )
     time = param.DateRange(
@@ -93,13 +100,15 @@ class ObservationsExplorer(param.Parameterized):
         self.search_button.on_click(do_search)
 
         # Get recent results
-        self.df = search_observations(ra=0,
-                                      dec=0,
-                                      radius=180,
-                                      start_date=pendulum.now().subtract(weeks=2),
-                                      end_date=pendulum.now(),
-                                      min_num_images=1,
-                                      )
+        self.observation_df = search_observations(ra=180,
+                                                  dec=0,
+                                                  radius=180,
+                                                  start_date=pendulum.now().subtract(weeks=2),
+                                                  end_date=pendulum.now(),
+                                                  min_num_images=1,
+                                                  )
+        self.observation_df.sort_values(by='time', ascending=False, inplace=True)
+        self.images_df = pd.DataFrame()
 
     def update_data(self):
         # If using the default unit_ids option, then search for all.
@@ -114,19 +123,35 @@ class ObservationsExplorer(param.Parameterized):
                 round(coords.dec.value, 3)
             )
 
-        self.df = search_observations(ra=self.coords[0],
-                                      dec=self.coords[1],
-                                      radius=self.radius,
-                                      start_date=self.time[0],
-                                      end_date=self.time[1],
-                                      min_num_images=self.min_num_images,
-                                      unit_ids=unit_ids
-                                      )
+        self.observation_df = search_observations(ra=self.coords[0],
+                                                  dec=self.coords[1],
+                                                  radius=self.radius,
+                                                  start_date=self.time[0],
+                                                  end_date=self.time[1],
+                                                  min_num_images=self.min_num_images,
+                                                  unit_ids=unit_ids
+                                                  )
 
     @property
-    @param.depends('df')
-    def source(self):
-        return ColumnDataSource(data=self.df)
+    @param.depends('observation_df')
+    def observation_source(self):
+        cds = ColumnDataSource(data=self.observation_df)
+
+        def row_selected(attrname, old, new):
+            newest = new[-1]
+            row = self.observation_df.iloc[newest]
+            self.images_df = get_metadata(sequence_id=row.sequence_id).dropna()
+
+        cds.selected.on_change('indices', row_selected)
+
+        return cds
+
+    @property
+    @param.depends('images_df')
+    def image_source(self):
+        cds = ColumnDataSource(data=self.images_df)
+
+        return cds
 
     def widget_box(self):
         return pn.WidgetBox(
@@ -145,32 +170,24 @@ class ObservationsExplorer(param.Parameterized):
             width=300
         )
 
-    @param.depends('df')
-    def plot(self):
-        selected = self.source.selected.indices
-        if len(selected) == 0:
-            df = self.df
-        else:
-            df = self.df.iloc[self.source.selected.indices]
+    @param.depends('images_df')
+    def image_box(self):
+        columns = [
+            TableColumn(field='image_id')
+        ]
 
-        field_summary_df = df.groupby('field_name').sum().reset_index()
-        print(field_summary_df)
-
-        bar_plot = field_summary_df.hvplot.bar(
-            x='field_name',
-            y='total_minutes_exptime',
-            rot=45,
-            tools=['box_select', 'lasso_select', 'hover', 'help']
-        ).opts(
-            title='Total Exptime',
+        data_table = DataTable(
+            source=self.image_source,
+            columns=columns,
             width=300,
-            xlabel='Field Name',
-            ylabel='Total Exptime [min]',
+            index_position=None
         )
 
-        return bar_plot
+        print(self.images_df)
+        print(data_table)
+        return data_table
 
-    @param.depends('df')
+    @param.depends('observation_df')
     def table(self):
         columns = [
             TableColumn(field="unit_id", title="Unit ID", width=100),
@@ -186,14 +203,10 @@ class ObservationsExplorer(param.Parameterized):
         ]
 
         data_table = DataTable(
-            source=self.source,
+            source=self.observation_source,
             columns=columns,
             width=1000,
+            index_position=None,
         )
-
-        def row_selected(attrname, old, new):
-            print(attrname, old, new)
-
-        self.source.selected.on_change('indices', row_selected)
 
         return data_table

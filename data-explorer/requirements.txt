@@ -1,7 +1,8 @@
+astropy
 bokeh
 flask-cors
 google-cloud-firestore
+hvplot
 pandas
 panel
 pendulum
-hvplot
