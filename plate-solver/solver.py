@@ -102,7 +102,6 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
         if solve_config is None:
             solve_config = {
                 "skip_solved": False,
-                "timeout": 120,
             }
         if background_config is None:
             background_config = {
