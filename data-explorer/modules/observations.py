@@ -108,7 +108,7 @@ class ObservationsExplorer(param.Parameterized):
         self.observation_df.sort_values(by='time', ascending=False, inplace=True)
 
         sequence_id = str(self.observation_df.iloc[0].sequence_id)
-        self.images_df = get_metadata(sequence_id=sequence_id)
+        self.images_df = get_metadata(sequence_id=sequence_id).dropna()
 
     def update_data(self):
         # If using the default unit_ids option, then search for all.
@@ -146,18 +146,6 @@ class ObservationsExplorer(param.Parameterized):
 
         return cds
 
-    @property
-    @param.depends('images_df')
-    def images_source(self):
-        cds = ColumnDataSource(data=self.images_df.dropna())
-
-        def row_selected(attrname, old, new):
-            print('Image selected ', attrname, old, new)
-
-        cds.selected.on_change('indices', row_selected)
-
-        return cds
-
     def widget_box(self):
         return pn.WidgetBox(
             pn.Param(
@@ -176,23 +164,31 @@ class ObservationsExplorer(param.Parameterized):
         )
 
     @param.depends('images_df')
-    def image_box(self):
+    def image_table(self):
         logger.debug('Image box clicked')
         columns = [
             TableColumn(
-                field='image_id',
-                title='Image ID'
-            )
+                field='airmass',
+                title='Airmass'
+            ),
         ]
 
+        cds = ColumnDataSource(data=self.images_df)
+
+        # def row_selected(attrname, old, new):
+        #     print('Image selected ', attrname, old, new)
+        #
+        # cds.selected.on_change('indices', row_selected)
+
         data_table = DataTable(
-            source=self.images_source,
+            source=cds,
             columns=columns,
-            max_width=300,
-            index_position=None,
+            # max_width=300,
+            # index_position=None,
             sizing_mode='stretch_both',
         )
 
+        logger.debug(f'Returning datadata: {self.images_df}')
         logger.debug(f'Returning datadata: {data_table}')
         return data_table
 

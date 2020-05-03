@@ -62,7 +62,7 @@ class Stats(param.Parameterized):
         # Get a real time column
         stats_rows = [d.to_dict()
                       for d
-                      in self.collection.where('year', '>=', 2018).stream()]
+                      in self.collection.stream()]
         stats_df = pd.DataFrame(stats_rows)
 
         hours = (stats_df.total_minutes_exptime * u.minute).values.to(u.hour).value
