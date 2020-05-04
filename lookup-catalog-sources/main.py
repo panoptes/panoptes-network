@@ -78,7 +78,12 @@ def process_topic(message):
                         .limit(1)
                         .stream()
                     ]
-        bucket_path = url_list[0]
+        try:
+            bucket_path = url_list[0]
+        except IndexError:
+            logger.info(f'No solved images found for {sequence_id}')
+            message.ack()
+            return
 
     if image_id is not None:
         logger.debug(f'Using image_id={image_id} to get bucket_path')
