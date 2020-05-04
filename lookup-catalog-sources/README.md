@@ -6,7 +6,7 @@ This folder defines a [Google Cloud Function](https://cloud.google.com/functions
 This function is used to look up stellar sources from the PANOPTES catalog.
 
 This endpoint looks for one parameter, `bucket_path`. If `bucket_path` is present 
-then the World Coordinate System (WCS) from the solved image will be used to look
+then it will be checked for a World Coordinate System (WCS). This WCS will be used to look
 up the catalog sources for the entire observation. The matching sources, along with
 the corresponding XY-pixel positions for the image, are saved back to the processing
 bucket to be used for source extraction.

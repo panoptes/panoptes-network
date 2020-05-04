@@ -1,81 +1,50 @@
 import base64
-import json
 import os
 import sys
 import tempfile
 
-import panoptes.utils.
 from astropy.wcs import WCS
+from flask import Flask, request
 from google.cloud import storage
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.logger import logger
+from panoptes.utils.stars import get_stars_from_footprint
+
+logger.enable('panoptes')
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-observations')
 
-logger.enable('panoptes')
+raw_bucket = storage.Client().bucket(BUCKET_NAME)
 
-storage_client = storage.Client()
-raw_bucket = storage_client.bucket(BUCKET_NAME)
+app = Flask(__name__)
 
 
-def entry_point(pubsub_message, context):
-    """Receive and process main request for topic.
+@app.route('/', methods=['POST'])
+def index():
+    envelope = request.get_json()
+    if not envelope:
+        msg = 'no Pub/Sub message received'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
 
-    The arriving `pubsub_message` will be in a `PubSubMessage` format:
+    if not isinstance(envelope, dict) or 'message' not in envelope:
+        msg = 'invalid Pub/Sub message format'
+        print(f'error: {msg}')
+        return f'Bad Request: {msg}', 400
 
-    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
-
-    ```
-        pubsub_message = {
-          "data": string,
-          "attributes": {
-            string: string,
-            ...
-        }
-        context = {
-          "messageId": string,
-          "publishTime": string
-        }
-    ```
-
-    Args:
-         pubsub_message (dict):  The dictionary with data specific to this type of
-            pubsub_message. The `data` field contains the PubsubMessage message. The
-            `attributes` field will contain custom attributes if there are any.
-        context (google.cloud.functions.Context): The Cloud Functions pubsub_message
-            metadata. The `event_id` field contains the Pub/Sub message ID. The
-            `timestamp` field contains the publish time.
-    """
-    print(f'Function triggered with: {pubsub_message!r} {context!r}')
+    pubsub_message = envelope['message']
 
     if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
-        try:
-            raw_string = base64.b64decode(pubsub_message['data']).decode()
-            print(f'Raw message received: {raw_string!r}')
-            data = json.loads(raw_string)
+        data = base64.b64decode(pubsub_message['data']).decode('utf-8').strip()
 
-        except Exception as e:
-            msg = ('Invalid Pub/Sub message: '
-                   'data property is not valid base64 encoded JSON')
-            print(f'{msg}: {e}')
-            return f'Bad Request: {msg}', 400
+    process_topic(data, pubsub_message['attributes'])
 
-        attributes = pubsub_message.get('attributes', dict())
+    # Flush the stdout to avoid log buffering.
+    sys.stdout.flush()
 
-        try:
-            print(f'Processing: data={data!r} attributes={attributes!r}')
-            process_topic(data, attributes)
-            # Flush the stdout to avoid log buffering.
-            sys.stdout.flush()
-            return ('', 204)  # 204 is no-content success
-
-        except Exception as e:
-            print(f'error: {e}')
-            return ('', 500)
-
-    return ('', 500)
+    return ('', 204)
 
 
 def process_topic(data, attributes=None):
@@ -112,3 +81,11 @@ def process_topic(data, attributes=None):
         local_fn = catalog_sources.to_parquet(local_path, index=False, compression='GZIP')
 
         raw_bucket.blob(sources_bucket_path).upload_from_filename(local_fn)
+
+
+if __name__ == '__main__':
+    PORT = int(os.getenv('PORT')) if os.getenv('PORT') else 8080
+
+    # This is used when running locally. Gunicorn is used to run the
+    # application on Cloud Run. See entrypoint in Dockerfile.
+    app.run(host='127.0.0.1', port=PORT, debug=True)

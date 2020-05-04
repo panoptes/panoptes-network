@@ -1,4 +1,5 @@
-astropy
+-e git+git://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils
 Flask
+astropy
 google-cloud-storage
-panoptes-utils>=0.2.11
+gunicorn==20.0.4

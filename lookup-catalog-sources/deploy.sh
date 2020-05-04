@@ -2,11 +2,11 @@
 
 TOPIC=${1:-lookup-catalog-sources}
 
-gcloud functions deploy \
-                 "${TOPIC}" \
-                 --entry-point entry_point \
-                 --runtime python37 \
-                 --no-allow-unauthenticated \
-                 --update-labels "use=pipeline" \
-                 --timeout 300 \
-                 --trigger-topic "${TOPIC}"
+# Submit a build using Google Cloud Build
+gcloud builds submit --tag "gcr.io/panoptes-exp/${TOPIC}"
+
+# Deploy to Cloud Run
+gcloud run deploy "${TOPIC}" \
+    --port 8080 \
+    --platform managed \
+    --image "gcr.io/panoptes-exp/${TOPIC}"
