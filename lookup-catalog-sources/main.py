@@ -100,6 +100,11 @@ def process_topic(message):
         logger.debug(f'Given bucket_path looks like a relative path, change to url={bucket_path}')
 
     wcs = fits_utils.getwcs(bucket_path)
+    if not wcs.is_celestial:
+        logger.warning(f'Image says it is plate-solved but WCS is not valid.')
+        firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False))
+        message.ack()
+        return
 
     logger.debug(f'Looking up sources for {sequence_id} {wcs}')
     catalog_sources = get_stars_from_footprint(wcs, bq_client=bq_client)
