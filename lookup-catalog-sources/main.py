@@ -5,6 +5,7 @@ import tempfile
 
 from astropy.wcs import WCS
 from flask import Flask, request
+from google.cloud import firestore
 from google.cloud import storage
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.images import fits as fits_utils
@@ -17,6 +18,7 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-observations')
 
 raw_bucket = storage.Client().bucket(BUCKET_NAME)
+firestore_db = firestore.Client()
 
 app = Flask(__name__)
 
@@ -39,7 +41,31 @@ def index():
     if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
         data = base64.b64decode(pubsub_message['data']).decode('utf-8').strip()
 
-    process_topic(data, pubsub_message['attributes'])
+    attributes = pubsub_message['attributes']
+
+    sequence_id = attributes.get('sequence_id')
+    image_id = attributes.get('image_id')
+    bucket_path = attributes.get('bucket_path')
+
+    # Options
+    format = attributes.get('format', 'parquet')
+    force = attributes.get('force', False)
+
+    # Get a document for the observation and the image. If only given a
+    # sequence_id, then look up a solved image.
+    if sequence_id is not None:
+        logger.debug(f'Using sequence_id={sequence_id} to get bucket_path')
+        url_list = [d.get('public_url')
+                    for d
+                    in firestore_db.collection('images').where('sequence_id', '==', sequence_id).limit(1).stream()
+                    ]
+        bucket_path = url_list[0]
+
+    if image_id is not None:
+        logger.debug(f'Using image_id={image_id} to get bucket_path')
+        bucket_path = firestore_db.document(f'images/{image_id}').get(['public_url']).get('public_url')
+
+    process_topic(bucket_path)
 
     # Flush the stdout to avoid log buffering.
     sys.stdout.flush()
@@ -47,10 +73,9 @@ def index():
     return ('', 204)
 
 
-def process_topic(data, attributes=None):
-    bucket_path = attributes.get('bucket_path')
+def process_topic(bucket_path):
     sequence_id = sequence_id_from_path(bucket_path)
-    logger.info(f'Received {bucket_path} for catalog sources lookup, sequence_id={sequence_id}')
+    logger.info(f'Received bucket_path={bucket_path} for catalog sources lookup')
 
     # If given a relative path instead of url, attempt default public location.
     if not bucket_path.startswith('https'):
@@ -73,12 +98,15 @@ def process_topic(data, attributes=None):
     catalog_sources['x_int'] = catalog_sources.x.astype(int)
     catalog_sources['y_int'] = catalog_sources.y.astype(int)
 
-    # Save catalog sources as parquet file.
+    # Save catalog sources as output file.
     with tempfile.TemporaryDirectory() as tmp_dir:
-        sources_bucket_path = f'{sequence_id}.parq'
+        sources_bucket_path = f'{sequence_id}.{format}'
         local_path = os.path.join(tmp_dir, sources_bucket_path)
         logger.debug(f'Saving catalog sources to {sources_bucket_path}')
-        local_fn = catalog_sources.to_parquet(local_path, index=False, compression='GZIP')
+
+        output_func = getattr(catalog_sources, f'to_{format}')
+
+        local_fn = output_func(local_path, index=False, compression='GZIP')
 
         raw_bucket.blob(sources_bucket_path).upload_from_filename(local_fn)
 
