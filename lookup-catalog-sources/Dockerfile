@@ -1,11 +1,10 @@
-FROM gcr.io/panoptes-exp/panoptes-utils:develop
+ARG base_tag=latest
 
-COPY requirements.txt ./
+FROM gcr.io/panoptes-exp/panoptes-utils:$base_tag
 
-RUN pip install -r requirements.txt
+RUN pip install google-cloud-pubsub
 
-ENV APP_HOME /app
-WORKDIR $APP_HOME
-COPY . ./
+COPY . /app
+WORKDIR /app
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+CMD ["python", "-u", "main.py"]

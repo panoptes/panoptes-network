@@ -1,13 +1,6 @@
 #!/bin/bash -e
 
 TOPIC=${1:-lookup-catalog-sources}
+BASE_TAG=${1:-latest}
 
-# Submit a build using Google Cloud Build
-gcloud builds submit --tag "gcr.io/panoptes-exp/${TOPIC}"
-
-# Deploy to Cloud Run
-gcloud run deploy "${TOPIC}" \
-    --port 8080 \
-    --platform managed \
-    --memory 2Gi \
-    --image "gcr.io/panoptes-exp/${TOPIC}"
+gcloud builds submit --substitutions "_TOPIC=${TOPIC},_BASE_TAG=${BASE_TAG}" .

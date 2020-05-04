@@ -1,5 +1,0 @@
--e git+git://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils
-Flask
-astropy
-google-cloud-storage
-gunicorn==20.0.4
