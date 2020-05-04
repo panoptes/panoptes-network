@@ -62,7 +62,7 @@ def process_topic(message):
     bucket_path = attributes.get('bucket_path')
 
     # Options
-    output_format = attributes.get('output_format', 'parquet')
+    output_format = attributes.get('format', 'parquet')
     force = attributes.get('force', False)
 
     # Get a document for the observation and the image. If only given a
