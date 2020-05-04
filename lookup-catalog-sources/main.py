@@ -104,7 +104,7 @@ def process_topic(message):
     wcs = fits_utils.getwcs(bucket_path)
     if not wcs.is_celestial:
         logger.warning(f'Image says it is plate-solved but WCS is not valid.')
-        firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False))
+        firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False), merge=True)
         # Force the message to re-send where it will hopefully pick up a correctly solved image.
         message.nack()
         return
