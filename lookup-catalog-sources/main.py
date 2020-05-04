@@ -103,7 +103,8 @@ def process_topic(message):
     if not wcs.is_celestial:
         logger.warning(f'Image says it is plate-solved but WCS is not valid.')
         firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False))
-        message.ack()
+        # Force the message to re-send where it will hopefully pick up a correctly solved image.
+        message.nack()
         return
 
     logger.debug(f'Looking up sources for {sequence_id} {wcs}')
