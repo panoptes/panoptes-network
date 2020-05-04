@@ -62,7 +62,7 @@ def process_topic(message):
     bucket_path = attributes.get('bucket_path')
 
     # Options
-    format = attributes.get('format', 'parquet')
+    output_format = attributes.get('output_format', 'parquet')
     force = attributes.get('force', False)
 
     # Get a document for the observation and the image. If only given a
@@ -116,7 +116,7 @@ def process_topic(message):
 
     # Save catalog sources as output file.
     with tempfile.TemporaryDirectory() as tmp_dir:
-        sources_bucket_path = f'{sequence_id}.{format}'
+        sources_bucket_path = f'{sequence_id}.{output_format}'
         local_path = os.path.join(tmp_dir, sources_bucket_path)
         logger.debug(f'Saving catalog sources to {sources_bucket_path}')
 
