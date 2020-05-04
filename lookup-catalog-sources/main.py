@@ -121,7 +121,7 @@ def process_topic(message):
         logger.debug(f'Saving catalog sources to {sources_bucket_path}')
 
         # Lookup output format and save.
-        output_func = getattr(catalog_sources, f'to_{format}')
+        output_func = getattr(catalog_sources, f'to_{output_format}')
         output_func(local_path, index=False, compression='GZIP')
 
         # Upload
