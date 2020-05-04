@@ -71,7 +71,11 @@ def process_topic(message):
         logger.debug(f'Using sequence_id={sequence_id} to get bucket_path')
         url_list = [d.get('public_url')
                     for d
-                    in firestore_db.collection('images').where('sequence_id', '==', sequence_id).limit(1).stream()
+                    in firestore_db.collection('images')
+                        .where('sequence_id', '==', sequence_id)
+                        .where('status', '==', 'solved')
+                        .limit(1)
+                        .stream()
                     ]
         bucket_path = url_list[0]
 
