@@ -7,6 +7,7 @@ from google.cloud import firestore
 from google.cloud import pubsub
 from google.cloud import pubsub_v1
 from google.cloud import storage
+from panoptes.utils import image_id_from_path
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.logger import logger
@@ -83,6 +84,7 @@ def process_topic(message):
         logger.debug(f'Using image_id={image_id} to get bucket_path')
         bucket_path = firestore_db.document(f'images/{image_id}').get(['public_url']).get('public_url')
 
+    image_id = image_id_from_path(bucket_path)
     sequence_id = sequence_id_from_path(bucket_path)
     logger.info(f'Received bucket_path={bucket_path} for catalog sources lookup')
 
