@@ -155,7 +155,7 @@ def process_topic(message):
     logger.debug(f'Clearing download cache for {bucket_path}')
     clear_download_cache(bucket_path)
 
-    logger.debug('Acking message for {bucket_path}')
+    logger.debug(f'Acking message for {bucket_path}')
     message.ack()
 
 
