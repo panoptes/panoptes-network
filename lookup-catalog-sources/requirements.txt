@@ -1,4 +1,0 @@
-astropy
-Flask
-google-cloud-storage
-panoptes-utils>=0.2.11

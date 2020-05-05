@@ -1,12 +1,6 @@
 #!/bin/bash -e
 
 TOPIC=${1:-lookup-catalog-sources}
+BASE_TAG=${1:-latest}
 
-gcloud functions deploy \
-                 "${TOPIC}" \
-                 --entry-point entry_point \
-                 --runtime python37 \
-                 --no-allow-unauthenticated \
-                 --update-labels "use=pipeline" \
-                 --timeout 300 \
-                 --trigger-topic "${TOPIC}"
+gcloud builds submit --substitutions "_TOPIC=${TOPIC},_BASE_TAG=${BASE_TAG}" .
