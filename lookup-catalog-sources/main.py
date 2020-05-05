@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 
+from astropy.utils.data import clear_download_cache
 from google.cloud import bigquery
 from google.cloud import firestore
 from google.cloud import pubsub
@@ -112,6 +113,10 @@ def process_topic(message):
         firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False), merge=True)
         # Force the message to re-send where it will hopefully pick up a correctly solved image.
         message.nack()
+
+        # Clear the download cache.
+        logger.debug(f'Clearing download cache for {bucket_path}')
+        clear_download_cache(bucket_path)
         return
 
     logger.debug(f'Looking up sources for {sequence_id} {wcs}')
@@ -146,6 +151,11 @@ def process_topic(message):
     logger.debug(f'Updating observation status and coordinates for {sequence_id}')
     observation_doc_ref.set(dict(status='solved', ra=wcs_ra, dec=wcs_dec), merge=True)
 
+    # Clear the WCS from the cache.
+    logger.debug(f'Clearing download cache for {bucket_path}')
+    clear_download_cache(bucket_path)
+
+    logger.debug('Acking message for {bucket_path}')
     message.ack()
 
 
