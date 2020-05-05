@@ -20,7 +20,6 @@ ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-error-images')
 # Storage
 try:
     firestore_db = firestore.Client()
-    """Continuously pull messages from subscription"""
     subscriber = pubsub.SubscriberClient()
     subscription_path = subscriber.subscription_path(PROJECT_ID, PUBSUB_SUBSCRIPTION)
 

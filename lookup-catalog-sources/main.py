@@ -1,98 +1,126 @@
-import base64
-import json
 import os
 import sys
 import tempfile
 
-import panoptes.utils.
-from astropy.wcs import WCS
+from astropy.utils.data import clear_download_cache
+from google.cloud import bigquery
+from google.cloud import firestore
+from google.cloud import pubsub
+from google.cloud import pubsub_v1
 from google.cloud import storage
+from panoptes.utils import image_id_from_path
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.logger import logger
+from panoptes.utils.stars import get_stars_from_footprint
+
+logger.enable('panoptes')
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-observations')
 
-logger.enable('panoptes')
+PUBSUB_SUBSCRIPTION = 'read-lookup-catalog-sources'
+MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
 
-storage_client = storage.Client()
-raw_bucket = storage_client.bucket(BUCKET_NAME)
+# Storage
+try:
+    bq_client = bigquery.Client()
+    firestore_db = firestore.Client()
+    subscriber = pubsub.SubscriberClient()
+    subscription_path = subscriber.subscription_path(PROJECT_ID, PUBSUB_SUBSCRIPTION)
+
+    storage_client = storage.Client()
+    output_bucket = storage.Client().bucket(BUCKET_NAME)
+except RuntimeError:
+    print(f"Can't load Google credentials, exiting")
+    sys.exit(1)
 
 
-def entry_point(pubsub_message, context):
-    """Receive and process main request for topic.
+def main():
+    print(f'Creating subscriber (messages={MAX_MESSAGES}) for {subscription_path}')
+    streaming_pull_future = subscriber.subscribe(
+        subscription_path,
+        callback=process_topic,
+        flow_control=pubsub_v1.types.FlowControl(max_messages=int(MAX_MESSAGES))
+    )
 
-    The arriving `pubsub_message` will be in a `PubSubMessage` format:
-
-    https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
-
-    ```
-        pubsub_message = {
-          "data": string,
-          "attributes": {
-            string: string,
-            ...
-        }
-        context = {
-          "messageId": string,
-          "publishTime": string
-        }
-    ```
-
-    Args:
-         pubsub_message (dict):  The dictionary with data specific to this type of
-            pubsub_message. The `data` field contains the PubsubMessage message. The
-            `attributes` field will contain custom attributes if there are any.
-        context (google.cloud.functions.Context): The Cloud Functions pubsub_message
-            metadata. The `event_id` field contains the Pub/Sub message ID. The
-            `timestamp` field contains the publish time.
-    """
-    print(f'Function triggered with: {pubsub_message!r} {context!r}')
-
-    if isinstance(pubsub_message, dict) and 'data' in pubsub_message:
+    print(f'Listening for messages on {subscription_path}')
+    with subscriber:
         try:
-            raw_string = base64.b64decode(pubsub_message['data']).decode()
-            print(f'Raw message received: {raw_string!r}')
-            data = json.loads(raw_string)
-
+            streaming_pull_future.result()  # Blocks indefinitely
         except Exception as e:
-            msg = ('Invalid Pub/Sub message: '
-                   'data property is not valid base64 encoded JSON')
-            print(f'{msg}: {e}')
-            return f'Bad Request: {msg}', 400
-
-        attributes = pubsub_message.get('attributes', dict())
-
-        try:
-            print(f'Processing: data={data!r} attributes={attributes!r}')
-            process_topic(data, attributes)
-            # Flush the stdout to avoid log buffering.
-            sys.stdout.flush()
-            return ('', 204)  # 204 is no-content success
-
-        except Exception as e:
-            print(f'error: {e}')
-            return ('', 500)
-
-    return ('', 500)
+            streaming_pull_future.cancel()
+            print(f'Streaming pull cancelled: {e!r}')
+        finally:
+            print(f'Streaming pull finished')
 
 
-def process_topic(data, attributes=None):
+def process_topic(message):
+    data = message.data.decode('utf-8')
+    attributes = dict(message.attributes)
+
+    sequence_id = attributes.get('sequence_id')
+    image_id = attributes.get('image_id')
     bucket_path = attributes.get('bucket_path')
+
+    # Options
+    output_format = attributes.get('format', 'parquet')
+    force = attributes.get('force', False)
+
+    # Get a document for the observation and the image. If only given a
+    # sequence_id, then look up a solved image.
+    if sequence_id is not None:
+        logger.debug(f'Using sequence_id={sequence_id} to get bucket_path')
+        url_list = [d.get('public_url')
+                    for d
+                    in firestore_db.collection('images')
+                        .where('sequence_id', '==', sequence_id)
+                        .where('status', '==', 'solved')
+                        .limit(1)
+                        .stream()
+                    ]
+        try:
+            bucket_path = url_list[0]
+        except IndexError:
+            logger.info(f'No solved images found for {sequence_id}')
+            message.ack()
+            return
+
+    if image_id is not None:
+        logger.debug(f'Using image_id={image_id} to get bucket_path')
+        bucket_path = firestore_db.document(f'images/{image_id}').get(['public_url']).get('public_url')
+
+    image_id = image_id_from_path(bucket_path)
     sequence_id = sequence_id_from_path(bucket_path)
-    logger.info(f'Received {bucket_path} for catalog sources lookup, sequence_id={sequence_id}')
+    logger.info(f'Received bucket_path={bucket_path} for catalog sources lookup')
+
+    observation_doc_ref = firestore_db.document(f'observations/{sequence_id}')
+    obs_status = observation_doc_ref.get(['status']).get('status')
+
+    if obs_status != 'receiving_files' and not force:
+        logger.warning(f'Observation status={obs_status}. Will only proceed if stats=received_files or force=True')
+        message.ack()
+        return
 
     # If given a relative path instead of url, attempt default public location.
     if not bucket_path.startswith('https'):
         bucket_path = f'https://storage.googleapis.com/panoptes-raw-images/{bucket_path}'
         logger.debug(f'Given bucket_path looks like a relative path, change to url={bucket_path}')
 
-    headers = fits_utils.getheader(bucket_path)
-    wcs = WCS(headers)
+    wcs = fits_utils.getwcs(bucket_path)
+    if not wcs.is_celestial:
+        logger.warning(f'Image says it is plate-solved but WCS is not valid.')
+        firestore_db.document(f'images/{image_id}').set(dict(status='needs-solve', solved=False), merge=True)
+        # Force the message to re-send where it will hopefully pick up a correctly solved image.
+        message.nack()
+
+        # Clear the download cache.
+        logger.debug(f'Clearing download cache for {bucket_path}')
+        clear_download_cache(bucket_path)
+        return
 
     logger.debug(f'Looking up sources for {sequence_id} {wcs}')
-    catalog_sources = get_stars_from_footprint(wcs)
+    catalog_sources = get_stars_from_footprint(wcs, bq_client=bq_client)
     logger.debug(f'Found {len(catalog_sources)} sources in {sequence_id}')
 
     # Get the XY positions via the WCS
@@ -104,11 +132,32 @@ def process_topic(data, attributes=None):
     catalog_sources['x_int'] = catalog_sources.x.astype(int)
     catalog_sources['y_int'] = catalog_sources.y.astype(int)
 
-    # Save catalog sources as parquet file.
+    # Save catalog sources as output file.
     with tempfile.TemporaryDirectory() as tmp_dir:
-        sources_bucket_path = f'{sequence_id}.parq'
+        sources_bucket_path = f'{sequence_id}.{output_format}'
         local_path = os.path.join(tmp_dir, sources_bucket_path)
         logger.debug(f'Saving catalog sources to {sources_bucket_path}')
-        local_fn = catalog_sources.to_parquet(local_path, index=False, compression='GZIP')
 
-        raw_bucket.blob(sources_bucket_path).upload_from_filename(local_fn)
+        # Lookup output format and save.
+        output_func = getattr(catalog_sources, f'to_{output_format}')
+        output_func(local_path, index=False, compression='GZIP')
+
+        # Upload
+        output_bucket.blob(sources_bucket_path).upload_from_filename(local_path)
+
+    # Update observation status
+    wcs_ra = wcs.wcs.crval[0]
+    wcs_dec = wcs.wcs.crval[1]
+    logger.debug(f'Updating observation status and coordinates for {sequence_id}')
+    observation_doc_ref.set(dict(status='solved', ra=wcs_ra, dec=wcs_dec), merge=True)
+
+    # Clear the WCS from the cache.
+    logger.debug(f'Clearing download cache for {bucket_path}')
+    clear_download_cache(bucket_path)
+
+    logger.debug(f'Acking message for {bucket_path}')
+    message.ack()
+
+
+if __name__ == '__main__':
+    main()
