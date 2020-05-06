@@ -10,4 +10,4 @@ RUN pip install -U pip && \
 EXPOSE $PORT
 COPY . .
 
-CMD panel serve --disable-index-redirect --num-procs=4 --port="${PORT}" --address=0.0.0.0 --allow-websocket-origin="${PUBLIC_DOMAIN}" .
+CMD panel serve --disable-index-redirect --num-procs=4 --port="${PORT}" --address=0.0.0.0 --allow-websocket-origin="${PUBLIC_DOMAIN}:${PORT}" .
