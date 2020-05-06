@@ -24,14 +24,18 @@ stats = Stats(name='Overall Stats',
 
 # Create the layout we want for the obsExplorer
 tmpl.add_panel('obsExplorer',
-               pn.Column(
-                   pn.Row(
-                       obs_explorer.widget_box,
-                       obs_explorer.table,
-                       sizing_mode='stretch_both',
+               pn.Row(
+                   obs_explorer.widget_box,
+                   obs_explorer.table,
+                   pn.Column(
+                       obs_explorer.selected_title,
+                       obs_explorer.image_preview,
+                       obs_explorer.table_download_button,
+                       obs_explorer.sources_download_button
                    ),
                    sizing_mode='stretch_both',
-               ))
+               ),
+               )
 
 tmpl.add_panel('statsExplorer',
                pn.Row(

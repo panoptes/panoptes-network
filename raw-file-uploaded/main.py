@@ -1,15 +1,13 @@
+import base64
+import json
 import os
 import sys
-import json
-import base64
 from contextlib import suppress
 
+from dateutil.parser import parse as parse_date
+from google.cloud import firestore
 from google.cloud import pubsub
 from google.cloud import storage
-from google.cloud import firestore
-
-from dateutil.parser import parse as parse_date
-
 from panoptes.utils import image_id_from_path
 from panoptes.utils import sequence_id_from_path
 from panoptes.utils.logger import logger
@@ -41,6 +39,7 @@ raw_images_bucket = sc.get_bucket(os.getenv('RAW_BUCKET_NAME', 'panoptes-raw-ima
 timelapse_bucket = sc.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
 temp_bucket = sc.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
 raw_archive_bucket = sc.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
+jpg_images_bucket = sc.get_bucket(os.getenv('JPG_BUCKET_NAME', 'panoptes-exp.appspot.com'))
 
 firestore_db = firestore.Client()
 
@@ -152,7 +151,7 @@ def process_cr2(bucket_path):
 
 def process_jpg(bucket_path):
     """Move jpgs to observation bucket"""
-    move_blob_to_bucket(bucket_path, raw_images_bucket)
+    move_blob_to_bucket(bucket_path, jpg_images_bucket)
 
 
 def process_timelapse(bucket_path):

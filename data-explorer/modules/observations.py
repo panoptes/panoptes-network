@@ -1,4 +1,5 @@
 import os
+from io import StringIO
 
 import hvplot.pandas  # noqa
 import pandas as pd  # noqa
@@ -107,8 +108,19 @@ class ObservationsExplorer(param.Parameterized):
                                                   )
         self.observation_df.sort_values(by='time', ascending=False, inplace=True)
 
+        # Get the first image of the first observation.
         sequence_id = str(self.observation_df.iloc[0].sequence_id)
         self.images_df = get_metadata(sequence_id=sequence_id).dropna()
+
+        # Create the source objects.
+        self.observation_source = ColumnDataSource(data=self.observation_df, name='observations_source')
+
+        def obs_row_selected(attrname, old, new):
+            newest = new[-1]
+            row = self.observation_df.iloc[newest]
+            self.images_df = get_metadata(sequence_id=row.sequence_id).dropna()
+
+        self.observation_source.selected.on_change('indices', obs_row_selected)
 
     def update_data(self):
         # If using the default unit_ids option, then search for all.
@@ -131,20 +143,7 @@ class ObservationsExplorer(param.Parameterized):
                                                   min_num_images=self.min_num_images,
                                                   unit_ids=unit_ids
                                                   )
-
-    @property
-    @param.depends('observation_df')
-    def observation_source(self):
-        cds = ColumnDataSource(data=self.observation_df)
-
-        def row_selected(attrname, old, new):
-            newest = new[-1]
-            row = self.observation_df.iloc[newest]
-            self.images_df = get_metadata(sequence_id=row.sequence_id).dropna()
-
-        cds.selected.on_change('indices', row_selected)
-
-        return cds
+        self.observation_source.data = self.observation_df
 
     def widget_box(self):
         return pn.WidgetBox(
@@ -163,34 +162,56 @@ class ObservationsExplorer(param.Parameterized):
             max_width=320
         )
 
+    def selected_title(self):
+        sequence_id = self.images_df.sequence_id.iloc[0]
+        return pn.panel(f'<h5>{sequence_id}</h5>')
+
     @param.depends('images_df')
     def image_table(self):
-        logger.debug('Image box clicked')
         columns = [
-            TableColumn(
-                field='airmass',
-                title='Airmass'
-            ),
+            ('time', 'Time [UTC]')
         ]
-
-        cds = ColumnDataSource(data=self.images_df)
-
-        # def row_selected(attrname, old, new):
-        #     print('Image selected ', attrname, old, new)
-        #
-        # cds.selected.on_change('indices', row_selected)
-
-        data_table = DataTable(
-            source=cds,
-            columns=columns,
-            # max_width=300,
-            # index_position=None,
-            sizing_mode='stretch_both',
+        images_table = self.images_df.hvplot.table(columns=columns).opts(
+            width=250,
+            height=200,
+            title=f'Images ({len(self.images_df)})',
         )
 
-        logger.debug(f'Returning datadata: {self.images_df}')
-        logger.debug(f'Returning datadata: {data_table}')
-        return data_table
+        return images_table
+
+    @param.depends('images_df')
+    def image_preview(self):
+        image_url = self.images_df.public_url.dropna().iloc[0].replace('.fits.fz', '.jpg')
+        return pn.pane.HTML(f'''
+            <div class="media" style="width: 300px; height: 200px">
+                <a href="{image_url}" target="_blank">
+                  <img src="{image_url}" class="card-img-top" alt="Observation Image">
+                </a>
+            </div>
+        ''')
+
+    @param.depends('observation_df')
+    def fits_file_list_to_csv_cb(self):
+        df = self.images_df.public_url.dropna()
+        sio = StringIO()
+        df.to_csv(sio, index=False, header=False)
+        sio.seek(0)
+        return sio
+
+    def table_download_button(self):
+        sequence_id = self.images_df.sequence_id.iloc[0]
+        return pn.widgets.FileDownload(
+            callback=self.fits_file_list_to_csv_cb,
+            filename=f'fits-list-{sequence_id}.txt',
+            label='Download FITS List (.txt)',
+        )
+
+    def sources_download_button(self):
+        sequence_id = self.images_df.sequence_id.iloc[0]
+        parquet_url = f'https://storage.googleapis.com/panoptes-processed-observations/{sequence_id}.parquet'
+        return pn.pane.HTML(f"""
+            <a href="{parquet_url}" target="_blank">Download sources list (.parquet)</a>
+        """)
 
     @param.depends('observation_df')
     def table(self):
@@ -202,12 +223,12 @@ class ObservationsExplorer(param.Parameterized):
             ),
             TableColumn(
                 field="camera_id",
-                title="Camera",
+                title="Camera ID",
                 width=60,
             ),
             TableColumn(
                 field="time",
-                title="time",
+                title="Time [UTC]",
                 formatter=DateFormatter(format='%Y-%m-%d %H:%M'),
                 width=160,
             ),
@@ -218,13 +239,13 @@ class ObservationsExplorer(param.Parameterized):
             ),
             TableColumn(
                 field="ra",
-                title="RA",
+                title="RA [deg]",
                 formatter=NumberFormatter(format="0.000"),
                 width=70,
             ),
             TableColumn(
                 field="dec",
-                title="dec",
+                title="Dec [deg]",
                 formatter=NumberFormatter(format="0.000"),
                 width=70,
             ),
@@ -249,6 +270,7 @@ class ObservationsExplorer(param.Parameterized):
 
         data_table = DataTable(
             source=self.observation_source,
+            name='observations_table',
             columns=columns,
             index_position=None,
             min_width=1100,
