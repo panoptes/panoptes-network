@@ -2,10 +2,11 @@
 
 <!-- goes in head -->
 {% block postamble %}
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
-    <!-- Bulma Version 0.8.x-->
-    <link rel="stylesheet" href="https://unpkg.com/bulma@0.8.0/css/bulma.min.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
     <style>
         html, body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
@@ -21,17 +22,6 @@
         }
 
         .navbar-item, .navbar-link {
-            font-weight: 700;
-        }
-
-        .columns {
-            margin-left: 0;
-            margin-right: 0;
-        }
-
-        .menu-label {
-            color: #8F99A3;
-            letter-spacing: 1.3;
             font-weight: 700;
         }
 
@@ -57,16 +47,9 @@
             margin-bottom: 2rem;
         }
 
-        .card-header-title {
-        }
-
         .info-tiles .subtitle {
             font-weight: 300;
             color: #8F99A3;
-        }
-
-        .hero.welcome .title, .hero.welcome .subtitle {
-            color: hsl(192, 17%, 99%);
         }
 
         .card .content {
@@ -81,6 +64,11 @@
             max-height: 500px;
             overflow: no-display;
         }
+
+        .bk-root .bk-data-table .slick-row {
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
     </style>
 {% endblock %}
 
@@ -88,86 +76,72 @@
 {% block contents %}
 
     <!-- START NAV -->
-    <nav class="navbar is-white">
-        <div class="container">
-            <div class="navbar-brand">
-                <a class="navbar-item brand-text" href="/">
-                    PANOPTES Data Explorer
-                </a>
-                <div class="navbar-burger burger" data-target="navMenu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </div>
-            <div id="navMenu" class="navbar-menu">
-                <div class="navbar-end">
-                    <a class="navbar-item" href="https://projectpanoptes.org">
-                        Project PANOPTES
-                    </a>
-                </div>
-
-            </div>
-        </div>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">PANOPTES Data Explorer</a>
     </nav>
     <!-- END NAV -->
     <div class="container-fluid">
-                <section>
-                    <div class="columns is-desktop">
-                        <div class="column is-4">
-                            <div class="tile is-ancestor has-text-centered">
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_hours }}</p>
-                                        <p class="subtitle">Hours Exptime</p>
-                                    </article>
-                                </div>
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_images }}</p>
-                                        <p class="subtitle">Images</p>
-                                    </article>
-                                </div>
-                            </div>
-                            <div class="tile is-ancestor has-text-centered">
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_observations }}</p>
-                                        <p class="subtitle">Observations</p>
-                                    </article>
-                                </div>
-                                <div class="tile is-parent">
-                                    <article class="tile is-child box">
-                                        <p class="title">{{ total_units }}</p>
-                                        <p class="subtitle">Active Units</p>
-                                    </article>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="column is-8">
-                            <div class="card events-card">
-                                <div class="card-table">
-                                    <div class="content">
-                                        {{ embed(roots.statsExplorer) }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+        <div class="row">
+            <div class="col-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h1><span class="badge badge-info">{{ total_hours }}</span></h1>
+                        <h3>Hours Exptime</h3>
                     </div>
-                </section>
-                <section>
-                    <div class="card events-card">
-                        <header class="card-header">
-                            <p class="card-header-title">
-                                Observations
-                            </p>
-                        </header>
-                        <div class="card-table">
-                            <div class="content">
-                                {{ embed(roots.obsExplorer) }}
-                            </div>
-                        </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h1><span class="badge badge-info">{{ total_observations }}</span></h1>
+                        <h3>Observations</h3>
                     </div>
-                </section>
+                </div>
             </div>
+            <div class="col-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h1><span class="badge badge-info">{{ total_images }}</span></h1>
+                        <h3>Images</h3>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h1><span class="badge badge-info">{{ total_units }}</span></h1>
+                        <h3>Units</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-8">
+                <div class="card events-card">
+                    <div class="card-table">
+                        <div class="content">
+                            {{ embed(roots.statsExplorer) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row bg-light">
+            <div class="col">
+                <div class="card events-card">
+                    <h5 class="card-title">Observations</h5>
+                    <div class="card-table">
+                    {{ embed(roots.obsExplorer) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+            integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+            integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+            integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+            crossorigin="anonymous"></script>
+
 {% endblock %}

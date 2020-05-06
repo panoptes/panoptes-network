@@ -22,22 +22,31 @@ stats = Stats(name='Overall Stats',
               firestore_client=firestore.Client(project='panoptes-exp',
                                                 credentials=AnonymousCredentials()))
 
-# This is mostly just to show how to pass variables.
-tmpl.add_variable('app_title', 'PANOPTES Data Explorer')
-
 # Create the layout we want for the obsExplorer
 tmpl.add_panel('obsExplorer',
-               pn.Column(
-                   pn.Row(
-                       obs_explorer.widget_box,
-                       obs_explorer.table,
-                   )
+               pn.Row(
+                   obs_explorer.widget_box,
+                   obs_explorer.table,
+                   pn.Column(
+                       obs_explorer.selected_title,
+                       obs_explorer.image_preview,
+                       obs_explorer.table_download_button,
+                       obs_explorer.sources_download_button
+                   ),
+                   sizing_mode='stretch_both',
+               ),
+               )
+
+tmpl.add_panel('statsExplorer',
+               pn.Row(
+                   stats.widget_box,
+                   stats.plot,
+                   sizing_mode='stretch_both',
                ))
 
-tmpl.add_panel('statsExplorer', pn.Row(stats.widget_box, stats.plot))
 tmpl.add_variable('total_hours', int(stats.df['Total Hours'].sum()))
 tmpl.add_variable('total_images', int(stats.df['Images'].sum()))
 tmpl.add_variable('total_observations', int(stats.df['Observations'].sum()))
 tmpl.add_variable('total_units', len(stats.df['Unit'].unique()))
 
-tmpl.servable()
+tmpl.servable(title='PANOPTES Data Explorer')

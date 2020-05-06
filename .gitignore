@@ -10,7 +10,7 @@ _build
 .grunt
 .idea
 .installed.cfg
-.ipynb_checkpoints
+**/.ipynb_checkpoints/**
 .lock-wscript
 .node_repl_history
 .npm
