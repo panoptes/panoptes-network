@@ -25,3 +25,13 @@ tutorial.
 
 For developing locally, the Firestore emulator should be installed rather than using
 real network access. Read the [setup instructions](https://firebase.google.com/docs/rules/emulator-setup) for details.
+
+### Deploy
+
+See [Deployment](../README.md#deploy) in main README for preferred deployment method.
+
+Basically, you can:
+
+```python
+./deploy.sh
+```
