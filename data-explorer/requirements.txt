@@ -1,5 +1,6 @@
 astropy
 bokeh
+flask
 flask-cors
 google-cloud-firestore
 hvplot
