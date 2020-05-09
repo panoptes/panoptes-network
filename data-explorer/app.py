@@ -1,3 +1,4 @@
+import os
 from threading import Thread
 
 import panel as pn
@@ -96,7 +97,7 @@ def bk_worker():
     # Can't pass num_procs > 1 in this configuration. If you need to run multiple
     # processes, see e.g. flask_gunicorn_embed.py
     server = Server({'/data_explorer_app': data_explorer_app}, io_loop=IOLoop(),
-                    allow_websocket_origin=["127.0.0.1:5000"])
+                    allow_websocket_origin=[os.getenv('WS_URL', '127.0.0.1:5000')])
     server.start()
     server.io_loop.start()
 
