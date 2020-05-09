@@ -10,4 +10,4 @@ RUN pip install -U pip && \
 EXPOSE $PORT
 COPY . .
 
-CMD bokeh serve --num-procs=4 --port="${PORT}" --address=0.0.0.0 --allow-websocket-origin="${PUBLIC_DOMAIN}" DataExplorer.py
+CMD flask run
