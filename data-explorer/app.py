@@ -77,7 +77,7 @@ def data_explorer_app(doc):
 @app.route('/', methods=['GET'])
 def bkapp_page():
     base_app_url = os.getenv('BOKEH_APP_URL', '127.0.0.1:5006')
-    public_app_url = os.getenv('PUBLIC_APP_URL', '127.0.0.1:8080')
+    public_app_url = os.getenv('PUBLIC_APP_URL', 'www.panoptes-data.net')
 
     with pull_session(url=f'http://{base_app_url}/data_explorer_app') as session:
         # generate a script to load the customized session
@@ -94,7 +94,7 @@ def bk_worker():
     # processes, see e.g. flask_gunicorn_embed.py
     server = Server({'/data_explorer_app': data_explorer_app},
                     io_loop=IOLoop(),
-                    allow_websocket_origin=[os.getenv('PUBLIC_APP_URL', '127.0.0.1:8080')])
+                    allow_websocket_origin=[os.getenv('PUBLIC_APP_URL', 'www.panoptes-data.net')])
     server.start()
     server.io_loop.start()
 
