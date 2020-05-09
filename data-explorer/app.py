@@ -92,10 +92,9 @@ def bkapp_page():
 def bk_worker():
     # Can't pass num_procs > 1 in this configuration. If you need to run multiple
     # processes, see e.g. flask_gunicorn_embed.py
-    public_port = os.getenv('PUBLIC_PORT', '8080')
     server = Server({'/data_explorer_app': data_explorer_app},
                     io_loop=IOLoop(),
-                    allow_websocket_origin=[os.getenv('ALLOW_WS_URL', f'127.0.0.1:{public_port}')])
+                    allow_websocket_origin=[os.getenv('PUBLIC_APP_URL', '127.0.0.1:8080')])
     server.start()
     server.io_loop.start()
 
