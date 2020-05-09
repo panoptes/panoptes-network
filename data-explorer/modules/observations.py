@@ -1,4 +1,5 @@
 import os
+from contextlib import suppress
 from io import StringIO
 
 import hvplot.pandas  # noqa
@@ -181,7 +182,10 @@ class ObservationsExplorer(param.Parameterized):
 
     @param.depends('images_df')
     def image_preview(self):
-        image_url = self.images_df.public_url.dropna().iloc[0].replace('.fits.fz', '.jpg')
+        image_url = ''
+        with suppress(AttributeError):
+            image_url = self.images_df.public_url.dropna().iloc[0].replace('.fits.fz', '.jpg')
+
         return pn.pane.HTML(f'''
             <div class="media" style="width: 300px; height: 200px">
                 <a href="{image_url}" target="_blank">

@@ -1,8 +1,10 @@
 astropy
 bokeh
+flask
 flask-cors
 google-cloud-firestore
 hvplot
 pandas
 panel
+panoptes-utils==0.2.10
 pendulum
