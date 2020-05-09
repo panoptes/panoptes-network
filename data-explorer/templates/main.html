@@ -8,77 +8,31 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
           integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <!-- PANOPTES CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/sticky-footer.css">
 
-    <style>
-        html, body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-            font-size: 16px;
-            line-height: 1.5;
-            height: 100%;
-            background: #ECF0F3;
-        }
-
-        nav.navbar {
-            border-top: 4px solid #276cda;
-            margin-bottom: 1rem;
-        }
-
-        .navbar-item, .navbar-link {
-            font-weight: 700;
-        }
-
-        .menu-list a {
-            color: #0F1D38;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .menu-list a:hover {
-            background-color: transparent;
-            color: #276cda;
-        }
-
-        .menu-list a.is-active {
-            background-color: transparent;
-            color: #276cda;
-            font-weight: 700;
-        }
-
-        .card {
-            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.18);
-            margin-bottom: 2rem;
-        }
-
-        .info-tiles .subtitle {
-            font-weight: 300;
-            color: #8F99A3;
-        }
-
-        .card .content {
-            font-size: 14px;
-        }
-
-        .card-table .table {
-            margin-bottom: 0;
-        }
-
-        .events-card .card-table {
-            max-height: 500px;
-            overflow: no-display;
-        }
-
-        .bk-root .bk-data-table .slick-row {
-            font-size: 0.9rem;
-            font-family: monospace;
-        }
-    </style>
 </head>
 
 <body>
-{{ bokeh_script|safe }}
+<!-- START NAV -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">PANOPTES Data Explorer</a>
+</nav>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                {{ bokeh_script|safe }}
+            </div>
+        </div>
+    </div>
+</div>
 <footer class="footer">
     <div class="container">
-        <span class="text-muted">{{ session_id }}</span>
+        <span class="text-muted text-center">
+            2020 &copy; Project PANOPTES .:. Session ID: {{ session_id }}
+        </span>
     </div>
 </footer>
 

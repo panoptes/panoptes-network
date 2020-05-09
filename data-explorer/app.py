@@ -31,8 +31,6 @@ def data_explorer_app(doc):
                   firestore_client=firestore.Client(project='panoptes-exp',
                                                     credentials=AnonymousCredentials()))
 
-    navbar = pn.panel('## Data Explorer')
-
     def _stat_card(label, value):
         return pn.pane.HTML(f'''
         <div class="card">
@@ -72,7 +70,6 @@ def data_explorer_app(doc):
     )
 
     main_layout = pn.Column(
-        navbar,
         stats_row,
         observations_row
     )
