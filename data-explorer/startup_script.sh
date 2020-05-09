@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "Starting nginx"
+echo "Starting nginx reverse-proxy"
 sudo nginx -c nginx.conf
 
 echo "Starting flask and bokeh"

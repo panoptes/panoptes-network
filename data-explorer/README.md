@@ -15,11 +15,17 @@ jupyter notebooks.
 
 ### Docker
 
-The web service is prepared as a docker image. By default this will launch the `bokeh`
-server with 4 processes. 
+The web service is prepared as a docker image, which is the service running at
+https://panoptes-data.net.
 
-The service is based upon the Google [BigQuery Bokeh Dashboard](https://cloud.google.com/solutions/bokeh-and-bigquery-dashboards)
-tutorial.
+To develop and run locally:
+
+```bash
+docker build -t data-explorer:develop .
+docker run --rm --name data-explorer -p 8080:80 -d data-explorer:develop
+```
+
+This will make the service available at https://127.0.0.1:8080.
 
 ### Development
 
