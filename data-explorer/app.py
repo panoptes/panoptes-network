@@ -77,12 +77,12 @@ def data_explorer_app(doc):
 @app.route('/', methods=['GET'])
 def bkapp_page():
     base_app_url = os.getenv('BOKEH_APP_URL', '127.0.0.1:5006')
-    app_url = f'http://{base_app_url}/data_explorer_app'
+    public_app_url = os.getenv('PUBLIC_APP_URL', '127.0.0.1:8080')
 
-    with pull_session(url=app_url) as session:
+    with pull_session(url=f'http://{base_app_url}/data_explorer_app') as session:
         # generate a script to load the customized session
         bokeh_script = server_session(session_id=session.id,
-                                      url=app_url.replace('5006', os.getenv('PUBLIC_PORT', '8080')),
+                                      url=f'http://{public_app_url}/data_explorer_app',
                                       relative_urls=True)
 
         # use the script in the rendered page
