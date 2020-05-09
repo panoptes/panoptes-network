@@ -10,4 +10,4 @@ RUN pip install -U pip && \
 EXPOSE $PORT
 COPY . .
 
-CMD flask run
+CMD flask run -h 0.0.0.0 -p "${PORT}"
