@@ -27,6 +27,16 @@ docker run --rm --name data-explorer -p 8080:80 -d data-explorer:develop
 
 This will make the service available at https://127.0.0.1:8080.
 
+There are two environment variables that can route the traffic depending on your needs.
+
+`BOKEH_APP_URL=127.0.0.1:5006`: Defines the link between the Flask app and the Bokeh app.
+This should rarely need to be changed as the two services should be running on the same
+server local to each other.
+
+`PUBLIC_APP_URL=www.panoptes-data.net`: Defines the actual link to use. If developing
+locally you should change this to `127.0.0.1:8080` where 8080 is mapped to the port in
+the `docker run` command above.
+
 ### Development
 
 For developing locally, the Firestore emulator should be installed rather than using
