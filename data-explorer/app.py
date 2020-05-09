@@ -8,7 +8,6 @@ from bokeh.server.server import Server
 from flask import Flask, render_template
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import firestore
-from jinja2 import Environment, FileSystemLoader
 from tornado.ioloop import IOLoop
 
 from .modules.observations import ObservationsExplorer
@@ -18,12 +17,8 @@ app = Flask(__name__)
 
 
 def data_explorer_app(doc):
-    # Load the templates
-    env = Environment(loader=FileSystemLoader('./templates'))
-    main_template = env.get_template('embed.html')
-
     # TODO Switch this to no longer use the template interface.
-    tmpl = pn.Template(main_template)
+    tmpl = pn.Template('')
 
     # Load the modules we want.
     obs_explorer = ObservationsExplorer(name='Search Observations')
@@ -81,10 +76,14 @@ def data_explorer_app(doc):
 
 @app.route('/', methods=['GET'])
 def bkapp_page():
-    app_url = 'http://localhost:5006/data_explorer_app'
+    base_app_url = os.getenv('PUBLIC_DOMAIN', '127.0.0.1:5006')
+    app_url = f'http://{base_app_url}/data_explorer_app'
+
     with pull_session(url=app_url) as session:
         # generate a script to load the customized session
-        bokeh_script = server_session(session_id=session.id, url=app_url)
+        bokeh_script = server_session(session_id=session.id,
+                                      url=app_url.replace(':5006', ':8080'),
+                                      relative_urls=True)
 
         # use the script in the rendered page
         return render_template("main.html", bokeh_script=bokeh_script, template="Flask", session_id=session.id)
@@ -94,7 +93,7 @@ def bk_worker():
     # Can't pass num_procs > 1 in this configuration. If you need to run multiple
     # processes, see e.g. flask_gunicorn_embed.py
     server = Server({'/data_explorer_app': data_explorer_app}, io_loop=IOLoop(),
-                    allow_websocket_origin=[os.getenv('WS_URL', '127.0.0.1:5000')])
+                    allow_websocket_origin=[os.getenv('WS_URL', '127.0.0.1:8080')])
     server.start()
     server.io_loop.start()
 
