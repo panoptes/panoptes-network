@@ -226,8 +226,10 @@ def solve_file(bucket_path, solve_config=None, background_config=None):
         # Remove the original fpacked file
         if solved_path == local_path:
             print(f'Removing the existing fpacked file before packing new')
-            with suppress(FileNotFoundError):
+            try:
                 os.remove(local_path)
+            except Exception as e:
+                print(f'Error removing existing fpacked: {e!r}')
         solved_path = fits_utils.fpack(solved_path)
 
         #  Upload the plate-solved image.
