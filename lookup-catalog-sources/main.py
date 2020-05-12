@@ -1,7 +1,8 @@
 import os
 import sys
-import tempfile
+from io import StringIO
 
+import pandas as pd
 from astropy.utils.data import clear_download_cache
 from google.cloud import bigquery
 from google.cloud import firestore
@@ -17,7 +18,7 @@ from panoptes.utils.stars import get_stars_from_footprint
 logger.enable('panoptes')
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-processed-observations')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-observations')
 
 PUBSUB_SUBSCRIPTION = 'read-lookup-catalog-sources'
 MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
@@ -64,7 +65,7 @@ def process_topic(message):
     bucket_path = attributes.get('bucket_path')
 
     # Options
-    output_format = attributes.get('format', 'parquet')
+    output_format = attributes.get('format', 'csv')
     force = attributes.get('force', False)
 
     # Get a document for the observation and the image. If only given a
@@ -132,18 +133,19 @@ def process_topic(message):
     catalog_sources['x_int'] = catalog_sources.x.astype(int)
     catalog_sources['y_int'] = catalog_sources.y.astype(int)
 
-    # Save catalog sources as output file.
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        sources_bucket_path = f'{sequence_id}.{output_format}'
-        local_path = os.path.join(tmp_dir, sources_bucket_path)
-        logger.debug(f'Saving catalog sources to {sources_bucket_path}')
+    sources_bucket_path = f'{sequence_id}-sources.{output_format}'
+    logger.debug(f'Saving catalog sources to {sources_bucket_path}')
 
-        # Lookup output format and save.
-        output_func = getattr(catalog_sources, f'to_{output_format}')
-        output_func(local_path, index=False, compression='GZIP')
+    # Lookup output format and save.
+    output_func = getattr(catalog_sources, f'to_{output_format}')
+    sio = StringIO()
+    output_func(sio, index=False)
+    sio.seek(0)
 
-        # Upload
-        output_bucket.blob(sources_bucket_path).upload_from_filename(local_path)
+    # Upload
+    obs_blob = output_bucket.blob(sources_bucket_path)
+    obs_blob.upload_from_file(sio)
+    logger.debug(f'Observation metadata saved to {obs_blob.public_url}')
 
     # Update observation status
     wcs_ra = wcs.wcs.crval[0]
@@ -151,12 +153,35 @@ def process_topic(message):
     logger.debug(f'Updating observation status and coordinates for {sequence_id}')
     observation_doc_ref.set(dict(status='solved', ra=wcs_ra, dec=wcs_dec), merge=True)
 
+    # Update observation metadata file
+    update_observation_file(sequence_id)
+
     # Clear the WCS from the cache.
     logger.debug(f'Clearing download cache for {bucket_path}')
     clear_download_cache(bucket_path)
 
     logger.debug(f'Acking message for {bucket_path}')
     message.ack()
+
+
+def update_observation_file(sequence_id):
+    print(f'Updating {sequence_id} static file')
+
+    # Build query
+    obs_query = firestore_db.collection('images').where('sequence_id', '==', sequence_id)
+
+    # Fetch documents into a DataFrame.
+    metadata_df = pd.DataFrame([dict(image_id=doc.id, **doc.to_dict()) for doc in obs_query.stream()])
+    print(f'{sequence_id}: Caching {len(metadata_df)} results from lookup')
+
+    sio = StringIO()
+    metadata_df.to_csv(sio, index=False)
+    sio.seek(0)
+
+    # Upload file object to public blob.
+    blob = output_bucket.blob(f'{sequence_id}-metadata.csv')
+    blob.upload_from_file(sio)
+    print(f'Observations file available at: {blob.public_url}')
 
 
 if __name__ == '__main__':
