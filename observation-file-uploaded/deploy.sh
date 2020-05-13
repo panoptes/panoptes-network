@@ -1,12 +1,13 @@
 #!/bin/bash -e
 
-TOPIC=${1:-observations-file-uploaded}
+TOPIC=${1:-observation-file-uploaded}
 LOG_LEVEL=${2:-DEBUG}
 
 gcloud functions deploy \
                  "${TOPIC}" \
                  --entry-point entry_point \
                  --memory '2Gi' \
+                 --timeout '300s' \
                  --runtime python37 \
                  --no-allow-unauthenticated \
                  --service-account "piaa-pipeline@panoptes-exp.iam.gserviceaccount.com" \

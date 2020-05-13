@@ -1,2 +1,4 @@
 pandas
 pandas-gbq
+pendulum
+requests
