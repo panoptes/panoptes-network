@@ -47,7 +47,6 @@ HEADER_COLUMNS = {
     'LONG-OBS': 'site_longitude',
     'ELEV-OBS': 'site_elevation',
 }
-
 METADATA_COLUMNS = {
     'unit_id': 'unit_id',
     'sequence_id': 'sequence_id',
@@ -120,6 +119,10 @@ def process_topic(message, attributes):
     """
     bucket_path = attributes['objectId']
     bucket_link = message['mediaLink']
+
+    if 'overwroteGeneration' in attributes:
+        print(f'File already exists in bucket, skipping import for {bucket_link}')
+        return
 
     if bucket_path is None:
         raise Exception(f'No file requested')
