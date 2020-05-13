@@ -6,9 +6,12 @@ import sys
 import pandas as pd
 import pendulum
 import requests
+from google.cloud import bigquery
 
 BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-observations/')
 FITS_HEADER_URL = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header'
+
+bq_client = bigquery.Client()
 
 SOURCE_COLUMNS = [
     'picid',
@@ -179,12 +182,21 @@ def process_topic(message, attributes):
     if not bq_table:
         print(f'No table given in {bucket_path}')
 
+    df['insert_time'] = pendulum.now()
     print(f'Sending {len(df)} rows to observations.{bq_table}')
-    df.convert_dtypes().to_gbq(
+    job_config = bigquery.LoadJobConfig(schema=[
+        bigquery.SchemaField("time", "TIMESTAMP"),
+        bigquery.SchemaField("insert_time", "TIMESTAMP"),
+    ])
+
+    job = bq_client.load_table_from_dataframe(
+        df.convert_dtypes(),
         f'observations.{bq_table}',
-        project_id='panoptes-exp',
-        if_exists='append'
+        job_config=job_config
     )
+
+    # Wait for the load job to complete.
+    job.result()
 
 
 def get_header(bucket_path):

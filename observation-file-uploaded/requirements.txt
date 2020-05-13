@@ -1,4 +1,4 @@
+google-cloud-bigquery[pyarrow]
 pandas
-pandas-gbq
 pendulum
 requests
