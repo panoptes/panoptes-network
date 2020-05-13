@@ -1,9 +1,7 @@
-
 import os
 
 from flask import jsonify
 from google.cloud import storage
-
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
@@ -39,11 +37,14 @@ def entry_point(request):
     if not bucket_path:
         return jsonify(success=success, msg='No bucket_path, nothing to do!')
 
+    bucket_path = bucket_path.replace('https://storage.googleapis.com/panoptes-raw-images/', '')
+
     fits_headers = dict()
 
-    print("Looking up header for file: ", bucket_path)
+    print(f"Looking up header for file:  {bucket_path}")
     storage_blob = bucket.get_blob(bucket_path)
-    if storage_blob:
+    print(f"Got storage blob: {storage_blob}")
+    if storage_blob is not None:
         fits_headers = lookup_fits_header(storage_blob)
 
         # Change filename to public url of file.
