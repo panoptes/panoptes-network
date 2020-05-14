@@ -18,6 +18,7 @@ Example usage:
 import pandas as pd
 url = 'https://storage.googleapis.com/panoptes-exp.appspot.com/recent.csv'
 
+recent_obs_df = pd.read_csv(url)
 ```
 
 ### Deploy

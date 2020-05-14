@@ -1,12 +1,16 @@
 #!/bin/bash -e
 
-TOPIC=${1:-get-fits-header}
+TOPIC=${1:-observation-file-uploaded}
+LOG_LEVEL=${2:-DEBUG}
 
 gcloud functions deploy \
                  "${TOPIC}" \
                  --entry-point entry_point \
+                 --memory '2Gi' \
+                 --timeout '300s' \
                  --runtime python37 \
-                 --allow-unauthenticated \
+                 --no-allow-unauthenticated \
                  --service-account "piaa-pipeline@panoptes-exp.iam.gserviceaccount.com" \
                  --update-labels "use=pipeline" \
-                 --trigger-http
+                 --set-env-vars "LOG_LEVEL=${LOG_LEVEL}" \
+                 --trigger-topic "${TOPIC}"
