@@ -27,6 +27,25 @@ def entry_point(request):
     # Build the DataFrame.
     recent_df = pd.DataFrame(obs_docs).sort_values(by=['time'])
 
+    columns = [
+        'unit_id',
+        'time',
+        'sequence_id',
+        'image_id',
+        'ra',
+        'dec',
+        'exptime',
+        'field_name',
+        'num_images',
+        'iso',
+        'total_minutes_exptime',
+        'status',
+        'software_version'        
+        'camera_id',
+    ]
+
+    recent_df = recent_df[columns]
+
     # Write to a CSV file object.
     sio = StringIO()
     recent_df.to_csv(sio, index=False)
