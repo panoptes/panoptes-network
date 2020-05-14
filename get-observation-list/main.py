@@ -31,7 +31,6 @@ def entry_point(request):
         'unit_id',
         'time',
         'sequence_id',
-        'image_id',
         'ra',
         'dec',
         'exptime',
@@ -44,7 +43,7 @@ def entry_point(request):
         'camera_id',
     ]
 
-    recent_df = recent_df[columns]
+    recent_df = recent_df[columns].convert_dtypes()
 
     # Write to a CSV file object.
     sio = StringIO()
