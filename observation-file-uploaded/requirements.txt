@@ -1,5 +1,1 @@
 google-cloud-bigquery[pyarrow]
-google-cloud-storage
-numpy
-pandas
-pendulum

@@ -2,17 +2,17 @@
   {
     "type": "INTEGER",
     "name": "picid",
-    "mode": "REQUIRED"
+    "mode": "NULLABLE"
   },
   {
     "type": "TIMESTAMP",
     "name": "time",
-    "mode": "REQUIRED"
+    "mode": "NULLABLE"
   },
   {
     "type": "STRING",
     "name": "sequence_id",
-    "mode": "REQUIRED"
+    "mode": "NULLABLE"
   },
   {
     "type": "FLOAT",

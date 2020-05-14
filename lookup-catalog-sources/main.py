@@ -218,7 +218,7 @@ def process_topic(message):
     catalog_sources['unit_id'] = unit_id
     catalog_sources['sequence_id'] = sequence_id
     catalog_sources['camera_id'] = camera_id
-    catalog_sources['time'] = pendulum.parse(observation_time).to_iso8601_string()
+    catalog_sources['time'] = pendulum.parse(observation_time).replace(tzinfo=None)
     catalog_sources['catalog_vmag_bin'] = catalog_sources['catalog_vmag'].apply(np.floor).astype('int')
 
     # Get just the columns we want.
@@ -229,7 +229,7 @@ def process_topic(message):
 
     # Lookup output format and save.
     bio = BytesIO()
-    catalog_sources.to_parquet(bio, index=False)
+    catalog_sources.convert_dtypes().dropna().to_parquet(bio, index=False)
     bio.seek(0)
 
     # Upload
@@ -286,7 +286,7 @@ def update_observation_file(sequence_id):
     headers_df['CIRCCONF'] = headers_df.CIRCCONF.map(lambda x: float(x.split(' ')[0]))
 
     # Give better column names.
-    headers_df = headers_df.convert_dtypes().rename(columns=HEADER_COLUMNS)
+    headers_df = headers_df.convert_dtypes(convert_integer=False).rename(columns=HEADER_COLUMNS)
 
     print(f'Merging headers DataFrame with metadata')
     metadata_df = metadata_df.merge(headers_df, on='image_id')
@@ -296,12 +296,13 @@ def update_observation_file(sequence_id):
 
     # Force dtypes on certain columns.
     metadata_df['site_elevation'] = metadata_df['site_elevation'].astype('float')
+    metadata_df['camera_temp'] = metadata_df['camera_temp'].astype('float')
     metadata_df['camera_colortemp'] = metadata_df['camera_colortemp'].astype('int')
     metadata_df['camera_lens_serial_number'] = metadata_df['camera_lens_serial_number'].astype('string')
     metadata_df['camera_serial_number'] = metadata_df['camera_serial_number'].astype('string')
 
     bio = BytesIO()
-    metadata_df.to_parquet(bio, index=False)
+    metadata_df.dropna().to_parquet(bio, index=False)
     bio.seek(0)
 
     # Upload file object to public blob.

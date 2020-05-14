@@ -1,16 +1,10 @@
 import base64
 import json
-import os
 import sys
 
-import pandas as pd
 from google.cloud import bigquery
-from google.cloud import storage
-
-BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-observations/')
 
 bq_client = bigquery.Client()
-storage_client = storage.Client()
 
 
 def entry_point(raw_message, context):
@@ -62,30 +56,26 @@ def process_topic(message, attributes):
 
     print(f'Looking up {bucket_link}')
 
-    try:
-        file_name, file_ext = os.path.splitext(bucket_path)
-        # Make sure to skip the period in the extension.
-        read_func = getattr(pd, f'read_{file_ext[1:]}')
-        df = read_func(bucket_link)
-    except Exception as e:
-        print(f'Error with lookup: {e!r}')
-        return
-
     bq_table = None
     if 'sources' in bucket_path:
         bq_table = 'sources'
     elif 'metadata' in bucket_path:
-        bq_table = 'temp_metadata'
+        bq_table = 'metadata'
 
     if not bq_table:
         print(f'No table given in {bucket_path}')
 
-    job = bigquery.job.LoadJob(
-        f'load-{file_name}',
-        [f'gs://{bucket}/{bucket_path}'],
-        bq_client.get_table(f'observations.{bq_table}'),
-        bq_client
-    )
+    dataset_id = 'observations'
+    dataset_ref = bq_client.dataset(dataset_id)
+    job_config = bigquery.LoadJobConfig()
+    job_config.source_format = bigquery.SourceFormat.PARQUET
+    uri = f"gs://{bucket}/{bucket_path}"
 
-    job.result()
-    print(f'Added {job.output_rows} to `observations.{bq_table}`')
+    load_job = bq_client.load_table_from_uri(
+        uri, dataset_ref.table(bq_table), job_config=job_config
+    )
+    print(f"Starting job {load_job.job_id}")
+
+    # Blocking.
+    load_job.result()
+    print(f"Job finished loading {load_job.output_rows}")
