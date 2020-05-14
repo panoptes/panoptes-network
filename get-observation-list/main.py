@@ -40,7 +40,7 @@ def entry_point(request):
         'iso',
         'total_minutes_exptime',
         'status',
-        'software_version'        
+        'software_version',
         'camera_id',
     ]
 
