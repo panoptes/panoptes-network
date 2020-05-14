@@ -282,7 +282,7 @@ def update_observation_file(sequence_id):
         3: 'camera_measured_b',
     }).astype('int')
     headers_df = headers_df.join(rggb_df)
-    headers_df['CAMTEMP'] = headers_df.CAMTEMP.map(lambda x: int(x.split(' ')[0]))
+    headers_df['CAMTEMP'] = headers_df.CAMTEMP.map(lambda x: float(x.split(' ')[0]))
     headers_df['CIRCCONF'] = headers_df.CIRCCONF.map(lambda x: float(x.split(' ')[0]))
 
     # Give better column names.
@@ -295,7 +295,7 @@ def update_observation_file(sequence_id):
     metadata_df = metadata_df[list(METADATA_COLUMNS.keys())].rename(columns=METADATA_COLUMNS).convert_dtypes()
 
     # Force dtypes on certain columns.
-    metadata_df['site_elevation'] = metadata_df['site_elevation'].astype('int')
+    metadata_df['site_elevation'] = metadata_df['site_elevation'].astype('float')
     metadata_df['camera_colortemp'] = metadata_df['camera_colortemp'].astype('int')
     metadata_df['camera_lens_serial_number'] = metadata_df['camera_lens_serial_number'].astype('string')
     metadata_df['camera_serial_number'] = metadata_df['camera_serial_number'].astype('string')

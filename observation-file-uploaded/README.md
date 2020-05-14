@@ -14,6 +14,31 @@ Endpoint: No public endpoint
 
 See [Deployment](../README.md#deploy) in main README for preferred deployment method.
 
+### Setup
+
+The following steps were performed to help set up the Cloud Function and should not need
+to be performed again.
+
+#### BigQuery Tables
+
+The BigQuery tables are created via a json schema located in the resources folder.
+
+These tables were created via:
+
+```bash
+bq mk \
+--table \
+--description "Image level metadata for each observation." \
+observations.metadata \
+/var/panoptes/panoptes-network/resources/observations.metadata-schema.json
+
+bq mk \
+--table \
+--description "Catalog sources for a given observation." \
+observations.sources \
+/var/panoptes/panoptes-network/resources/observations.sources-schema.json
+```
+
 
 #### Notification Creation
 

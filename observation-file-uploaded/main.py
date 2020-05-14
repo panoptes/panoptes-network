@@ -63,7 +63,7 @@ def process_topic(message, attributes):
     print(f'Looking up {bucket_link}')
 
     try:
-        _, file_ext = os.path.splitext(bucket_path)
+        file_name, file_ext = os.path.splitext(bucket_path)
         # Make sure to skip the period in the extension.
         read_func = getattr(pd, f'read_{file_ext[1:]}')
         df = read_func(bucket_link)
@@ -80,9 +80,11 @@ def process_topic(message, attributes):
     if not bq_table:
         print(f'No table given in {bucket_path}')
 
-    job = bq_client.load_table_from_uri(
-        f'gs://{bucket}/{bucket_path}',
-        f'observations.{bq_table}',
+    job = bigquery.job.LoadJob(
+        f'load-{file_name}',
+        [f'gs://{bucket}/{bucket_path}'],
+        bq_client.get_table(f'observations.{bq_table}'),
+        bq_client
     )
 
     job.result()

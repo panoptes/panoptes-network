@@ -1,0 +1,77 @@
+[
+  {
+    "type": "INTEGER",
+    "name": "picid",
+    "mode": "REQUIRED"
+  },
+  {
+    "type": "TIMESTAMP",
+    "name": "time",
+    "mode": "REQUIRED"
+  },
+  {
+    "type": "STRING",
+    "name": "sequence_id",
+    "mode": "REQUIRED"
+  },
+  {
+    "type": "FLOAT",
+    "name": "catalog_ra",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "FLOAT",
+    "name": "catalog_dec",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "FLOAT",
+    "name": "catalog_vmag",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "FLOAT",
+    "name": "catalog_vmag_err",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "INTEGER",
+    "name": "catalog_vmag_bin",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "FLOAT",
+    "name": "x",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "FLOAT",
+    "name": "y",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "INTEGER",
+    "name": "x_int",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "INTEGER",
+    "name": "y_int",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "STRING",
+    "name": "twomass",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "STRING",
+    "name": "gaia",
+    "mode": "NULLABLE"
+  },
+  {
+    "type": "STRING",
+    "name": "unit_id",
+    "mode": "NULLABLE"
+  }
+]
