@@ -56,13 +56,10 @@ def process_topic(message, attributes):
 
     print(f'Looking up {bucket_link}')
 
-    schema_fields = []
-
     bq_table = None
     if 'sources' in bucket_path:
         bq_table = 'sources'
     elif 'metadata' in bucket_path:
-        schema_fields.append(bigquery.schema.SchemaField('image_exptime', 'FLOAT'))
         bq_table = 'metadata'
 
     if not bq_table:
@@ -70,7 +67,7 @@ def process_topic(message, attributes):
 
     dataset_id = 'observations'
     dataset_ref = bq_client.dataset(dataset_id)
-    job_config = bigquery.LoadJobConfig(schema=schema_fields)
+    job_config = bigquery.LoadJobConfig()
     job_config.source_format = bigquery.SourceFormat.PARQUET
     uri = f"gs://{bucket}/{bucket_path}"
 
