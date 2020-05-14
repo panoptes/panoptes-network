@@ -296,6 +296,7 @@ def update_observation_file(sequence_id):
 
     # Force dtypes on certain columns.
     metadata_df['site_elevation'] = metadata_df['site_elevation'].astype('float')
+    metadata_df['image_exptime'] = metadata_df['image_exptime'].astype('float')
     metadata_df['camera_temp'] = metadata_df['camera_temp'].astype('float')
     metadata_df['camera_colortemp'] = metadata_df['camera_colortemp'].astype('int')
     metadata_df['camera_lens_serial_number'] = metadata_df['camera_lens_serial_number'].astype('string')
