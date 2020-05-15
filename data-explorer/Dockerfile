@@ -5,8 +5,6 @@ ENV PANUSER panoptes
 WORKDIR /app
 
 USER root
-
-COPY ./requirements.txt .
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl gnupg2 ca-certificates gcc git pkg-config && \
     # Nginx for reverse proxy (static files)
@@ -15,11 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl -fsSL https://nginx.org/keys/nginx_signing.key | apt-key add - && \
     apt-get update && \
     apt-get install nginx && \
-    # Data Explorer requirements
-    pip install -U pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    # Cleanup apt.
-    apt-get autoremove --purge -y gcc pkg-config && \
+    chown -R $PANUSER:$PANUSER /app
+
+# Data Explorer requirements
+COPY ./requirements.txt .
+USER $PANUSER
+RUN pip install -U pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Cleanup apt.
+USER root
+RUN apt-get autoremove --purge -y gcc pkg-config && \
     apt-get autoremove --purge -y && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \

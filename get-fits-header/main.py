@@ -37,7 +37,10 @@ def entry_point(request):
     if not bucket_path:
         return jsonify(success=success, msg='No bucket_path, nothing to do!')
 
-    bucket_path = bucket_path.replace('https://storage.googleapis.com/panoptes-raw-images/', '')
+    try:
+        bucket_path = bucket_path.replace('https://storage.googleapis.com/panoptes-raw-images/', '')
+    except AttributeError as e:
+        print(f'Problem with bucket_path={bucket_path}: {e!r}')
 
     fits_headers = dict()
 

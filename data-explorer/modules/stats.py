@@ -1,26 +1,29 @@
+import os
+
 import hvplot.pandas  # noqa
 import pandas as pd  # noqa
 import panel as pn
 import param
+from astropy.utils.data import download_file
+from panoptes.utils.logger import logger
 
-from astropy import units as u
+logger.enable('panoptes')
 
-COLLECTION = 'stats'
+BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com')
 
 
 class Stats(param.Parameterized):
     year = param.Selector()
     metric = param.Selector(default='Images')
 
-    def __init__(self, firestore_client, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._firestore_db = firestore_client
-        self.collection = self._firestore_db.collection(COLLECTION)
+        self._stats_path = None
         self.df = None
         self.get_data()
 
         # Set some default for the params now that we have data.
-        self.param.year.objects = sorted(self.df.Year.unique().tolist())
+        self.param.year.objects = [2016, 2017, 2018, 2019, 2020]
         self.year = 2020
 
         self.param.metric.objects = self.df.select_dtypes(include='float64').columns.tolist()
@@ -59,52 +62,11 @@ class Stats(param.Parameterized):
         )
 
     def get_data(self):
-        # Get a real time column
-        stats_rows = [d.to_dict()
-                      for d
-                      in self.collection.stream()]
-        stats_df = pd.DataFrame(stats_rows)
-
-        hours = (stats_df.total_minutes_exptime * u.minute).values.to(u.hour).value
-
-        stats_df['total_hours_exptime'] = [round(x, 2)
-                                           for x
-                                           in hours]
-        stats_df.index = pd.to_datetime(
-            stats_df.year.astype(str) + stats_df.week.map(lambda x: f'{x:02d}') + ' SUN',
-            format='%Y%W %a'
-        )
-
-        columns = {
-            'unit_id': 'Unit',
-            'week': 'Week',
-            'year': 'Year',
-            'num_images': 'Images',
-            'num_observations': 'Observations',
-            'total_minutes_exptime': 'Total Minutes',
-            'total_hours_exptime': 'Total Hours'
-        }
-
-        # Reorder
-        stats_df = stats_df.reindex(columns=list(columns.keys()))
-
-        stats_df.sort_index(inplace=True)
-        stats_df.drop(columns=['week', 'year'], inplace=True)
-
-        def reindex_by_date(group):
-            dates = pd.date_range(group.index.min(), group.index.max(), freq='W')
-            unit_id = group.iloc[0].unit_id
-            group = group.reindex(dates).fillna(0)
-            group.unit_id = unit_id
-
-            return group
-
-        stats_df = stats_df.groupby(['unit_id']).apply(reindex_by_date).droplevel(0)
-
-        stats_df['year'] = stats_df.index.year
-        stats_df['week'] = stats_df.index.week
-
-        stats_df = stats_df.rename(columns=columns)
-        stats_df = stats_df.reset_index(drop=True).set_index(['Week'])
+        logger.debug(f'Getting recent stats from {BASE_URL}/stats.csv')
+        self._stats_path = download_file(f'{BASE_URL}/stats.csv',
+                                         cache='update',
+                                         show_progress=False,
+                                         pkgname='panoptes')
+        stats_df = pd.read_csv(self._stats_path).convert_dtypes()
 
         self.df = stats_df.sort_index()

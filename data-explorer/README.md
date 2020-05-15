@@ -13,10 +13,12 @@ Each component of the Data Explorer is split into separation "modules", which ca
 developed independently of the web service. Modules can be developed, and used, in
 jupyter notebooks. 
 
+## Development
+
 ### Docker
 
 The web service is prepared as a docker image, which is the service running at
-https://panoptes-data.net.
+https://www.panoptes-data.net.
 
 To develop and run locally:
 
@@ -36,11 +38,6 @@ server local to each other.
 `PUBLIC_APP_URL=www.panoptes-data.net`: Defines the actual link to use. If developing
 locally you should change this to `127.0.0.1:8080` where 8080 is mapped to the port in
 the `docker run` command above.
-
-### Development
-
-For developing locally, the Firestore emulator should be installed rather than using
-real network access. Read the [setup instructions](https://firebase.google.com/docs/rules/emulator-setup) for details.
 
 ### Deploy
 

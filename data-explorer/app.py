@@ -2,16 +2,15 @@ import os
 from threading import Thread
 
 import panel as pn
-from bokeh.client import pull_session
-from bokeh.embed import server_session
+from bokeh.embed import server_document
 from bokeh.server.server import Server
 from flask import Flask, render_template
-from google.auth.credentials import AnonymousCredentials
-from google.cloud import firestore
 from tornado.ioloop import IOLoop
 
 from .modules.observations import ObservationsExplorer
 from .modules.stats import Stats
+
+public_app_url = os.getenv('PUBLIC_APP_URL', 'https://www.panoptes-data.net/')
 
 app = Flask(__name__)
 
@@ -22,9 +21,7 @@ def data_explorer_app(doc):
 
     # Load the modules we want.
     obs_explorer = ObservationsExplorer(name='Search Observations')
-    stats = Stats(name='Overall Stats',
-                  firestore_client=firestore.Client(project='panoptes-exp',
-                                                    credentials=AnonymousCredentials()))
+    stats = Stats(name='Overall Stats')
 
     def _stat_card(label, value):
         return pn.pane.HTML(f'''
@@ -55,12 +52,12 @@ def data_explorer_app(doc):
     observations_row = pn.Row(
         obs_explorer.widget_box,
         obs_explorer.table,
-        pn.Column(
-            obs_explorer.selected_title,
-            obs_explorer.image_preview,
-            obs_explorer.table_download_button,
-            obs_explorer.sources_download_button
-        ),
+        # pn.Column(
+        #     obs_explorer.selected_title,
+        #     obs_explorer.image_preview,
+        #     obs_explorer.table_download_button,
+        #     obs_explorer.sources_download_button
+        # ),
         sizing_mode='stretch_both',
     )
 
@@ -76,25 +73,27 @@ def data_explorer_app(doc):
 
 @app.route('/', methods=['GET'])
 def bkapp_page():
-    base_app_url = os.getenv('BOKEH_APP_URL', '127.0.0.1:5006')
-    public_app_url = os.getenv('PUBLIC_APP_URL', 'www.panoptes-data.net')
+    base_app_url = os.getenv('BOKEH_APP_URL', '127.0.0.1:8080/app')
 
-    with pull_session(url=f'http://{base_app_url}/data_explorer_app') as session:
-        # generate a script to load the customized session
-        bokeh_script = server_session(session_id=session.id,
-                                      url=f'http://{public_app_url}/data_explorer_app',
-                                      relative_urls=True)
+    bokeh_script = server_document(f'http://{base_app_url}/', relative_urls=True)
+    return render_template("main.html", bokeh_script=bokeh_script, template="Flask")
 
-        # use the script in the rendered page
-        return render_template("main.html", bokeh_script=bokeh_script, template="Flask", session_id=session.id)
+
+@app.route('/ping')
+def ping():
+    return 'pong'
 
 
 def bk_worker():
     # Can't pass num_procs > 1 in this configuration. If you need to run multiple
     # processes, see e.g. flask_gunicorn_embed.py
-    server = Server({'/data_explorer_app': data_explorer_app},
+    server = Server({'/app': data_explorer_app},
                     io_loop=IOLoop(),
-                    allow_websocket_origin=[os.getenv('PUBLIC_APP_URL', 'www.panoptes-data.net')])
+                    allow_websocket_origin=[
+                        '127.0.0.1:5000',
+                        '127.0.0.1:8080',
+                        'www.panoptes-data.net',
+                    ])
     server.start()
     server.io_loop.start()
 
