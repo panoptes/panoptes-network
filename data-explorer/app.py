@@ -73,9 +73,9 @@ def data_explorer_app(doc):
 
 @app.route('/', methods=['GET'])
 def bkapp_page():
-    base_app_url = os.getenv('BOKEH_APP_URL', '127.0.0.1:8080/app')
+    base_app_url = os.getenv('BOKEH_APP_URL', 'https://www.panoptes-data.net/app')
 
-    bokeh_script = server_document(f'http://{base_app_url}/', relative_urls=True)
+    bokeh_script = server_document(base_app_url, relative_urls=True)
     return render_template("main.html", bokeh_script=bokeh_script, template="Flask")
 
 
