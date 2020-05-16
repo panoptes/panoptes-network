@@ -16,6 +16,8 @@ pn.extension()
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/observations.csv')
 
+now = pendulum.now().replace(tzinfo=None)
+
 
 class ObservationsExplorer(param.Parameterized):
     """Param interface for inspecting observations"""
@@ -33,19 +35,20 @@ class ObservationsExplorer(param.Parameterized):
     )
     coords = param.XYCoordinates(
         label='RA/Dec Coords [deg]',
-        doc='RA/Dec Coords [degrees]', default=(0, 0)
+        doc='RA/Dec Coords [degrees]',
+        default=(0, 0)
     )
     radius = param.Number(
         label='Search radius [degrees]',
         doc='Search radius [degrees]',
-        default=5.0,
-        bounds=(0, 25),
-        softbounds=(1, 15)
+        default=5.,
+        bounds=(0, 180),
+        softbounds=(0, 25)
     )
     time = param.DateRange(
         label='Date Range',
-        default=(pendulum.parse('2018-01-01'), pendulum.now()),
-        bounds=(pendulum.parse('2018-01-01'), pendulum.now())
+        default=(pendulum.parse('2016-01-01').replace(tzinfo=None), now),
+        bounds=(pendulum.parse('2016-01-01').replace(tzinfo=None), now)
     )
     min_num_images = param.Integer(
         doc='Minimum number of images.',
@@ -82,6 +85,7 @@ class ObservationsExplorer(param.Parameterized):
         # self.images_df = get_metadata(sequence_id=sequence_id)
 
         # Create the source objects.
+        self._initial_loads = 0
         self.update_dataset()
 
         # def obs_row_selected(attrname, old, new):
@@ -93,28 +97,38 @@ class ObservationsExplorer(param.Parameterized):
 
     @param.depends('coords', 'radius', 'time', 'min_num_images', 'unit_id', 'search_name')
     def update_dataset(self):
-        # If using the default unit_ids option, then search for all.
-        unit_ids = self.unit_id
-        if unit_ids == self.param.unit_id.objects[0:1]:
-            unit_ids = self.param.unit_id.objects[1:]
+        if self._initial_loads < 2:  # This hack makes me cry.
+            # Get just the recent result on initial load
+            df = search_observations(ra=180,
+                                     dec=0,
+                                     radius=180,
+                                     start_date=now.subtract(months=1),
+                                     end_date=now,
+                                     min_num_images=1,
+                                     ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
+            self._initial_loads += 1
+        else:
+            # If using the default unit_ids option, then search for all.
+            unit_ids = self.unit_id
+            if unit_ids == self.param.unit_id.objects[0:1]:
+                unit_ids = self.param.unit_id.objects[1:]
 
-        if self.search_name != '':
-            coords = SkyCoord.from_name(self.search_name)
-            self.coords = (
-                round(coords.ra.value, 3),
-                round(coords.dec.value, 3)
-            )
+            if self.search_name != '':
+                coords = SkyCoord.from_name(self.search_name)
+                self.coords = (
+                    round(coords.ra.value, 3),
+                    round(coords.dec.value, 3)
+                )
 
-        # Search for the observations given the current params.
-        df = search_observations(ra=self.coords[0],
-                                 dec=self.coords[1],
-                                 radius=self.radius,
-                                 start_date=self.time[0],
-                                 end_date=self.time[1],
-                                 min_num_images=self.min_num_images,
-                                 unit_id=unit_ids
-                                 )
-        df.time = pd.to_datetime(df.time)
+            # Search for the observations given the current params.
+            df = search_observations(ra=self.coords[0],
+                                     dec=self.coords[1],
+                                     radius=self.radius,
+                                     start_date=self.time[0],
+                                     end_date=self.time[1],
+                                     min_num_images=self.min_num_images,
+                                     unit_id=unit_ids
+                                     ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
 
         return ColumnDataSource(data=df, name='observations_source')
 

@@ -24,7 +24,12 @@ To develop and run locally:
 
 ```bash
 docker build -t data-explorer:develop .
-docker run --rm --name data-explorer -p 8080:80 -d data-explorer:develop
+docker run \
+    --rm \
+    --name data-explorer \
+    -p 8080:80 \
+    -e BOKEH_APP_URL=http://127.0.0.1:8080/app \
+    data-explorer:develop
 ```
 
 This will make the service available at https://127.0.0.1:8080.
