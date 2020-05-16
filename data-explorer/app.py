@@ -16,7 +16,6 @@ app = Flask(__name__)
 
 
 def data_explorer_app(doc):
-    # TODO Switch this to no longer use the template interface.
     tmpl = pn.Template('')
 
     # Load the modules we want.

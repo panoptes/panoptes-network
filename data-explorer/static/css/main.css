@@ -42,6 +42,10 @@ nav.navbar {
     color: #8F99A3;
 }
 
+.card-body {
+    min-width: 17rem;
+}
+
 .card .content {
     font-size: 14px;
 }
