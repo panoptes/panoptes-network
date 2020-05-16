@@ -41,7 +41,7 @@ class ObservationsExplorer(param.Parameterized):
     radius = param.Number(
         label='Search radius [degrees]',
         doc='Search radius [degrees]',
-        default=5.,
+        default=15.,
         bounds=(0, 180),
         softbounds=(0, 25)
     )
