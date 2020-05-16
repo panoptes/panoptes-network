@@ -9,7 +9,7 @@ from panoptes.utils.logger import logger
 
 logger.enable('panoptes')
 
-BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com')
+BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/stats.csv')
 
 
 class Stats(param.Parameterized):
@@ -62,11 +62,11 @@ class Stats(param.Parameterized):
         )
 
     def get_data(self):
-        logger.debug(f'Getting recent stats from {BASE_URL}/stats.csv')
-        self._stats_path = download_file(f'{BASE_URL}/stats.csv',
+        logger.debug(f'Getting recent stats from {BASE_URL}')
+        self._stats_path = download_file(f'{BASE_URL}',
                                          cache='update',
                                          show_progress=False,
                                          pkgname='panoptes')
-        stats_df = pd.read_csv(self._stats_path).convert_dtypes()
+        stats_df = pd.read_csv(self._stats_path).convert_dtypes(convert_integer=False)
 
         self.df = stats_df.sort_index()
