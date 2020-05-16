@@ -48,16 +48,36 @@ def data_explorer_app(doc):
         sizing_mode='stretch_both',
     )
 
-    observations_row = pn.Row(
-        obs_explorer.widget_box,
-        obs_explorer.table,
-        # pn.Column(
-        #     obs_explorer.selected_title,
-        #     obs_explorer.image_preview,
-        #     obs_explorer.table_download_button,
-        #     obs_explorer.sources_download_button
-        # ),
+    obs_widget_box = pn.WidgetBox(
+        pn.Param(
+            obs_explorer.param,
+            widgets={
+                'unit_id': pn.widgets.MultiChoice,
+                'search_name': {
+                    "type": pn.widgets.TextInput,
+                    "placeholder": "Lookup RA/Dec by object name",
+                },
+            },
+            disabled=True
+        ),
         sizing_mode='stretch_both',
+        max_width=320
+    )
+
+    observations_row = pn.Column(
+        pn.panel('#### Observations'),
+        pn.Row(
+            obs_widget_box,
+            obs_explorer.table,
+            pn.Column(
+                obs_explorer.selected_title,
+                obs_explorer.image_preview,
+                # obs_explorer.image_table,
+                obs_explorer.table_download_button,
+                obs_explorer.sources_download_button
+            ),
+            sizing_mode='stretch_both',
+        )
     )
 
     main_layout = pn.Column(
@@ -88,6 +108,7 @@ def bk_worker():
     # processes, see e.g. flask_gunicorn_embed.py
     server = Server({'/app': data_explorer_app},
                     io_loop=IOLoop(),
+                    unused_session_lifetime=7.2e6,  # 4 hours in ms
                     allow_websocket_origin=[
                         '127.0.0.1:5000',
                         '127.0.0.1:8080',

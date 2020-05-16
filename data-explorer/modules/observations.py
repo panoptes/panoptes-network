@@ -1,4 +1,5 @@
 import os
+from io import StringIO
 
 import hvplot.pandas  # noqa
 import pandas as pd  # noqa
@@ -6,8 +7,9 @@ import panel as pn
 import param
 import pendulum
 from astropy.coordinates import SkyCoord
-from bokeh.models import (ColumnDataSource, DataTable, NumberFormatter, TableColumn)
-from panoptes.utils.data import search_observations
+from astropy.utils.data import download_file
+from bokeh.models import (ColumnDataSource, DataTable, TableColumn, NumberFormatter, DateFormatter)
+from panoptes.utils.data import search_observations, get_metadata
 from panoptes.utils.logger import logger
 
 logger.enable('panoptes')
@@ -15,6 +17,7 @@ pn.extension()
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/observations.csv')
+OBSERVATIONS_BASE_URL = os.getenv('OBSERVATIONS_BASE_URL', 'https://storage.googleapis.com/panoptes-observations')
 
 now = pendulum.now().replace(tzinfo=None)
 
@@ -29,6 +32,11 @@ class ObservationsExplorer(param.Parameterized):
         doc='The DataFrame for the images from the selected observations.',
         precedence=-1  # Don't show widget
     )
+    show_recent = param.Boolean(
+        label='Show recent observations',
+        doc='Show recent observations',
+        default=True
+    )
     search_name = param.String(
         label='Coordinates for object',
         doc='Field name for coordinate lookup',
@@ -39,7 +47,7 @@ class ObservationsExplorer(param.Parameterized):
         default=(0, 0)
     )
     radius = param.Number(
-        label='Search radius [degrees]',
+        label='Search radius [deg]',
         doc='Search radius [degrees]',
         default=15.,
         bounds=(0, 180),
@@ -64,40 +72,27 @@ class ObservationsExplorer(param.Parameterized):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # self.dataframe = pd.read_csv(BASE_URL)
+        logger.debug(f'Getting recent stats from {BASE_URL}')
+        self._observations_path = download_file(f'{BASE_URL}',
+                                                cache='update',
+                                                show_progress=False,
+                                                pkgname='panoptes')
+        self._observations_df = pd.read_csv(self._observations_path).convert_dtypes()
+
+        # Setup up widgets
 
         # Set some default for the params now that we have data.
-        units = [
-            'The Whole World! 🌎',
-            'PAN001',
-            'PAN006',
-            'PAN008',
-            'PAN012',
-            'PAN018',
-        ]
-        # units = sorted(self.dataframe.unit_id.unique())
-        # units.insert(0, 'The Whole World! 🌎')
+        units = sorted(self._observations_df.unit_id.unique())
+        units.insert(0, 'The Whole World! 🌎')
         self.param.unit_id.objects = units
         self.unit_id = [units[0]]
 
-        # Get the first image of the first observation.
-        # sequence_id = str(self.observation_df.iloc[0].sequence_id)
-        # self.images_df = get_metadata(sequence_id=sequence_id)
-
         # Create the source objects.
-        self._initial_loads = 0
         self.update_dataset()
-
-        # def obs_row_selected(attrname, old, new):
-        #     newest = new[-1]
-        #     row = self.observation_df.iloc[newest]
-        #     self.images_df = get_metadata(sequence_id=row.sequence_id).dropna()
-        #
-        # self.observation_source.selected.on_change('indices', obs_row_selected)
 
     @param.depends('coords', 'radius', 'time', 'min_num_images', 'unit_id', 'search_name')
     def update_dataset(self):
-        if self._initial_loads < 2:  # This hack makes me cry.
+        if self.show_recent:
             # Get just the recent result on initial load
             df = search_observations(ra=180,
                                      dec=0,
@@ -105,8 +100,8 @@ class ObservationsExplorer(param.Parameterized):
                                      start_date=now.subtract(months=1),
                                      end_date=now,
                                      min_num_images=1,
+                                     source=self._observations_df
                                      ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
-            self._initial_loads += 1
         else:
             # If using the default unit_ids option, then search for all.
             unit_ids = self.unit_id
@@ -130,83 +125,96 @@ class ObservationsExplorer(param.Parameterized):
                                      unit_id=unit_ids
                                      ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
 
-        return ColumnDataSource(data=df, name='observations_source')
+        df.time = pd.to_datetime(df.time)
+        cds = ColumnDataSource(data=df, name='observations_source')
 
-    def widget_box(self):
-        return pn.WidgetBox(
-            pn.Param(
-                self.param,
-                widgets={
-                    'unit_id': pn.widgets.MultiChoice,
-                    'search_name': {
-                        "type": pn.widgets.TextInput,
-                        "placeholder": "Lookup RA/Dec by object name"
-                    },
-                }
-            ),
-            sizing_mode='stretch_both',
-            max_width=320
-        )
+        def obs_row_selected(attrname, old_row_index, new_row_index):
+            # We only lookup one even if they select multiple rows.
+            newest_index = new_row_index[-1]
+            row = df.iloc[newest_index]
+            print(f'Looking up sequence_id={row.sequence_id}')
+            self.images_df = get_metadata(sequence_id=row.sequence_id)
+            if self.images_df is not None:
+                self.images_df = self.images_df.dropna()
 
-    # def selected_title(self):
-    #     try:
-    #         sequence_id = self.images_df.sequence_id.iloc[0]
-    #     except Exception:
-    #         sequence_id = 'Select a image'
-    #     return pn.panel(f'<h5>{sequence_id}</h5>')
+        cds.selected.on_change('indices', obs_row_selected)
 
-    # @param.depends('images_df')
-    # def image_table(self):
-    #     columns = [
-    #         ('time', 'Time [UTC]')
-    #     ]
-    #     try:
-    #         images_table = self.images_df.hvplot.table(columns=columns).opts(
-    #             width=250,
-    #             height=200,
-    #             title=f'Images ({len(self.images_df)})',
-    #         )
-    #     except Exception:
-    #         images_table = self.images_df.hvplot()
-    #
-    #     return images_table
-    #
-    # @param.depends('images_df')
-    # def image_preview(self):
-    #     image_url = ''
-    #     with suppress(AttributeError):
-    #         image_url = self.images_df.public_url.dropna().iloc[0].replace('.fits.fz', '.jpg')
-    #
-    #     return pn.pane.HTML(f'''
-    #         <div class="media" style="width: 300px; height: 200px">
-    #             <a href="{image_url}" target="_blank">
-    #               <img src="{image_url}" class="card-img-top" alt="Observation Image">
-    #             </a>
-    #         </div>
-    #     ''')
+        return cds
 
-    # @param.depends('observation_df')
-    # def fits_file_list_to_csv_cb(self):
-    #     df = self.images_df.public_url.dropna()
-    #     sio = StringIO()
-    #     df.to_csv(sio, index=False, header=False)
-    #     sio.seek(0)
-    #     return sio
-    #
-    # def table_download_button(self):
-    #     sequence_id = self.images_df.sequence_id.iloc[0]
-    #     return pn.widgets.FileDownload(
-    #         callback=self.fits_file_list_to_csv_cb,
-    #         filename=f'fits-list-{sequence_id}.txt',
-    #         label='Download FITS List (.txt)',
-    #     )
-    #
-    # def sources_download_button(self):
-    #     sequence_id = self.images_df.sequence_id.iloc[0]
-    #     parquet_url = f'https://storage.googleapis.com/panoptes-processed-observations/{sequence_id}.parquet'
-    #     return pn.pane.HTML(f"""
-    #         <a href="{parquet_url}" target="_blank">Download sources list (.parquet)</a>
-    #     """)
+    @param.depends("images_df")
+    def selected_title(self):
+        try:
+            sequence_id = self.images_df.sequence_id.iloc[0]
+        except AttributeError:
+            sequence_id = ''
+        return pn.panel(f'<h5>{sequence_id}</h5>')
+
+    @param.depends('images_df')
+    def image_table(self):
+        columns = [
+            ('time', 'Time [UTC]')
+        ]
+        try:
+            images_table = self.images_df.hvplot.table(columns=columns).opts(
+                width=250,
+                height=100,
+                title=f'Images ({len(self.images_df)})',
+            )
+        except AttributeError:
+            images_table = self.images_df
+
+        return images_table
+
+    @param.depends('images_df')
+    def image_preview(self):
+        try:
+            image_url = self.images_df.public_url.dropna().iloc[0].replace('.fits.fz', '.jpg')
+            return pn.pane.HTML(f'''
+                <div class="media" style="width: 300px; height: 200px">
+                    <a href="{image_url}" target="_blank">
+                      <img src="{image_url}" class="card-img-top" alt="Observation Image">
+                    </a>
+                </div>
+            ''')
+        except AttributeError:
+            return ''
+
+    @param.depends('observation_df')
+    def fits_file_list_to_csv_cb(self):
+        """ Generates a CSV file from current image list."""
+        df = self.images_df.public_url.dropna()
+        sio = StringIO()
+        df.to_csv(sio, index=False, header=False)
+        sio.seek(0)
+        return sio
+
+    def table_download_button(self):
+        """ A button for downloading the images CSV."""
+        try:
+            sequence_id = self.images_df.sequence_id.iloc[0]
+            return pn.widgets.FileDownload(
+                callback=self.fits_file_list_to_csv_cb,
+                filename=f'fits-list-{sequence_id}.txt',
+                label='Download FITS List (.txt)',
+            )
+        except AttributeError:
+            return ''
+
+    def sources_download_button(self):
+        try:
+            sequence_id = self.images_df.sequence_id.iloc[0]
+            parquet_url = f'{OBSERVATIONS_BASE_URL}/{sequence_id}-sources.parquet'
+            source_btn = pn.widgets.Button(
+                name='Download sources list (.parquet)',
+            )
+
+            source_btn.js_on_click(args=dict(url=parquet_url), code='''
+                window.open(url, '_blank')
+            ''')
+
+            return source_btn
+        except AttributeError:
+            return ''
 
     def table(self):
         columns = [
@@ -223,8 +231,8 @@ class ObservationsExplorer(param.Parameterized):
             TableColumn(
                 field="time",
                 title="Time [UTC]",
-                # formatter=DateFormatter(format='%Y-%m-%d %H:%M'),
-                width=160,
+                formatter=DateFormatter(format='%Y-%m-%d %H:%M'),
+                width=130,
             ),
             TableColumn(
                 field="field_name",
@@ -249,6 +257,11 @@ class ObservationsExplorer(param.Parameterized):
                 width=40,
             ),
             TableColumn(
+                field="status",
+                title="Status",
+                width=75,
+            ),
+            TableColumn(
                 field="exptime",
                 title="Exptime [sec]",
                 formatter=NumberFormatter(format="0.00"),
@@ -262,8 +275,9 @@ class ObservationsExplorer(param.Parameterized):
             ),
         ]
 
+        cds = self.update_dataset()
         data_table = DataTable(
-            source=self.update_dataset(),
+            source=cds,
             name='observations_table',
             columns=columns,
             index_position=None,
