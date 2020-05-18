@@ -181,10 +181,14 @@ def process_topic(message):
 
     if force is False:
         # Check if we have previously matched but forgot to mark.
-        source_file_exists = output_bucket.blob(f'{sequence_id}-sources.parquet').exists()
-        metadata_file_exists = output_bucket.blob(f'{sequence_id}-metadata.parquet').exists()
-        if obs_status == 'solved' and source_file_exists and metadata_file_exists:
-            logger.debug(f'status="solved" but files exist, setting status="matched" for sequence_id={sequence_id}')
+        if obs_status == 'solved':
+            source_file_exists = output_bucket.blob(f'{sequence_id}-sources.parquet').exists()
+            metadata_file_exists = output_bucket.blob(f'{sequence_id}-metadata.parquet').exists()
+            if source_file_exists and metadata_file_exists:
+                logger.debug(f'status="solved" but files exist, setting status="matched" for sequence_id={sequence_id}')
+                observation_doc_ref.set(dict(status='matched'), merge=True)
+                message.ack()
+                return
 
         if obs_status != 'receiving_files':
             logger.warning(f'Observation status={obs_status}. Will only proceed if stats=received_files or force=True')
