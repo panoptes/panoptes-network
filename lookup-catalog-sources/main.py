@@ -1,5 +1,6 @@
 import os
 import sys
+from contextlib import suppress
 from io import BytesIO
 
 import numpy as np
@@ -24,7 +25,7 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-observations')
 
 PUBSUB_SUBSCRIPTION = 'read-lookup-catalog-sources'
-MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
+MAX_MESSAGES = os.getenv('MAX_MESSAGES', 5)
 
 FITS_HEADER_URL = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header'
 
@@ -178,10 +179,21 @@ def process_topic(message):
     observation_doc_ref = firestore_db.document(f'observations/{sequence_id}')
     obs_status = observation_doc_ref.get(['status']).get('status')
 
-    if obs_status != 'receiving_files' and not force:
-        logger.warning(f'Observation status={obs_status}. Will only proceed if stats=received_files or force=True')
-        message.ack()
-        return
+    if force is False:
+        # Check if we have previously matched but forgot to mark.
+        if obs_status == 'solved':
+            source_file_exists = output_bucket.blob(f'{sequence_id}-sources.parquet').exists()
+            metadata_file_exists = output_bucket.blob(f'{sequence_id}-metadata.parquet').exists()
+            if source_file_exists and metadata_file_exists:
+                logger.debug(f'status="solved" but files exist, setting status="matched" for sequence_id={sequence_id}')
+                observation_doc_ref.set(dict(status='matched'), merge=True)
+                message.ack()
+                return
+
+        if obs_status != 'receiving_files':
+            logger.warning(f'Observation status={obs_status}. Will only proceed if stats=received_files or force=True')
+            message.ack()
+            return
 
     # If given a relative path instead of url, attempt default public location.
     if not bucket_path.startswith('https'):
@@ -246,6 +258,10 @@ def process_topic(message):
     # Update observation metadata file
     update_observation_file(sequence_id)
 
+    # Mark observation as updated.
+    observation_doc_ref.set(dict(status='matched'), merge=True)
+    print(f'Observation status set to "matched" for sequence_id={sequence_id}')
+
     # Clear the WCS from the cache.
     logger.debug(f'Clearing download cache for {bucket_path}')
     clear_download_cache(bucket_path)
@@ -294,13 +310,19 @@ def update_observation_file(sequence_id):
     # Rename to friendlier columns.
     metadata_df = metadata_df[list(METADATA_COLUMNS.keys())].rename(columns=METADATA_COLUMNS).convert_dtypes()
 
+    dtype_lookup = {
+        'site_elevation': 'float',
+        'image_exptime': 'float',
+        'camera_temp': 'float',
+        'camera_colortemp': 'int',
+        'camera_lens_serial_number': 'string',
+        'camera_serial_number': 'string',
+    }
+
     # Force dtypes on certain columns.
-    metadata_df['site_elevation'] = metadata_df['site_elevation'].astype('float')
-    metadata_df['image_exptime'] = metadata_df['image_exptime'].astype('float')
-    metadata_df['camera_temp'] = metadata_df['camera_temp'].astype('float')
-    metadata_df['camera_colortemp'] = metadata_df['camera_colortemp'].astype('int')
-    metadata_df['camera_lens_serial_number'] = metadata_df['camera_lens_serial_number'].astype('string')
-    metadata_df['camera_serial_number'] = metadata_df['camera_serial_number'].astype('string')
+    for col, dtype in dtype_lookup.items():
+        with suppress(TypeError):
+            metadata_df[col] = metadata_df[col].astype(dtype)
 
     bio = BytesIO()
     metadata_df.dropna().to_parquet(bio, index=False)
