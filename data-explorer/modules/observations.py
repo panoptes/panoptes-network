@@ -19,8 +19,6 @@ PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/observations.csv')
 OBSERVATIONS_BASE_URL = os.getenv('OBSERVATIONS_BASE_URL', 'https://storage.googleapis.com/panoptes-observations')
 
-now = pendulum.now().replace(tzinfo=None)
-
 
 class ObservationsExplorer(param.Parameterized):
     """Param interface for inspecting observations"""
@@ -55,8 +53,8 @@ class ObservationsExplorer(param.Parameterized):
     )
     time = param.DateRange(
         label='Date Range',
-        default=(pendulum.parse('2016-01-01').replace(tzinfo=None), now),
-        bounds=(pendulum.parse('2016-01-01').replace(tzinfo=None), now)
+        default=(pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None)),
+        bounds=(pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None))
     )
     min_num_images = param.Integer(
         doc='Minimum number of images.',
@@ -94,6 +92,7 @@ class ObservationsExplorer(param.Parameterized):
     def update_dataset(self):
         if self.show_recent:
             # Get just the recent result on initial load
+            now = pendulum.now().replace(tzinfo=None)
             df = search_observations(ra=180,
                                      dec=0,
                                      radius=180,

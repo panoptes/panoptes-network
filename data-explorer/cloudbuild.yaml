@@ -1,6 +1,6 @@
 steps:
 # Build
-- name: 'docker'
+- name: 'gcr.io/cloud-builders/docker'
   id: 'base'
   args:
   - 'build'
@@ -10,7 +10,7 @@ steps:
   waitFor: ['-']
 
 # Push
-- name: 'docker'
+- name: 'gcr.io/cloud-builders/docker'
   id: 'push-base'
   args:
   - 'push'
