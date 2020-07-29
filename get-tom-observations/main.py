@@ -10,7 +10,7 @@ db_name = os.getenv('DB_NAME')
 
 db_user = os.getenv('DB_USER')
 driver_name = 'postgres+pg8000'
-query_string = dict({"unix_sock": "/cloudsql/{}/.s.PGSQL.5432".format(connection_name)})
+query_string = dict(unix_soc=f"/cloudsql/{connection_name}/.s.PGSQL.5432")
 
 
 def entry_point(request):
