@@ -33,5 +33,5 @@ def entry_point(request):
         with db.connect() as conn:
             output = conn.execute(stmt)
     except Exception as e:
-        return 'Error: {}'.format(str(e))
+        return f'Error getting observations from database: {e!r}')
     return jsonify({'output': [dict(row) for row in output] })
