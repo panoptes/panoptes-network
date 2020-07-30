@@ -44,14 +44,15 @@ def entry_point(request):
     records = Table("tom_observations_observationrecord", metadata, autoload=True, autoload_with=db)
     targets = Table("tom_targets_target", metadata, autoload=True, autoload_with=db)
 
-    re = records.alias("a")
-    ta = targets.alias("b")
+    ta_id = targets.c.id.alias("a")  # TODO: Both tables have column name 'id'.
+    # Rename one of the columns to perform inner join.
 
     try:
         with db.connect() as conn:
-            stmt = select([re, ta]).where(
-                re.c.id == ta.c.id
+            stmt = select([records, targets]).where(
+                records.c.id == ta_id
             )  # Joins target, observationrecord tables by primary key
+            # Note: Both tables must have an equal number of columns.
             output = conn.execute(stmt)
     except Exception as e:
         return f"Error getting observations from database: {e!r}"
