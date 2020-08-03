@@ -1,4 +1,5 @@
 import os
+import sqlalchemy
 
 from sqlalchemy import create_engine, engine
 from panoptes.utils.serializers import from_json
@@ -11,7 +12,7 @@ db_name = os.getenv("DB_NAME")
 
 db_user = os.getenv("DB_USER")
 driver_name = "postgres+pg8000"  # Note: Connecting via the psycopg2 driver was throwing an error
-query_string = query_string = {"unix_sock": "/cloudsql/{}/.s.PGSQL.5432".format(connection_name)}
+query_string = {"unix_sock": "/cloudsql/{}/.s.PGSQL.5432".format(connection_name)}
 
 # Sets up the database
 db = create_engine(
