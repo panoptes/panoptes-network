@@ -2,7 +2,6 @@ import os
 from io import StringIO
 
 import pandas as pd
-import pendulum
 from flask import jsonify
 from google.cloud import firestore
 from google.cloud import storage
@@ -18,12 +17,11 @@ firestore_db = firestore.Client()
 # Entry point
 def entry_point(request):
     # TODO could pull these from request
-    start_time = pendulum.now().subtract(months=1)
     doc_limit = 100
     output_filename = 'recent.csv'
 
     # Get the recent query.
-    obs_query = firestore_db.collection('observations').where('received_time', '>=', start_time).limit(doc_limit)
+    obs_query = firestore_db.collection('observations').order_by('received_time').limit(doc_limit)
 
     # Gather the documents.
     obs_docs = [{'sequence_id': d.id, **d.to_dict()} for d in obs_query.stream()]
