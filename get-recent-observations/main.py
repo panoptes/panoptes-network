@@ -2,7 +2,6 @@ import os
 from io import StringIO
 
 import pandas as pd
-import pendulum
 from flask import jsonify
 from google.cloud import firestore
 from google.cloud import storage
@@ -18,7 +17,6 @@ firestore_db = firestore.Client()
 # Entry point
 def entry_point(request):
     # TODO could pull these from request
-    start_time = pendulum.now().subtract(months=1)
     doc_limit = 100
     output_filename = 'recent.csv'
 
