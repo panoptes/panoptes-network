@@ -67,6 +67,9 @@ def index():
         bucket_path = attributes['objectId']
 
         new_url = plate_solve(bucket_path)
+    except (FileNotFoundError, FileExistsError) as e:
+        print(e)
+        return '', 204
     except Exception as e:
         print(f'Exception in plate-solve: {e!r}')
         print(f'Raw message {pubsub_message!r}')
@@ -96,10 +99,16 @@ def plate_solve(bucket_path):
 
     temp_incoming_fits = tempfile.NamedTemporaryFile(suffix=f'.{fileext}')
 
-    # Blob for solved image.
+    # Blob for plate-solved image.
+    outgoing_blob = outgoing_bucket.blob(bucket_path)
+    if outgoing_blob.exists():
+        # TODO make this smarter?
+        raise FileExistsError(f'File has already been processed at {outgoing_blob.public_url}')
+
+    # Blob for calibrated image.
     incoming_blob = incoming_bucket.blob(bucket_path)
     if incoming_blob.exists() is False:
-        raise Exception(f'File does not exist at location: {incoming_blob.name}')
+        raise FileNotFoundError(f'File does not exist at location: {incoming_blob.name}')
 
     print(f'Fetching {incoming_blob.name} to {temp_incoming_fits.name}')
     incoming_blob.download_to_filename(temp_incoming_fits.name)
@@ -110,7 +119,9 @@ def plate_solve(bucket_path):
 
     try:
         print(f"Starting plate-solving for FITS file {bucket_path}")
-        solve_info = fits_utils.get_solve_field(temp_incoming_fits.name, skip_solved=False)
+        solve_info = fits_utils.get_solve_field(temp_incoming_fits.name,
+                                                skip_solved=False,
+                                                timeout=300)
         print(f'Solving completed successfully for {bucket_path}')
         print(f'{bucket_path} solve info: {solve_info}')
 
@@ -141,7 +152,6 @@ def plate_solve(bucket_path):
         print(f'Problem cleaning headers: {e!r}')
 
     #  Upload the plate-solved image.
-    outgoing_blob = outgoing_bucket.blob(bucket_path)
     print(f'Uploading to {outgoing_blob.public_url}')
     outgoing_blob.upload_from_filename(temp_incoming_fits.name)
 
@@ -161,3 +171,23 @@ def plate_solve(bucket_path):
     )
 
     return outgoing_blob.public_url
+
+
+def move_blob_to_bucket(blob_name, new_bucket, remove=True):
+    """Copy the blob from the incoming bucket to the `new_bucket`.
+
+    Args:
+        blob_name (str): The relative path to the blob.
+        new_bucket (str): The name of the bucket where we move/copy the file.
+        remove (bool, optional): If file should be removed afterwards, i.e. a move, or just copied.
+            Default True as per the function name.
+    """
+    print(f'Moving {blob_name} → {new_bucket}')
+    incoming_bucket.copy_blob(incoming_bucket.get_blob(blob_name), new_bucket)
+    if remove:
+        incoming_bucket.delete_blob(blob_name)
+
+
+def copy_blob_to_bucket(*args, **kwargs):
+    kwargs['remove'] = False
+    move_blob_to_bucket(*args, **kwargs)

@@ -62,11 +62,14 @@ def entry_point(raw_message, context):
             raise Exception(f'No file requested')
 
         subtract_background(bucket_path)
-        # Flush the stdout to avoid log buffering.
-        sys.stdout.flush()
 
+    except (FileNotFoundError, FileExistsError) as e:
+        print(e)
     except Exception as e:
         print(f'error: {e}')
+    finally:
+        # Flush the stdout to avoid log buffering.
+        sys.stdout.flush()
 
 
 def subtract_background(bucket_path):
@@ -100,10 +103,12 @@ def subtract_background(bucket_path):
         'original': incoming_blob.public_url
     }
 
+    if outgoing_blob.exists() and bg_blob.exists():
+        raise FileExistsError(f'Both the background and calibrated file already exist: {paths!r}')
+
     # Need a valid image.
     if incoming_blob.exists() is False:
-        print(f'No image at {bucket_path}, nothing to do')
-        return
+        raise FileNotFoundError(f'No image at {bucket_path}, nothing to do')
 
     # Temp file paths for holding data.
     temp_incoming_path = tempfile.NamedTemporaryFile()

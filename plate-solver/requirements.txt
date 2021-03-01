@@ -1,5 +1,5 @@
+Flask
 google-cloud-firestore
 google-cloud-storage
-panoptes-utils[images]
 gunicorn
-Flask
+panoptes-utils[images]>=0.2.32

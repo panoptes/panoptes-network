@@ -192,16 +192,11 @@ def add_records_to_db(bucket_path):
     header = lookup_fits_header(bucket_path)
     print(f'Getting sequence_id and image_id from {bucket_path!r}')
 
-    try:
-        image_id = image_id_from_path(str(bucket_path))
-        sequence_id = sequence_id_from_path(bucket_path)
-        unit_id, camera_id, sequence_time = sequence_id.split('_')
-    except Exception:
-        # The above are failing on certain cloud functions for unknown reasons.
-        unit_id, camera_id, sequence_time, image_filename = bucket_path.split('/')
-        image_time = image_filename.split('.')[0]
-        sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
-        image_id = f'{unit_id}_{camera_id}_{image_time}'
+    # The above are failing on certain cloud functions for unknown reasons.
+    unit_id, camera_id, sequence_time, image_filename = bucket_path.split('/')
+    image_time = image_filename.split('.')[0]
+    sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
+    image_id = f'{unit_id}_{camera_id}_{image_time}'
 
     print(f'Found sequence_id={sequence_id} image_id={image_id}')
 
@@ -332,11 +327,10 @@ def lookup_fits_header(bucket_path):
     See https://fits.gsfc.nasa.gov/fits_primer.html for overview of FITS format.
 
     Args:
-        bucket_path (`google.cloud.storage.blob.Blob`): Blob or path to remote blob.
-            If just the blob name is given then the blob is looked up first.
+        bucket_path (str): Path to the blob.
 
     Returns:
-        dict: FITS header as a dictonary.
+        dict: FITS header as a dictionary.
     """
     card_num = 1
     if bucket_path.endswith('.fz'):
