@@ -3,4 +3,4 @@ google-auth
 google-cloud-firestore
 halo
 mock
-panoptes-utils>=0.2.12
+panoptes-utils>=0.2.30

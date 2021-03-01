@@ -1,55 +1,48 @@
-import base64
-import json
 import os
 import sys
+import base64
+import re
 from contextlib import suppress
 
 from dateutil.parser import parse as parse_date
 from google.cloud import firestore
-from google.cloud import pubsub
 from google.cloud import storage
-from panoptes.utils import image_id_from_path
-from panoptes.utils import sequence_id_from_path
-from panoptes.utils.logger import logger
-
-logger.remove()
-logger.add(sys.stdout,
-           level=os.getenv('LOG_LEVEL', 'INFO'),
-           format='{message}',
-           colorize=False,
-           backtrace=True,
-           diagnose=True
-           )
 
 FITS_HEADER_URL = os.getenv('FITS_HEADER_URL',
                             'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
 
-publisher = pubsub.PublisherClient()
+PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
+                                /(?P<camera_id>[a-gA-G0-9]{6})
+                                /?(?P<field_name>.*)?
+                                /(?P<sequence_time>[0-9]{8}T[0-9]{6})
+                                /(?P<image_time>[0-9]{8}T[0-9]{6})
+                                \.(?P<fileext>.*)$""",
+                          re.VERBOSE)
 
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
-pubsub_base = f'projects/{project_id}/topics'
 
-plate_solve_topic = os.getenv('SOLVER_topic', 'plate-solve')
-make_rgb_topic = os.getenv('RGB_topic', 'make-rgb-fits')
+try:
+    firestore_db = firestore.Client()
 
-# Storage
-sc = storage.Client()
-incoming_bucket = sc.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-incoming'))
-raw_images_bucket = sc.get_bucket(os.getenv('RAW_BUCKET_NAME', 'panoptes-raw-images'))
-timelapse_bucket = sc.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
-temp_bucket = sc.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-temp'))
-raw_archive_bucket = sc.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-raw-archive'))
-jpg_images_bucket = sc.get_bucket(os.getenv('JPG_BUCKET_NAME', 'panoptes-exp.appspot.com'))
-
-firestore_db = firestore.Client()
+    # Storage
+    sc = storage.Client()
+    incoming_bucket = sc.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-images-incoming'))
+    outgoing_bucket = sc.get_bucket(os.getenv('RAW_BUCKET_NAME', 'panoptes-images-raw'))
+    timelapse_bucket = sc.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
+    temp_bucket = sc.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-images-temp'))
+    raw_archive_bucket = sc.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-images-archive'))
+    jpg_images_bucket = sc.get_bucket(os.getenv('JPG_BUCKET_NAME', 'panoptes-images-pretty'))
+except RuntimeError:
+    print(f"Can't load Google credentials, exiting")
+    sys.exit(1)
 
 
 def entry_point(raw_message, context):
     """Background Cloud Function to be triggered by Cloud Storage.
 
     This will send a pubsub message to a certain topic depending on
-    what type of file was uploaded. The servies responsible for those
-    topis do all the processing.
+    what type of file was uploaded. The services responsible for those
+    topics do all the processing.
 
     Args:
         message (dict): The Cloud Functions event payload.
@@ -60,17 +53,22 @@ def entry_point(raw_message, context):
     try:
         message = base64.b64decode(raw_message['data']).decode('utf-8')
         attributes = raw_message['attributes']
-        logger.debug(f"Message: {message!r} \t Attributes: {attributes!r}")
+        print(f"Message: {message!r} \t Attributes: {attributes!r}")
 
-        process_topic(message, attributes)
+        bucket_path = attributes['objectId']
+
+        if bucket_path is None:
+            raise Exception(f'No file requested')
+
+        process_topic(bucket_path)
         # Flush the stdout to avoid log buffering.
         sys.stdout.flush()
 
     except Exception as e:
-        logger.error(f'error: {e}')
+        print(f'error: {e}')
 
 
-def process_topic(message, attributes):
+def process_topic(bucket_path):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket and forwards on to appropriate service.
@@ -82,15 +80,10 @@ def process_topic(message, attributes):
     Incorrect: PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
 
     Args:
-        message (dict): The Cloud Functions event payload.
-        context (google.cloud.functions.Context): Metadata of triggering event.
+        bucket_path (str): The path to the file in the `panoptes-incoming` bucket.
     Returns:
         None; the output is written to Stackdriver Logging
     """
-    bucket_path = attributes['objectId']
-
-    if bucket_path is None:
-        raise Exception(f'No file requested')
 
     _, file_ext = os.path.splitext(bucket_path)
 
@@ -103,19 +96,33 @@ def process_topic(message, attributes):
     }
 
     # Check for legacy path: UNIT_ID/FIELD_NAME/CAMERA_ID/SEQUENCE_TIME/IMAGE_TIME
-    path_parts = bucket_path.split('/')
-    if len(path_parts) == 5:
-        field_name = path_parts.pop(1)
-        new_path = '/'.join(path_parts)
-        logger.debug(f'Removed field name ["{field_name}"], moving: {bucket_path} -> {new_path}')
+    # Get information from the path.
+    path_match_result = PATH_MATCHER.match(bucket_path)
+    if path_match_result is None:
+        print(f'Incorrect pattern: UNIT_ID[/FIELD_NAME]/CAMERA_ID/SEQUENCE_TIME/IMAGE_TIME.ext')
+        process_unknown(bucket_path)
+        return
+
+    unit_id = path_match_result.group('unit_id')
+    camera_id = path_match_result.group('camera_id')
+    field_name = path_match_result.group('field_name')
+    sequence_time = path_match_result.group('sequence_time')
+    image_time = path_match_result.group('image_time')
+
+    if field_name != '':
+        fileext = path_match_result.group('fileext')
+        new_path = f'{unit_id}/{camera_id}/{sequence_time}/{image_time}.{fileext}'
+        print(f'Removed field name ["{field_name}"], moving: {bucket_path} -> {new_path}')
         incoming_bucket.rename_blob(incoming_bucket.get_blob(bucket_path), new_path)
         return
 
-    logger.debug(f"Processing {bucket_path}")
+    sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
+    image_id = f'{unit_id}_{camera_id}_{image_time}'
+    print(f'Recording sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
     try:
         process_lookup[file_ext](bucket_path)
-    except KeyError as e:
-        logger.warning(f'No handling for {file_ext}, moving to temp bucket')
+    except KeyError:
+        print(f'No handling for {file_ext}, moving to temp bucket')
         process_unknown(bucket_path)
 
 
@@ -134,19 +141,19 @@ def process_fits(bucket_path):
         if 'pointing' not in bucket_path:
             add_records_to_db(bucket_path)
     except Exception as e:
-        logger.error(f'Error adding firestore record for {bucket_path}: {e!r}')
+        print(f'Error adding firestore record for {bucket_path}: {e!r}')
     else:
         # Archive file.
         copy_blob_to_bucket(bucket_path, raw_archive_bucket)
 
-        # Send to plate solver.
-        send_pubsub_message(plate_solve_topic, dict(bucket_path=bucket_path))
+        # Move to raw-image bucket, which triggers background subtraction.
+        move_blob_to_bucket(bucket_path, outgoing_bucket)
 
 
 def process_cr2(bucket_path):
     """Move cr2 to archive and observation bucket"""
     copy_blob_to_bucket(bucket_path, raw_archive_bucket)
-    move_blob_to_bucket(bucket_path, raw_images_bucket)
+    move_blob_to_bucket(bucket_path, outgoing_bucket)
 
 
 def process_jpg(bucket_path):
@@ -181,9 +188,9 @@ def add_records_to_db(bucket_path):
     Raises:
         e: Description
     """
-    logger.debug(f'Recording {bucket_path} metadata.')
+    print(f'Recording {bucket_path} metadata.')
     header = lookup_fits_header(bucket_path)
-    logger.debug(f'Getting sequence_id and image_id from {bucket_path!r}')
+    print(f'Getting sequence_id and image_id from {bucket_path!r}')
 
     try:
         image_id = image_id_from_path(str(bucket_path))
@@ -196,21 +203,21 @@ def add_records_to_db(bucket_path):
         sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
         image_id = f'{unit_id}_{camera_id}_{image_time}'
 
-    logger.debug(f'Found sequence_id={sequence_id} image_id={image_id}')
+    print(f'Found sequence_id={sequence_id} image_id={image_id}')
 
     # Scrub all the entries
     for k, v in header.items():
         with suppress(AttributeError):
             header[k] = v.strip()
 
-    logger.trace(f'Using headers: {header!r}')
+    print(f'Using headers: {header!r}')
     try:
         unit_id, camera_id, sequence_time = sequence_id.split('_')
         sequence_time = parse_date(sequence_time)
 
         img_time = parse_date(image_id.split('_')[-1])
 
-        logger.debug(f'Getting document for observation {sequence_id}')
+        print(f'Getting document for observation {sequence_id}')
         seq_doc_ref = firestore_db.document(f'observations/{sequence_id}')
         seq_doc_snap = seq_doc_ref.get()
 
@@ -221,11 +228,11 @@ def add_records_to_db(bucket_path):
 
         # Create unit and observation documents if needed.
         if not seq_doc_snap.exists:
-            logger.debug(f'Making new document for observation {sequence_id}')
+            print(f'Making new document for observation {sequence_id}')
             # If no sequence doc then probably no unit id. This is just to minimize
             # the number of lookups that would be required if we looked up unit_id
             # doc each time.
-            logger.debug(f'Getting doc for unit {unit_id}')
+            print(f'Getting doc for unit {unit_id}')
             unit_doc_ref = firestore_db.document(f'units/{unit_id}')
             unit_doc_snap = unit_doc_ref.get()
 
@@ -254,12 +261,12 @@ def add_records_to_db(bucket_path):
                     dec=header.get('CRVAL2'),
                     status='receiving_files',
                     received_time=firestore.SERVER_TIMESTAMP)
-                logger.debug(f"Adding new sequence: {seq_message!r}")
+                print(f"Adding new sequence: {seq_message!r}")
                 batch.create(seq_doc_ref, seq_message)
 
         # Create image document if needed.
         if not image_doc_snap.exists:
-            logger.debug(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
+            print(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
 
             image_message = dict(
                 unit_id=unit_id,
@@ -267,6 +274,9 @@ def add_records_to_db(bucket_path):
                 time=img_time,
                 bucket_path=bucket_path,
                 status='received',
+                bias_subtracted=False,
+                background_subtracted=False,
+                plate_solved=False,
                 airmass=header.get('AIRMASS'),
                 exptime=header.get('EXPTIME'),
                 moonfrac=header.get('MOONFRAC'),
@@ -277,29 +287,16 @@ def add_records_to_db(bucket_path):
                 ra_mnt=header.get('RA-MNT'),
                 dec_mnt=header.get('DEC-MNT'),
                 received_time=firestore.SERVER_TIMESTAMP)
-            logger.debug(f'Adding image: {image_message!r}')
+            print(f'Adding image: {image_message!r}')
             batch.create(image_doc_ref, image_message)
 
         batch.commit()
 
     except Exception as e:
-        logger.error(f'Error in adding record: {e!r}')
+        print(f'Error in adding record: {e!r}')
         raise e
 
     return True
-
-
-def send_pubsub_message(topic, data):
-    """Send a pubsub message.
-
-    We send the data as the message body for legacy support
-    but also unwrap the dict here to set as attribute as well.
-
-    Note that data needs to be encoded but attributes do not.
-    """
-    logger.debug(f"Sending message to {topic}: {data!r}")
-
-    publisher.publish(f'{pubsub_base}/{topic}', json.dumps(data).encode(), **data)
 
 
 def move_blob_to_bucket(blob_name, new_bucket, remove=True):
@@ -311,7 +308,7 @@ def move_blob_to_bucket(blob_name, new_bucket, remove=True):
         remove (bool, optional): If file should be removed afterwards, i.e. a move, or just copied.
             Default True as per the function name.
     """
-    logger.debug(f'Moving {blob_name} → {new_bucket}')
+    print(f'Moving {blob_name} → {new_bucket}')
     incoming_bucket.copy_blob(incoming_bucket.get_blob(blob_name), new_bucket)
     if remove:
         incoming_bucket.delete_blob(blob_name)
@@ -347,7 +344,7 @@ def lookup_fits_header(bucket_path):
 
     headers = dict()
 
-    logger.debug(f'Looking up header for file: {bucket_path}')
+    print(f'Looking up header for file: {bucket_path}')
     storage_blob = incoming_bucket.get_blob(bucket_path)
 
     streaming = True
@@ -361,7 +358,7 @@ def lookup_fits_header(bucket_path):
         # Loop over 80-char lines
         for i, j in enumerate(range(0, len(b_string), 80)):
             item_string = b_string[j: j + 80].decode()
-            logger.trace(f'Fits header line {i}: {item_string}')
+            # print(f'Fits header line {i}: {item_string}')
 
             # End of FITS Header, stop streaming
             if item_string.startswith('END'):
@@ -394,5 +391,5 @@ def lookup_fits_header(bucket_path):
 
         card_num += 1
 
-    logger.debug(f'Headers: {headers}')
+    print(f'Headers: {headers}')
     return headers
