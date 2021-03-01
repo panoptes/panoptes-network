@@ -1,6 +1,5 @@
-astropy
 google-cloud-firestore
-google-cloud-pubsub
 google-cloud-storage
-numpy
-pandas
+panoptes-utils[images]
+gunicorn
+Flask
