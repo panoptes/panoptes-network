@@ -1,0 +1,5 @@
+Flask
+google-cloud-firestore
+google-cloud-storage
+ruamel.yaml
+-e git+https://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils[images]
