@@ -9,7 +9,7 @@ Input:
 
 Output:
 
-* `panoptes-images-processed` for plate-solved FITS files.
+* `panoptes-images-solved` for plate-solved FITS files.
 
 ### Deploy
 

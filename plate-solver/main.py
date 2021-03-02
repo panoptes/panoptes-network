@@ -16,7 +16,7 @@ app = Flask(__name__)
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 
 INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-calibrated')
-OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-processed')
+OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
 ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
 TIMEOUT = os.getenv('TIMEOUT', 600)
 
