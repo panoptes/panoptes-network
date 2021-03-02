@@ -4,9 +4,17 @@ import base64
 import re
 from contextlib import suppress
 
+import requests
 from dateutil.parser import parse as parse_date
 from google.cloud import firestore
 from google.cloud import storage
+
+INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-incoming')
+OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-raw')
+TIMELAPSE_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-timelapse')
+TEMP_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-temp')
+ARCHIVE_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-archive')
+JPG_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-pretty')
 
 FITS_HEADER_URL = os.getenv('FITS_HEADER_URL',
                             'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
@@ -26,12 +34,12 @@ try:
 
     # Storage
     sc = storage.Client()
-    incoming_bucket = sc.get_bucket(os.getenv('BUCKET_NAME', 'panoptes-images-incoming'))
-    outgoing_bucket = sc.get_bucket(os.getenv('RAW_BUCKET_NAME', 'panoptes-images-raw'))
-    timelapse_bucket = sc.get_bucket(os.getenv('TIMELAPSE_BUCKET_NAME', 'panoptes-timelapse'))
-    temp_bucket = sc.get_bucket(os.getenv('TEMP_BUCKET_NAME', 'panoptes-images-temp'))
-    raw_archive_bucket = sc.get_bucket(os.getenv('ARCHIVE_BUCKET_NAME', 'panoptes-images-archive'))
-    jpg_images_bucket = sc.get_bucket(os.getenv('JPG_BUCKET_NAME', 'panoptes-images-pretty'))
+    incoming_bucket = sc.get_bucket(INCOMING_BUCKET)
+    outgoing_bucket = sc.get_bucket(OUTGOING_BUCKET)
+    timelapse_bucket = sc.get_bucket(TIMELAPSE_BUCKET)
+    temp_bucket = sc.get_bucket(TEMP_BUCKET)
+    archive_bucket = sc.get_bucket(ARCHIVE_BUCKET)
+    jpg_images_bucket = sc.get_bucket(JPG_BUCKET)
 except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
@@ -144,7 +152,7 @@ def process_fits(bucket_path):
         print(f'Error adding firestore record for {bucket_path}: {e!r}')
     else:
         # Archive file.
-        copy_blob_to_bucket(bucket_path, raw_archive_bucket)
+        copy_blob_to_bucket(bucket_path, archive_bucket)
 
         # Move to raw-image bucket, which triggers background subtraction.
         move_blob_to_bucket(bucket_path, outgoing_bucket)
@@ -152,7 +160,7 @@ def process_fits(bucket_path):
 
 def process_cr2(bucket_path):
     """Move cr2 to archive and observation bucket"""
-    copy_blob_to_bucket(bucket_path, raw_archive_bucket)
+    copy_blob_to_bucket(bucket_path, archive_bucket)
     move_blob_to_bucket(bucket_path, outgoing_bucket)
 
 
@@ -315,75 +323,11 @@ def copy_blob_to_bucket(*args, **kwargs):
 
 
 def lookup_fits_header(bucket_path):
-    """Read the FITS header from storage.
+    """Read the FITS header from storage. """
+    header = None
+    request_params = dict(bucket_path=bucket_path, bucket_name=INCOMING_BUCKET)
+    res = requests.post(FITS_HEADER_URL, json=request_params)
+    if res.ok:
+        header = res.json()['header']
 
-    FITS Header Units are stored in blocks of 2880 bytes consisting of 36 lines
-    that are 80 bytes long each. The Header Unit always ends with the single
-    word 'END' on a line (not necessarily line 36).
-
-    Here the header is streamed from Storage until the 'END' is found, with
-    each line given minimal parsing.
-
-    See https://fits.gsfc.nasa.gov/fits_primer.html for overview of FITS format.
-
-    Args:
-        bucket_path (str): Path to the blob.
-
-    Returns:
-        dict: FITS header as a dictionary.
-    """
-    card_num = 1
-    if bucket_path.endswith('.fz'):
-        card_num = 2  # We skip the compression header info card
-
-    headers = dict()
-
-    print(f'Looking up header for file: {bucket_path}')
-    storage_blob = incoming_bucket.get_blob(bucket_path)
-
-    streaming = True
-    while streaming:
-        # Get a header card
-        start_byte = 2880 * (card_num - 1)
-        end_byte = (2880 * card_num) - 1
-        b_string = storage_blob.download_as_string(start=start_byte,
-                                                   end=end_byte)
-
-        # Loop over 80-char lines
-        for i, j in enumerate(range(0, len(b_string), 80)):
-            item_string = b_string[j: j + 80].decode()
-            # print(f'Fits header line {i}: {item_string}')
-
-            # End of FITS Header, stop streaming
-            if item_string.startswith('END'):
-                streaming = False
-                break
-
-            # Get key=value pairs (skip COMMENTS and HISTORY)
-            if item_string.find('=') > 0:
-                k, v = item_string.split('=')
-
-                # Remove FITS comment
-                if ' / ' in v:
-                    v = v.split(' / ')[0]
-
-                v = v.strip()
-
-                # Cleanup and discover type in dumb fashion
-                if v.startswith("'") and v.endswith("'"):
-                    v = v.replace("'", "").strip()
-                elif v.find('.') > 0:
-                    v = float(v)
-                elif v == 'T':
-                    v = True
-                elif v == 'F':
-                    v = False
-                else:
-                    v = int(v)
-
-                headers[k.strip()] = v
-
-        card_num += 1
-
-    print(f'Headers: {headers}')
-    return headers
+    return header
