@@ -1,10 +1,16 @@
-ARG base_tag=latest
-
+ARG base_tag=develop
 FROM gcr.io/panoptes-exp/panoptes-utils:$base_tag
 
-RUN pip install google-cloud-pubsub google-cloud-firestore pyarrow pendulum requests
+# Allow statements and log messages to immediately appear in the Cloud Run logs
+# https://cloud.google.com/run/docs/tutorials/pubsub
+ENV PYTHONUNBUFFERED True
+
+USER root
+COPY ./requirements.txt /
+RUN /conda/bin/pip install --no-cache-dir -r /requirements.txt
 
 COPY . /app
 WORKDIR /app
 
-CMD ["python", "-u", "main.py"]
+# Timeout is set to 0 to disable the timeouts of the workers to allow Cloud Run to handle instance scaling.
+CMD ["/conda/bin/gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app"]

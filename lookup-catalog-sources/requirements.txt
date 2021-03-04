@@ -1,0 +1,9 @@
+Flask
+google-cloud-bigquery
+google-cloud-storage
+gunicorn
+pandas
+pendulum
+requests
+panoptes-utils[images]>=0.2.32
+git+git://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
