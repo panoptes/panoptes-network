@@ -220,14 +220,15 @@ def add_records_to_db(bucket_path):
 
         img_time = parse_date(image_id.split('_')[-1])
 
+        batch = firestore_db.batch()
+
         print(f'Getting document for observation {sequence_id}')
         seq_doc_ref = firestore_db.document(f'observations/{sequence_id}')
         seq_doc_snap = seq_doc_ref.get()
 
-        image_doc_ref = firestore_db.document(f'images/{image_id}')
+        # Image document is under the 'images' collection of the observation.
+        image_doc_ref = seq_doc_ref.collection('images').document(image_id)
         image_doc_snap = image_doc_ref.get()
-
-        batch = firestore_db.batch()
 
         # Create unit and observation documents if needed.
         if not seq_doc_snap.exists:
@@ -263,6 +264,8 @@ def add_records_to_db(bucket_path):
                     ra=header.get('CRVAL1'),
                     dec=header.get('CRVAL2'),
                     status='receiving_files',
+                    camera_serial_number=header.get('CAMSN'),
+                    lens_serial_number=header.get('INTSN'),
                     received_time=firestore.SERVER_TIMESTAMP)
                 print(f"Adding new sequence: {seq_message!r}")
                 batch.create(seq_doc_ref, seq_message)
@@ -270,31 +273,43 @@ def add_records_to_db(bucket_path):
         # Create image document if needed.
         if not image_doc_snap.exists:
             print(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
+            measured_rggb = header.get('MEASRGGB').split(' ')
 
             image_message = dict(
                 unit_id=unit_id,
-                sequence_id=sequence_id,
                 time=img_time,
-                bucket_path=bucket_path,
                 status='received',
                 bias_subtracted=False,
                 background_subtracted=False,
                 plate_solved=False,
-                airmass=header.get('AIRMASS'),
                 exptime=header.get('EXPTIME'),
+                airmass=header.get('AIRMASS'),
                 moonfrac=header.get('MOONFRAC'),
                 moonsep=header.get('MOONSEP'),
-                ra_image=header.get('CRVAL1'),
-                dec_image=header.get('CRVAL2'),
-                ha_mnt=header.get('HA-MNT'),
-                ra_mnt=header.get('RA-MNT'),
-                dec_mnt=header.get('DEC-MNT'),
-                received_time=firestore.SERVER_TIMESTAMP)
+                mount_ha=header.get('HA-MNT'),
+                mount_ra=header.get('RA-MNT'),
+                mount_dec=header.get('DEC-MNT'),
+                camera=dict(
+                    temp=float(header.get('CAMTEMP').split(' ')[0]),
+                    colortemp=header.get('COLORTMP'),
+                    circconf=float(header.get('CIRCCONF').split(' ')[0]),
+                    measured_ev=header.get('MEASEV'),
+                    measured_ev2=header.get('MEASEV2'),
+                    measured_r=float(measured_rggb[0]),
+                    measured_g1=float(measured_rggb[1]),
+                    measured_g2=float(measured_rggb[2]),
+                    measured_b=float(measured_rggb[3]),
+                    white_lvln=header.get('WHTLVLN'),
+                    white_lvls=header.get('WHTLVLS'),
+                    red_balance=header.get('REDBAL'),
+                    blue_balance=header.get('BLUEBAL')
+                ),
+                received_time=firestore.SERVER_TIMESTAMP
+            )
+
             print(f'Adding image: {image_message!r}')
             batch.create(image_doc_ref, image_message)
-
-        batch.commit()
-
+            batch.commit()
     except Exception as e:
         print(f'Error in adding record: {e!r}')
         raise e
