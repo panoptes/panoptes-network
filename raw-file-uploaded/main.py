@@ -27,6 +27,9 @@ PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 \.(?P<fileext>.*)$""",
                           re.VERBOSE)
 
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 
 try:
@@ -223,11 +226,11 @@ def add_records_to_db(bucket_path):
         batch = firestore_db.batch()
 
         print(f'Getting document for observation {sequence_id}')
-        seq_doc_ref = firestore_db.document(f'observations/{sequence_id}')
+        seq_doc_ref = firestore_db.document(f'{OBSERVATION_FS_KEY}/{sequence_id}')
         seq_doc_snap = seq_doc_ref.get()
 
         # Image document is under the 'images' collection of the observation.
-        image_doc_ref = seq_doc_ref.collection('images').document(image_id)
+        image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
         image_doc_snap = image_doc_ref.get()
 
         # Create unit and observation documents if needed.
@@ -237,7 +240,7 @@ def add_records_to_db(bucket_path):
             # the number of lookups that would be required if we looked up unit_id
             # doc each time.
             print(f'Getting doc for unit {unit_id}')
-            unit_doc_ref = firestore_db.document(f'units/{unit_id}')
+            unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
             unit_doc_snap = unit_doc_ref.get()
 
             # Add a units doc if it doesn't exist.

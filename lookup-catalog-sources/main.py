@@ -11,6 +11,7 @@ import requests
 from astropy.wcs import WCS
 from flask import Flask, request
 from google.cloud import storage
+from google.cloud import firestore
 from panoptes.pipeline.utils import sources
 from panoptes.pipeline.utils.gcp.bigquery import get_bq_clients
 
@@ -22,6 +23,9 @@ INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
 OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-sources')
 ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
 SEARCH_PARAMS = os.getenv('SEARCH_PARAMS', dict(vmag_min=6, vmag_max=13, numcont=5))
+
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
 
 PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
@@ -35,6 +39,8 @@ FITS_HEADER_URL = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-
 
 # Storage
 try:
+    firestore_db = firestore.Client()
+
     storage_client = storage.Client()
     incoming_bucket = storage_client.get_bucket(INCOMING_BUCKET)
     outgoing_bucket = storage_client.get_bucket(OUTGOING_BUCKET)
@@ -72,13 +78,9 @@ def index():
         print(f'Received bucket_path={bucket_path} for catalog sources lookup')
 
         url = lookup_sources(bucket_path)
-    except (FileNotFoundError, FileExistsError) as e:
-        print(e)
-        return '', 204
     except Exception as e:
         print(f'Exception in lookup-catalog-sources: {e!r}')
-        print(f'Raw message {pubsub_message!r}')
-        return f'Bad solve: {e!r}', 400
+        return '', 204
     else:
         # Success
         # TODO something better here?
@@ -107,6 +109,9 @@ def lookup_sources(bucket_path):
     outgoing_blob = outgoing_bucket.blob(sources_bucket_path)
     if outgoing_blob.exists():
         raise FileExistsError(f'File already exists at {outgoing_blob.public_url}')
+
+    image_doc_ref = firestore_db.document(
+        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
 
     try:
         header_dict = lookup_fits_header(bucket_path)
@@ -150,6 +155,19 @@ def lookup_sources(bucket_path):
     # Upload
     outgoing_blob.upload_from_file(bio)
     print(f'Observation metadata saved to {outgoing_blob.public_url}')
+
+    print(f'Recording firestore metadata for {bucket_path}')
+    image_doc_updates = dict(
+        status='matched-sources',
+        has_sources=True,
+        sources_url=outgoing_blob.public_url,
+    )
+
+    # Record the metadata in firestore.
+    image_doc_ref.set(
+        image_doc_updates,
+        merge=True
+    )
 
     return outgoing_blob.public_url
 

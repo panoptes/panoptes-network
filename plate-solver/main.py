@@ -20,6 +20,9 @@ OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
 ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
 TIMEOUT = os.getenv('TIMEOUT', 600)
 
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+
 PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
                                 /?(?P<field_name>.*)?
@@ -42,7 +45,6 @@ except RuntimeError:
 
 @app.route("/", methods=["POST"])
 def index():
-    success = False
     envelope = request.get_json()
     if not envelope:
         msg = "no Pub/Sub message received"
@@ -72,11 +74,10 @@ def index():
         return '', 204
     except Exception as e:
         print(f'Exception in plate-solve: {e!r}')
-        print(f'Raw message {pubsub_message!r}')
-        return f'Bad solve: {e!r}', 400
+        return f'Incorrect solve, file moved to error bucket', 204
     else:
         # Success
-        return f'{new_url}', 204
+        return dict(public_url=new_url), 204
 
 
 def plate_solve(bucket_path):
@@ -101,9 +102,10 @@ def plate_solve(bucket_path):
 
     # Blob for plate-solved image.
     outgoing_blob = outgoing_bucket.blob(bucket_path)
-    if outgoing_blob.exists():
-        # TODO make this smarter?
-        raise FileExistsError(f'File has already been processed at {outgoing_blob.public_url}')
+
+    # TODO need to trigger the lookup-catalog-sources here. For now just re-solve
+    # if outgoing_blob.exists():
+    # raise FileExistsError(f'File has already been processed at {outgoing_blob.public_url}')
 
     # Blob for calibrated image.
     incoming_blob = incoming_bucket.blob(bucket_path)
@@ -114,7 +116,8 @@ def plate_solve(bucket_path):
     incoming_blob.download_to_filename(temp_incoming_fits.name)
     print(f'Got file for {bucket_path}')
 
-    image_doc_ref = firestore_db.document(f'images/{image_id}')
+    image_doc_ref = firestore_db.document(
+        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
     print(f'Got image snapshot from firestore: {image_doc_ref.id}')
 
     try:
@@ -129,7 +132,7 @@ def plate_solve(bucket_path):
     except Exception as e:
         # Mark the firestore metadata with error.
         print(f'Error in {bucket_path} plate solve script: {e!r}')
-        firestore_db.document(f'images/{image_id}').set(dict(status='error'), merge=True)
+        image_doc_ref.set(dict(status='error'), merge=True)
 
         # Move the file to the error bucket.
         try:
@@ -141,10 +144,10 @@ def plate_solve(bucket_path):
         finally:
             raise Exception('Error solving')
 
-    # Remove old astrometry.net comments.
+    solved_header = fits_utils.getheader(temp_incoming_fits.name)
+
     print(f'Cleaning FITS headers')
     try:
-        solved_header = fits_utils.getheader(temp_incoming_fits.name)
         solved_header.remove('COMMENT', ignore_missing=True, remove_all=True)
         solved_header.add_history(f'Plate-solved at {current_time(pretty=True)}')
         solved_header['SOLVED'] = True
@@ -159,7 +162,7 @@ def plate_solve(bucket_path):
     image_doc_updates = dict(
         status='solved',
         plate_solved=True,
-        processed_url=outgoing_blob.public_url,
+        solved_url=outgoing_blob.public_url,
         ra_image=solved_header.get('CRVAL1'),
         dec_image=solved_header.get('CRVAL2'),
     )

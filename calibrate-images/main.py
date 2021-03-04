@@ -15,6 +15,9 @@ INCOMING_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-raw')
 OUTGOING_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-calibrated')
 BACKGROUND_IMAGE_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-background')
 
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+
 CAMERA_BIAS = os.getenv('CAMERA_BIAS', 2048.)
 
 PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
@@ -82,14 +85,20 @@ def subtract_background(bucket_path):
         print(f'Problem with bucket_path={bucket_path}: {e!r}')
     bg_output_path = bucket_path.replace('.fits.fz', '-rgb-bg.fits')
 
+    # Get information from the path.
     path_match_result = PATH_MATCHER.match(bucket_path)
-    image_id = '{}_{}_{}'.format(
-        path_match_result.group('unit_id'),
-        path_match_result.group('camera_id'),
-        path_match_result.group('image_time'),
-    )
+    unit_id = path_match_result.group('unit_id')
+    camera_id = path_match_result.group('camera_id')
+    sequence_time = path_match_result.group('sequence_time')
+    image_time = path_match_result.group('image_time')
+    fileext = path_match_result.group('fileext')
 
-    image_doc_ref = firestore_db.document(f'images/{image_id}')
+    sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
+    image_id = f'{unit_id}_{camera_id}_{image_time}'
+    print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
+
+    image_doc_ref = firestore_db.document(
+        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
     print(f'Got image snapshot from firestore')
 
     # Get blob objects form bucket.

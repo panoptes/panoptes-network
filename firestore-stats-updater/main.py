@@ -1,8 +1,15 @@
+import os
 from contextlib import suppress
-from dateutil.parser import parse as parse_date
 
+from dateutil.parser import parse as parse_date
 from google.cloud import firestore
+
 firestore_db = firestore.Client()
+
+STATS_FS_KEY = os.getenv('STATS_FS_KEY', 'stats')
+UNITS_FS_KEY = os.getenv('UNITS_FS_KEY', 'units')
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
 
 
 def observations_entry(data, context):
@@ -31,12 +38,14 @@ def observations_entry(data, context):
 
     # Get the list of observation ids for the stat record associated with this observation.
     try:
-        observations = firestore_db.document(stat_week_key).get(['observations']).get('observations')
+        observations = firestore_db.document(stat_week_key).get(['observations']).get(
+            'observations')
         print(f'Found existing observations: {observations!r}')
     except Exception as e:
         print(f'Unable to get firestore document: {e!r}')
         observations = list()
 
+    num_observations = 0
     if context.event_type.endswith('create'):
         # Make sure no stats record exists and increment otherwise.
         if sequence_id in observations:
@@ -48,7 +57,8 @@ def observations_entry(data, context):
     elif context.event_type.endswith('delete'):
         # Find the stats record that matches and decrement if found.
         if sequence_id not in observations:
-            print(f'{sequence_id} does not exist in {stat_week_key}, skipping delete stats decrement')
+            print(
+                f'{sequence_id} does not exist in {stat_week_key}, skipping delete stats decrement')
             return
 
         num_observations = firestore.Increment(-1)
@@ -64,7 +74,7 @@ def observations_entry(data, context):
     }
     counters = {'num_observations': num_observations}
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'units/{unit_id}'), counters, merge=True)
+    batch.set(firestore_db.document(f'{UNITS_FS_KEY}/{unit_id}'), counters, merge=True)
 
     batch.commit()
 
@@ -118,7 +128,7 @@ def images_entry(data, context):
 
     sequence_id = doc['sequence_id']['stringValue']
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'units/{unit_id}'), counters, merge=True)
-    batch.set(firestore_db.document(f'observations/{sequence_id}'), counters, merge=True)
+    batch.set(firestore_db.document(f'{UNITS_FS_KEY}/{unit_id}'), counters, merge=True)
+    batch.set(firestore_db.document(f'{OBSERVATION_FS_KEY}/{sequence_id}'), counters, merge=True)
 
     batch.commit()
