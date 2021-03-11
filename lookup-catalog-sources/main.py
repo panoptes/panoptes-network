@@ -1,8 +1,8 @@
-from contextlib import suppress
-import os
 import base64
+import os
 import re
 import sys
+from contextlib import suppress
 from io import BytesIO
 
 import numpy as np
@@ -10,8 +10,8 @@ import pendulum
 import requests
 from astropy.wcs import WCS
 from flask import Flask, request
-from google.cloud import storage
 from google.cloud import firestore
+from google.cloud import storage
 from panoptes.pipeline.utils import sources
 from panoptes.pipeline.utils.gcp.bigquery import get_bq_clients
 
@@ -55,12 +55,12 @@ def index():
     envelope = request.get_json()
     if not envelope:
         msg = "no Pub/Sub message received"
-        print(f"error: {msg}")
+        print(f"error: {msg!r}")
         return "Invalid pubsub", 400
 
     if not isinstance(envelope, dict) or "message" not in envelope:
         msg = "invalid Pub/Sub message format"
-        print(f"error: {msg}")
+        print(f"error: {msg!r}")
         return "Invalid pubsub", 400
 
     pubsub_message = envelope["message"]
