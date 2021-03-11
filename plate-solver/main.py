@@ -1,5 +1,5 @@
-import os
 import base64
+import os
 import re
 import sys
 import tempfile
@@ -20,8 +20,9 @@ OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
 ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
 TIMEOUT = os.getenv('TIMEOUT', 600)
 
+UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
 OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
 
 PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
@@ -116,8 +117,9 @@ def plate_solve(bucket_path):
     incoming_blob.download_to_filename(temp_incoming_fits.name)
     print(f'Got file for {bucket_path}')
 
-    image_doc_ref = firestore_db.document(
-        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
+    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
     print(f'Got image snapshot from firestore: {image_doc_ref.id}')
 
     try:

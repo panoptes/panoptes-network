@@ -1,22 +1,23 @@
-import os
 import base64
-import tempfile
-import sys
+import os
 import re
+import sys
+import tempfile
 
+from astropy.io import fits
 from google.cloud import firestore
 from google.cloud import storage
-from astropy.io import fits
-from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.images import bayer
+from panoptes.utils.images import fits as fits_utils
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 INCOMING_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-raw')
 OUTGOING_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-calibrated')
 BACKGROUND_IMAGE_BUCKET = os.getenv('BUCKET_NAME', 'panoptes-images-background')
 
+UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
 OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
 
 CAMERA_BIAS = os.getenv('CAMERA_BIAS', 2048.)
 
@@ -91,15 +92,15 @@ def subtract_background(bucket_path):
     camera_id = path_match_result.group('camera_id')
     sequence_time = path_match_result.group('sequence_time')
     image_time = path_match_result.group('image_time')
-    fileext = path_match_result.group('fileext')
 
     sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
     print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
 
-    image_doc_ref = firestore_db.document(
-        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
-    print(f'Got image snapshot from firestore')
+    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+    print(f'Got image document from firestore')
 
     # Get blob objects form bucket.
     incoming_blob = incoming_bucket.get_blob(bucket_path)

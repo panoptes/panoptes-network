@@ -1,7 +1,7 @@
-import os
-import sys
 import base64
+import os
 import re
+import sys
 from contextlib import suppress
 
 import requests
@@ -27,9 +27,9 @@ PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 \.(?P<fileext>.*)$""",
                           re.VERBOSE)
 
-OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
 UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
 project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
 
 try:
@@ -226,52 +226,46 @@ def add_records_to_db(bucket_path):
         batch = firestore_db.batch()
 
         print(f'Getting document for observation {sequence_id}')
-        seq_doc_ref = firestore_db.document(f'{OBSERVATION_FS_KEY}/{sequence_id}')
-        seq_doc_snap = seq_doc_ref.get()
+        unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+        seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+        image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+
+        # Add a units doc if it doesn't exist.
+        unit_doc_snap = unit_doc_ref.get()
+        if not unit_doc_snap.exists:
+            unit_message = dict(
+                name=header.get('OBSERVER', ''),
+                location=firestore.GeoPoint(header['LAT-OBS'],
+                                            header['LONG-OBS']),
+                elevation=float(header.get('ELEV-OBS')),
+                status='active'
+            )
+            batch.create(unit_doc_ref, unit_message)
 
         # Image document is under the 'images' collection of the observation.
-        image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+        seq_doc_snap = seq_doc_ref.get()
         image_doc_snap = image_doc_ref.get()
 
         # Create unit and observation documents if needed.
         if not seq_doc_snap.exists:
             print(f'Making new document for observation {sequence_id}')
-            # If no sequence doc then probably no unit id. This is just to minimize
-            # the number of lookups that would be required if we looked up unit_id
-            # doc each time.
-            print(f'Getting doc for unit {unit_id}')
-            unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
-            unit_doc_snap = unit_doc_ref.get()
-
-            # Add a units doc if it doesn't exist.
-            if not unit_doc_snap.exists:
-                unit_message = dict(
-                    name=header.get('OBSERVER', ''),
-                    location=firestore.GeoPoint(header['LAT-OBS'],
-                                                header['LONG-OBS']),
-                    elevation=float(header.get('ELEV-OBS')),
-                    status='active'
-                )
-                batch.create(unit_doc_ref, unit_message)
-
-            if not seq_doc_snap.exists:
-                seq_message = dict(
-                    unit_id=unit_id,
-                    camera_id=camera_id,
-                    time=sequence_time,
-                    exptime=header.get('EXPTIME'),
-                    project=header.get('ORIGIN'),
-                    software_version=header.get('CREATOR', ''),
-                    field_name=header.get('FIELD', ''),
-                    iso=header.get('ISO'),
-                    ra=header.get('CRVAL1'),
-                    dec=header.get('CRVAL2'),
-                    status='receiving_files',
-                    camera_serial_number=header.get('CAMSN'),
-                    lens_serial_number=header.get('INTSN'),
-                    received_time=firestore.SERVER_TIMESTAMP)
-                print(f"Adding new sequence: {seq_message!r}")
-                batch.create(seq_doc_ref, seq_message)
+            seq_message = dict(
+                unit_id=unit_id,
+                camera_id=camera_id,
+                time=sequence_time,
+                exptime=header.get('EXPTIME'),
+                project=header.get('ORIGIN'),
+                software_version=header.get('CREATOR', ''),
+                field_name=header.get('FIELD', ''),
+                iso=header.get('ISO'),
+                ra=header.get('CRVAL1'),
+                dec=header.get('CRVAL2'),
+                status='receiving_files',
+                camera_serial_number=header.get('CAMSN'),
+                lens_serial_number=header.get('INTSN'),
+                received_time=firestore.SERVER_TIMESTAMP)
+            print(f"Adding new sequence: {seq_message!r}")
+            batch.create(seq_doc_ref, seq_message)
 
         # Create image document if needed.
         if not image_doc_snap.exists:

@@ -24,8 +24,9 @@ OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-sources')
 ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
 SEARCH_PARAMS = os.getenv('SEARCH_PARAMS', dict(vmag_min=6, vmag_max=13, numcont=5))
 
+UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
 OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
+IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
 
 PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
@@ -94,7 +95,6 @@ def lookup_sources(bucket_path):
     camera_id = path_match_result.group('camera_id')
     sequence_time = path_match_result.group('sequence_time')
     image_time = path_match_result.group('image_time')
-    fileext = path_match_result.group('fileext')
 
     sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
@@ -110,8 +110,9 @@ def lookup_sources(bucket_path):
     if outgoing_blob.exists():
         raise FileExistsError(f'File already exists at {outgoing_blob.public_url}')
 
-    image_doc_ref = firestore_db.document(
-        f'{OBSERVATION_FS_KEY}/{sequence_id}/{IMAGE_FS_KEY}/{image_id}')
+    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
 
     try:
         header_dict = lookup_fits_header(bucket_path)
