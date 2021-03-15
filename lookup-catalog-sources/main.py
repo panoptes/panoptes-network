@@ -3,40 +3,56 @@ import os
 import re
 import sys
 from contextlib import suppress
+from enum import IntEnum, auto
 from io import BytesIO
+from typing import Dict, Any, Union, Pattern
 
 import numpy as np
-import pendulum
 import requests
 from astropy.wcs import WCS
+from dateutil.parser import parse as parse_date
+from dateutil.tz import UTC
 from flask import Flask, request
 from google.cloud import firestore
 from google.cloud import storage
 from panoptes.pipeline.utils import sources
 from panoptes.pipeline.utils.gcp.bigquery import get_bq_clients
 
+
+class PipelineStatus(IntEnum):
+    RECEIVING = auto()
+    RECEIVED = auto()
+    CALIBRATING = auto()
+    CALIBRATED = auto()
+    SOLVING = auto()
+    SOLVED = auto()
+    MATCHING = auto()
+    MATCHED = auto()
+
+
+CURRENT_STATE: PipelineStatus = PipelineStatus.MATCHING
+
 app = Flask(__name__)
 
-PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+INCOMING_BUCKET: str = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
+OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-sources')
+ERROR_BUCKET: str = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
+SEARCH_PARAMS: Union[str, Dict[Any, int]] = os.getenv('SEARCH_PARAMS',
+                                                      dict(vmag_min=6, vmag_max=13, numcont=5))
 
-INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
-OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-sources')
-ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
-SEARCH_PARAMS = os.getenv('SEARCH_PARAMS', dict(vmag_min=6, vmag_max=13, numcont=5))
+UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
+OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
 
-UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
-OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
-
-PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
+PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
                                 /?(?P<field_name>.*)?
                                 /(?P<sequence_time>[0-9]{8}T[0-9]{6})
                                 /(?P<image_time>[0-9]{8}T[0-9]{6})
                                 \.(?P<fileext>.*)$""",
-                          re.VERBOSE)
+                                        re.VERBOSE)
 
-FITS_HEADER_URL = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header'
+FITS_HEADER_URL: str = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header'
 
 # Storage
 try:
@@ -99,6 +115,21 @@ def lookup_sources(bucket_path):
     sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
 
+    image_time = parse_date(image_time).replace(tzinfo=UTC)
+
+    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+
+    with suppress(KeyError, TypeError):
+        image_status = image_doc_ref.get(['status']).to_dict()['status']
+        if PipelineStatus[image_status] >= CURRENT_STATE:
+            print(f'Skipping image with status of {PipelineStatus[image_status].name}')
+            return True
+
+    print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
+    image_doc_ref.set(dict(status=CURRENT_STATE.name), merge=True)
+
     ra_column = 'catalog_ra'
     dec_column = 'catalog_dec'
     origin = 1
@@ -109,10 +140,6 @@ def lookup_sources(bucket_path):
     outgoing_blob = outgoing_bucket.blob(sources_bucket_path)
     if outgoing_blob.exists():
         raise FileExistsError(f'File already exists at {outgoing_blob.public_url}')
-
-    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
-    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
-    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
 
     try:
         header_dict = lookup_fits_header(bucket_path)
@@ -141,7 +168,7 @@ def lookup_sources(bucket_path):
     catalog_sources['unit_id'] = unit_id
     catalog_sources['sequence_id'] = sequence_id
     catalog_sources['camera_id'] = camera_id
-    catalog_sources['time'] = pendulum.parse(sequence_time).replace(tzinfo=None)
+    catalog_sources['time'] = image_time
 
     # We index some of the database on the vmag bin, so precompute it.
     catalog_sources.catalog_vmag_bin = catalog_sources.catalog_vmag.apply(np.floor).astype('int')
@@ -159,7 +186,7 @@ def lookup_sources(bucket_path):
 
     print(f'Recording firestore metadata for {bucket_path}')
     image_doc_updates = dict(
-        status='matched-sources',
+        status=PipelineStatus(CURRENT_STATE + 1).name,
         has_sources=True,
         sources_url=outgoing_blob.public_url,
     )

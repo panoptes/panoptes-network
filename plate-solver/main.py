@@ -3,6 +3,9 @@ import os
 import re
 import sys
 import tempfile
+from contextlib import suppress
+from enum import IntEnum, auto
+from typing import Pattern
 
 from flask import Flask, request
 from google.cloud import exceptions
@@ -11,26 +14,38 @@ from google.cloud import storage
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.time import current_time
 
+
+class PipelineStatus(IntEnum):
+    RECEIVING = auto()
+    RECEIVED = auto()
+    CALIBRATING = auto()
+    CALIBRATED = auto()
+    SOLVING = auto()
+    SOLVED = auto()
+    MATCHING = auto()
+    MATCHED = auto()
+
+
+CURRENT_STATE: PipelineStatus = PipelineStatus.SOLVING
+
 app = Flask(__name__)
 
-PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
+INCOMING_BUCKET: str = os.getenv('INCOMING_BUCKET', 'panoptes-images-calibrated')
+OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-solved')
+ERROR_BUCKET: str = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
+TIMEOUT: int = os.getenv('TIMEOUT', 600)
 
-INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-calibrated')
-OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-solved')
-ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
-TIMEOUT = os.getenv('TIMEOUT', 600)
+UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
+OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
 
-UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
-OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
-
-PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
+PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
                                 /?(?P<field_name>.*)?
                                 /(?P<sequence_time>[0-9]{8}T[0-9]{6})
                                 /(?P<image_time>[0-9]{8}T[0-9]{6})
                                 \.(?P<fileext>.*)$""",
-                          re.VERBOSE)
+                                        re.VERBOSE)
 
 # Storage
 try:
@@ -69,7 +84,7 @@ def index():
 
         bucket_path = attributes['objectId']
 
-        new_url = plate_solve(bucket_path)
+        url = plate_solve(bucket_path)
     except (FileNotFoundError, FileExistsError) as e:
         print(e)
         return '', 204
@@ -78,7 +93,7 @@ def index():
         return f'Incorrect solve, file moved to error bucket', 204
     else:
         # Success
-        return dict(public_url=new_url), 204
+        return f'{url}', 204
 
 
 def plate_solve(bucket_path):
@@ -99,6 +114,19 @@ def plate_solve(bucket_path):
     image_id = f'{unit_id}_{camera_id}_{image_time}'
     print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
 
+    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+
+    with suppress(KeyError, TypeError):
+        image_status = image_doc_ref.get(['status']).to_dict()['status']
+        if PipelineStatus[image_status] >= CURRENT_STATE:
+            print(f'Skipping image with status of {PipelineStatus[image_status].name}')
+            return True
+
+    print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
+    image_doc_ref.set(dict(status=CURRENT_STATE.name), merge=True)
+
     temp_incoming_fits = tempfile.NamedTemporaryFile(suffix=f'.{fileext}')
 
     # Blob for plate-solved image.
@@ -116,11 +144,6 @@ def plate_solve(bucket_path):
     print(f'Fetching {incoming_blob.name} to {temp_incoming_fits.name}')
     incoming_blob.download_to_filename(temp_incoming_fits.name)
     print(f'Got file for {bucket_path}')
-
-    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
-    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
-    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
-    print(f'Got image snapshot from firestore: {image_doc_ref.id}')
 
     try:
         print(f"Starting plate-solving for FITS file {bucket_path}")
@@ -162,7 +185,7 @@ def plate_solve(bucket_path):
 
     print(f'Recording metadata for {bucket_path}')
     image_doc_updates = dict(
-        status='solved',
+        status=PipelineStatus(CURRENT_STATE + 1).name,
         plate_solved=True,
         solved_url=outgoing_blob.public_url,
         ra_image=solved_header.get('CRVAL1'),

@@ -4,11 +4,11 @@ TOPIC=${1:-calibrate-images}
 
 gcloud functions deploy \
   "${TOPIC}" \
+  --trigger-topic "${TOPIC}" \
   --entry-point entry_point \
-  --runtime python38 \
-  --no-allow-unauthenticated \
   --memory "4G" \
-  --timeout 540 \
+  --no-allow-unauthenticated \
+  --runtime python38 \
   --service-account "piaa-pipeline@panoptes-exp.iam.gserviceaccount.com" \
-  --update-labels "use=pipeline" \
-  --trigger-topic "${TOPIC}"
+  --timeout 540 \
+  --update-labels "use=pipeline"

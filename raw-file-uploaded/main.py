@@ -3,34 +3,50 @@ import os
 import re
 import sys
 from contextlib import suppress
+from enum import IntEnum, auto
+from typing import Pattern
 
 import requests
 from dateutil.parser import parse as parse_date
+from dateutil.tz import UTC
 from google.cloud import firestore
 from google.cloud import storage
 
-INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-incoming')
-OUTGOING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-raw')
-TIMELAPSE_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-timelapse')
-TEMP_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-temp')
-ARCHIVE_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-archive')
-JPG_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-images-pretty')
 
-FITS_HEADER_URL = os.getenv('FITS_HEADER_URL',
-                            'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
+class PipelineStatus(IntEnum):
+    RECEIVING = auto()
+    RECEIVED = auto()
+    CALIBRATING = auto()
+    CALIBRATED = auto()
+    SOLVING = auto()
+    SOLVED = auto()
+    MATCHING = auto()
+    MATCHED = auto()
 
-PATH_MATCHER = re.compile(r""".*(?P<unit_id>PAN\d{3})
+
+CURRENT_STATE: PipelineStatus = PipelineStatus.RECEIVING
+
+INCOMING_BUCKET: str = os.getenv('INCOMING_BUCKET', 'panoptes-images-incoming')
+OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-raw')
+TIMELAPSE_BUCKET: str = os.getenv('TIMELAPSE_BUCKET', 'panoptes-timelapse')
+TEMP_BUCKET: str = os.getenv('TEMP_BUCKET', 'panoptes-images-temp')
+JPG_BUCKET: str = os.getenv('JPG_BUCKET', 'panoptes-images-pretty')
+ARCHIVE_BUCKET: str = os.getenv('ARCHIVE_BUCKET', 'panoptes-images-temp')
+
+FITS_HEADER_URL: str = os.getenv('FITS_HEADER_URL',
+                                 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
+
+PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
                                 /?(?P<field_name>.*)?
                                 /(?P<sequence_time>[0-9]{8}T[0-9]{6})
                                 /(?P<image_time>[0-9]{8}T[0-9]{6})
                                 \.(?P<fileext>.*)$""",
-                          re.VERBOSE)
+                                        re.VERBOSE)
 
-UNIT_FS_KEY = os.getenv('UNIT_FS_KEY', 'units')
-OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
-IMAGE_FS_KEY = os.getenv('IMAGE_FS_KEY', 'images')
-project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'panoptes-exp')
+UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
+OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
 
 try:
     firestore_db = firestore.Client()
@@ -209,6 +225,9 @@ def add_records_to_db(bucket_path):
     sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
     image_id = f'{unit_id}_{camera_id}_{image_time}'
 
+    sequence_time = parse_date(sequence_time).replace(tzinfo=UTC)
+    image_time = parse_date(image_time).replace(tzinfo=UTC)
+
     print(f'Found sequence_id={sequence_id} image_id={image_id}')
 
     # Scrub all the entries
@@ -218,95 +237,94 @@ def add_records_to_db(bucket_path):
 
     print(f'Using headers: {header!r}')
     try:
-        unit_id, camera_id, sequence_time = sequence_id.split('_')
-        sequence_time = parse_date(sequence_time)
-
-        img_time = parse_date(image_id.split('_')[-1])
-
-        batch = firestore_db.batch()
-
         print(f'Getting document for observation {sequence_id}')
         unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
         seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
         image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
 
+        with suppress(KeyError, TypeError):
+            image_status = image_doc_ref.get(['status']).to_dict()['status']
+            if PipelineStatus[image_status] >= CURRENT_STATE:
+                print(f'Skipping image with status of {PipelineStatus[image_status].name}')
+                return True
+
+        print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
+        image_doc_ref.set(dict(status=CURRENT_STATE.name), merge=True)
+
         # Add a units doc if it doesn't exist.
-        unit_doc_snap = unit_doc_ref.get()
-        if not unit_doc_snap.exists:
-            unit_message = dict(
-                name=header.get('OBSERVER', ''),
-                location=firestore.GeoPoint(header['LAT-OBS'],
-                                            header['LONG-OBS']),
-                elevation=float(header.get('ELEV-OBS')),
-                status='active'
-            )
-            batch.create(unit_doc_ref, unit_message)
+        unit_message = dict(
+            name=header.get('OBSERVER', ''),
+            location=firestore.GeoPoint(header['LAT-OBS'],
+                                        header['LONG-OBS']),
+            elevation=float(header.get('ELEV-OBS')),
+            status='active'
+        )
+        unit_doc_ref.set(unit_message, merge=True)
 
-        # Image document is under the 'images' collection of the observation.
-        seq_doc_snap = seq_doc_ref.get()
-        image_doc_snap = image_doc_ref.get()
+        exptime = header.get('EXPTIME')
 
-        # Create unit and observation documents if needed.
-        if not seq_doc_snap.exists:
-            print(f'Making new document for observation {sequence_id}')
-            seq_message = dict(
-                unit_id=unit_id,
-                camera_id=camera_id,
-                time=sequence_time,
-                exptime=header.get('EXPTIME'),
-                project=header.get('ORIGIN'),
-                software_version=header.get('CREATOR', ''),
-                field_name=header.get('FIELD', ''),
-                iso=header.get('ISO'),
-                ra=header.get('CRVAL1'),
-                dec=header.get('CRVAL2'),
-                status='receiving_files',
-                camera_serial_number=header.get('CAMSN'),
-                lens_serial_number=header.get('INTSN'),
-                received_time=firestore.SERVER_TIMESTAMP)
-            print(f"Adding new sequence: {seq_message!r}")
-            batch.create(seq_doc_ref, seq_message)
+        print(f'Making new document for observation {sequence_id}')
+        seq_message = dict(
+            unit_id=unit_id,
+            camera_id=camera_id,
+            time=sequence_time,
+            exptime=exptime,
+            project=header.get('ORIGIN'),
+            software_version=header.get('CREATOR', ''),
+            field_name=header.get('FIELD', ''),
+            iso=header.get('ISO'),
+            ra=header.get('CRVAL1'),
+            dec=header.get('CRVAL2'),
+            status='receiving_files',
+            camera_serial_number=header.get('CAMSN'),
+            lens_serial_number=header.get('INTSN'),
+            num_images=firestore.Increment(1),
+            total_exptime=firestore.Increment(exptime),
+            received_time=firestore.SERVER_TIMESTAMP)
+        print(f"Adding new sequence: {seq_message!r}")
+        seq_doc_ref.set(seq_message, merge=True)
 
-        # Create image document if needed.
-        if not image_doc_snap.exists:
-            print(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
-            measured_rggb = header.get('MEASRGGB').split(' ')
+        print(f"Adding image document for SEQ={sequence_id} IMG={image_id}")
+        measured_rggb = header.get('MEASRGGB').split(' ')
 
-            image_message = dict(
-                unit_id=unit_id,
-                time=img_time,
-                status='received',
-                bias_subtracted=False,
-                background_subtracted=False,
-                plate_solved=False,
-                exptime=header.get('EXPTIME'),
-                airmass=header.get('AIRMASS'),
-                moonfrac=header.get('MOONFRAC'),
-                moonsep=header.get('MOONSEP'),
-                mount_ha=header.get('HA-MNT'),
-                mount_ra=header.get('RA-MNT'),
-                mount_dec=header.get('DEC-MNT'),
-                camera=dict(
-                    temp=float(header.get('CAMTEMP').split(' ')[0]),
-                    colortemp=header.get('COLORTMP'),
-                    circconf=float(header.get('CIRCCONF').split(' ')[0]),
-                    measured_ev=header.get('MEASEV'),
-                    measured_ev2=header.get('MEASEV2'),
-                    measured_r=float(measured_rggb[0]),
-                    measured_g1=float(measured_rggb[1]),
-                    measured_g2=float(measured_rggb[2]),
-                    measured_b=float(measured_rggb[3]),
-                    white_lvln=header.get('WHTLVLN'),
-                    white_lvls=header.get('WHTLVLS'),
-                    red_balance=header.get('REDBAL'),
-                    blue_balance=header.get('BLUEBAL')
-                ),
-                received_time=firestore.SERVER_TIMESTAMP
-            )
+        camera_date = parse_date(header.get('DATE-OBS', '')).replace(tzinfo=UTC)
+        file_date = parse_date(header.get('DATE', '')).replace(tzinfo=UTC)
 
-            print(f'Adding image: {image_message!r}')
-            batch.create(image_doc_ref, image_message)
-            batch.commit()
+        image_message = dict(
+            unit_id=unit_id,
+            time=image_time,
+            status=PipelineStatus(CURRENT_STATE + 1).name,
+            bias_subtracted=False,
+            background_subtracted=False,
+            plate_solved=False,
+            exptime=header.get('EXPTIME'),
+            airmass=header.get('AIRMASS'),
+            moonfrac=header.get('MOONFRAC'),
+            moonsep=header.get('MOONSEP'),
+            mount_ha=header.get('HA-MNT'),
+            mount_ra=header.get('RA-MNT'),
+            mount_dec=header.get('DEC-MNT'),
+            camera=dict(
+                temp=float(header.get('CAMTEMP').split(' ')[0]),
+                colortemp=header.get('COLORTMP'),
+                circconf=float(header.get('CIRCCONF').split(' ')[0]),
+                measured_ev=header.get('MEASEV'),
+                measured_ev2=header.get('MEASEV2'),
+                measured_r=float(measured_rggb[0]),
+                measured_g1=float(measured_rggb[1]),
+                measured_g2=float(measured_rggb[2]),
+                measured_b=float(measured_rggb[3]),
+                white_lvln=header.get('WHTLVLN'),
+                white_lvls=header.get('WHTLVLS'),
+                red_balance=header.get('REDBAL'),
+                blue_balance=header.get('BLUEBAL'),
+                camera_dateobs=camera_date,
+                file_creation_date=file_date,
+            ),
+            received_time=firestore.SERVER_TIMESTAMP
+        )
+        image_doc_ref.set(image_message, merge=True)
+
     except Exception as e:
         print(f'Error in adding record: {e!r}')
         raise e
