@@ -39,7 +39,7 @@ IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
 
 CAMERA_BIAS: Union[int, float] = os.getenv('CAMERA_BIAS', 2048.)
 BG_PARAMS_BOX_SIZE: Tuple[int, int] = os.getenv('BG_PARAMS_BOX_SIZE', (79, 84))  # (11, 12)
-BG_PARAMS_FILTER_SIZE: Tuple[int, int] = os.getenv('BG_PARAMS_BOX_SIZE', (3, 3))  # (11, 12)
+BG_PARAMS_FILTER_SIZE: Tuple[int, int] = os.getenv('BG_PARAMS_BOX_SIZE', (11, 12))  # (11, 12)
 
 PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
                                 /(?P<camera_id>[a-gA-G0-9]{6})
