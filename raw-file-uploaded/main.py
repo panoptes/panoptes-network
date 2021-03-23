@@ -48,7 +48,7 @@ def process_topic(bucket_path):
     and if so rename the file (which will trigger this function again with new name).
 
     Correct:   PAN001/14d3bd/20200319T111240/20200319T112708.fits.fz
-    Incorrect: PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
+    Legacy:    PAN001/Tess_Sec21_Cam02/14d3bd/20200319T111240/20200319T112708.fits.fz
 
     Args:
         bucket_path (str): The path to the file in the `panoptes-incoming` bucket.
