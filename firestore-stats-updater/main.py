@@ -34,12 +34,13 @@ def observations_entry(data, context):
 
     sequence_year, sequence_week, _ = sequence_time.isocalendar()
 
-    stat_week_key = f'stats/{sequence_year}_{sequence_week:02d}_{unit_id}'
+    # Firestore wants a tuple with a single entry.
+    stat_week_key = (f'{STATS_FS_KEY}/{sequence_year}_{sequence_week:02d}_{unit_id}',)
 
     # Get the list of observation ids for the stat record associated with this observation.
     try:
-        observations = firestore_db.document(stat_week_key).get(['observations']).get(
-            'observations')
+        observations = firestore_db.document(stat_week_key).get([OBSERVATION_FS_KEY]).get(
+            OBSERVATION_FS_KEY)
         print(f'Found existing observations: {observations!r}')
     except Exception as e:
         print(f'Unable to get firestore document: {e!r}')
@@ -74,9 +75,9 @@ def observations_entry(data, context):
     }
     counters = {'num_observations': num_observations}
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'{UNITS_FS_KEY}/{unit_id}'), counters, merge=True)
+    batch.set(firestore_db.document((f'{UNITS_FS_KEY}/{unit_id}',)), counters, merge=True)
 
-    batch.commit()
+    return batch.commit()
 
 
 def images_entry(data, context):
@@ -100,18 +101,17 @@ def images_entry(data, context):
 
     image_year, image_week, _ = image_time.isocalendar()
 
-    stat_week_key = f'stats/{image_year}_{image_week:02d}_{unit_id}'
+    stat_week_key = (f'{STATS_FS_KEY}/{image_year}_{image_week:02d}_{unit_id}',)
 
     exptime = 0  # Unknown
-    if context.event_type.endswith('create'):
-        doc = data['value']['fields']
-        mult = 1
-    elif context.event_type.endswith('delete'):
-        doc = data['oldValue']['fields']
+    mult = 1
+    event_type = 'value'
+    if context.event_type.endswith('delete'):
+        event_type = 'oldValue'
         mult = -1
 
     with suppress(KeyError):
-        exptime = mult * round(float(list(doc['exptime'].values())[0]))
+        exptime = mult * round(float(list(data[event_type]['fields']['exptime'].values())[0]))
 
     num_images = firestore.Increment(mult)
     exptime = firestore.Increment(round(exptime / 60, 2))  # Exptime as tenths of minutes.
@@ -126,9 +126,7 @@ def images_entry(data, context):
     }
     counters = {'num_images': num_images, 'total_minutes_exptime': exptime}
 
-    sequence_id = doc['sequence_id']['stringValue']
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'{UNITS_FS_KEY}/{unit_id}'), counters, merge=True)
-    batch.set(firestore_db.document(f'{OBSERVATION_FS_KEY}/{sequence_id}'), counters, merge=True)
+    batch.set(firestore_db.document((f'{UNITS_FS_KEY}/{unit_id}',)), counters, merge=True)
 
     batch.commit()
