@@ -1,13 +1,30 @@
 Plate Solver
 ------------
 
-An astronomical plate-solving service!
+An astronomical-plate solving service that runs on a GCP Cloud Run cluster.
 
-This service is based on the `panoptes-utils` base docker image and uses the
-`panoptes.utils.images.fits.get_solve_field` utility function.
+Input:
 
-The service is triggered automatically by the `raw-file-uploaded` [PubSub](https://cloud.google.com/run/docs/triggering/pubsub-push) topic when a `fits` (or `.fz`) file is uploaded to the `panoptes-incoming` bucket.
+* `panoptes-images-calibrated` notification (see below).
+
+Output:
+
+* `panoptes-images-solved` for plate-solved FITS files.
 
 ### Deploy
 
-See [Deployment](../README.md#deploy) in main README for preferred deployment method.
+The new service will be deployed automatically by Google Cloud Build.
+
+### Notification Creation
+
+The bucket notification only needs to be created once, which can be done with the following command:
+
+```sh
+gsutil notification create -t plate-solve -f json -e OBJECT_FINALIZE gs://panoptes-images-calibrated/
+```
+
+You can list existing notifications with:
+
+```sh
+gsutil notification list gs://panoptes-images-calibrated/
+```

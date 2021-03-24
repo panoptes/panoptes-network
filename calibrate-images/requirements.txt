@@ -1,4 +1,6 @@
+Flask
 google-cloud-firestore
 google-cloud-storage
-python-dateutil
+ruamel.yaml
+panoptes-utils[images]>=0.2.33
 git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline

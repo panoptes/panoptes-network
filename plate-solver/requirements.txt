@@ -1,6 +1,6 @@
-astropy
+Flask
 google-cloud-firestore
-google-cloud-pubsub
 google-cloud-storage
-numpy
-pandas
+gunicorn
+panoptes-utils[images]>=0.2.33
+git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline

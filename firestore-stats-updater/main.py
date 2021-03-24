@@ -1,8 +1,15 @@
+import os
 from contextlib import suppress
-from dateutil.parser import parse as parse_date
 
+from dateutil.parser import parse as parse_date
 from google.cloud import firestore
+
 firestore_db = firestore.Client()
+
+STATS_FS_KEY = os.getenv('STATS_FS_KEY', 'stats')
+UNITS_FS_KEY = os.getenv('UNITS_FS_KEY', 'units')
+OBSERVATION_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY = os.getenv('OBSERVATION_FS_KEY', 'images')
 
 
 def observations_entry(data, context):
@@ -27,16 +34,19 @@ def observations_entry(data, context):
 
     sequence_year, sequence_week, _ = sequence_time.isocalendar()
 
-    stat_week_key = f'stats/{sequence_year}_{sequence_week:02d}_{unit_id}'
+    # Firestore wants a tuple with a single entry.
+    stat_week_key = (f'{STATS_FS_KEY}/{sequence_year}_{sequence_week:02d}_{unit_id}',)
 
     # Get the list of observation ids for the stat record associated with this observation.
     try:
-        observations = firestore_db.document(stat_week_key).get(['observations']).get('observations')
+        observations = firestore_db.document(stat_week_key).get([OBSERVATION_FS_KEY]).get(
+            OBSERVATION_FS_KEY)
         print(f'Found existing observations: {observations!r}')
     except Exception as e:
         print(f'Unable to get firestore document: {e!r}')
         observations = list()
 
+    num_observations = 0
     if context.event_type.endswith('create'):
         # Make sure no stats record exists and increment otherwise.
         if sequence_id in observations:
@@ -48,7 +58,8 @@ def observations_entry(data, context):
     elif context.event_type.endswith('delete'):
         # Find the stats record that matches and decrement if found.
         if sequence_id not in observations:
-            print(f'{sequence_id} does not exist in {stat_week_key}, skipping delete stats decrement')
+            print(
+                f'{sequence_id} does not exist in {stat_week_key}, skipping delete stats decrement')
             return
 
         num_observations = firestore.Increment(-1)
@@ -64,9 +75,9 @@ def observations_entry(data, context):
     }
     counters = {'num_observations': num_observations}
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'units/{unit_id}'), counters, merge=True)
+    batch.set(firestore_db.document((f'{UNITS_FS_KEY}/{unit_id}',)), counters, merge=True)
 
-    batch.commit()
+    return batch.commit()
 
 
 def images_entry(data, context):
@@ -90,18 +101,17 @@ def images_entry(data, context):
 
     image_year, image_week, _ = image_time.isocalendar()
 
-    stat_week_key = f'stats/{image_year}_{image_week:02d}_{unit_id}'
+    stat_week_key = (f'{STATS_FS_KEY}/{image_year}_{image_week:02d}_{unit_id}',)
 
     exptime = 0  # Unknown
-    if context.event_type.endswith('create'):
-        doc = data['value']['fields']
-        mult = 1
-    elif context.event_type.endswith('delete'):
-        doc = data['oldValue']['fields']
+    mult = 1
+    event_type = 'value'
+    if context.event_type.endswith('delete'):
+        event_type = 'oldValue'
         mult = -1
 
     with suppress(KeyError):
-        exptime = mult * round(float(list(doc['exptime'].values())[0]))
+        exptime = mult * round(float(list(data[event_type]['fields']['exptime'].values())[0]))
 
     num_images = firestore.Increment(mult)
     exptime = firestore.Increment(round(exptime / 60, 2))  # Exptime as tenths of minutes.
@@ -116,9 +126,7 @@ def images_entry(data, context):
     }
     counters = {'num_images': num_images, 'total_minutes_exptime': exptime}
 
-    sequence_id = doc['sequence_id']['stringValue']
     batch.set(firestore_db.document(stat_week_key), stats, merge=True)
-    batch.set(firestore_db.document(f'units/{unit_id}'), counters, merge=True)
-    batch.set(firestore_db.document(f'observations/{sequence_id}'), counters, merge=True)
+    batch.set(firestore_db.document((f'{UNITS_FS_KEY}/{unit_id}',)), counters, merge=True)
 
     batch.commit()

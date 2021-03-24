@@ -1,128 +1,178 @@
+import base64
 import os
-import subprocess
 import sys
-import time
+import tempfile
 from contextlib import suppress
 
+from flask import Flask, request
 from google.cloud import exceptions
 from google.cloud import firestore
-from google.cloud import pubsub
-from google.cloud import pubsub_v1
 from google.cloud import storage
-from panoptes.utils import image_id_from_path
+from panoptes.pipeline.utils.metadata import ObservationPathInfo
+from panoptes.pipeline.utils.status import ImageStatus
+from panoptes.utils.images import fits as fits_utils
+from panoptes.utils.time import current_time
 
-PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
-PUBSUB_SUBSCRIPTION = 'plate-solve-read'
-MAX_MESSAGES = os.getenv('MAX_MESSAGES', 1)
-INCOMING_BUCKET = os.getenv('INCOMING_BUCKET', 'panoptes-incoming')
-ERROR_BUCKET = os.getenv('ERROR_BUCKET', 'panoptes-error-images')
+CURRENT_STATE: ImageStatus = ImageStatus.SOLVING
+
+app = Flask(__name__)
+
+INCOMING_BUCKET: str = os.getenv('INCOMING_BUCKET', 'panoptes-images-calibrated')
+OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-solved')
+ERROR_BUCKET: str = os.getenv('ERROR_BUCKET', 'panoptes-images-error')
+TIMEOUT: int = os.getenv('TIMEOUT', 600)
+
+UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
+OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
+IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
 
 # Storage
 try:
     firestore_db = firestore.Client()
-    subscriber = pubsub.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, PUBSUB_SUBSCRIPTION)
-
     storage_client = storage.Client()
     incoming_bucket = storage_client.get_bucket(INCOMING_BUCKET)
+    outgoing_bucket = storage_client.get_bucket(OUTGOING_BUCKET)
     error_bucket = storage_client.get_bucket(ERROR_BUCKET)
 except RuntimeError:
     print(f"Can't load Google credentials, exiting")
     sys.exit(1)
 
 
-def main():
-    print(f'Creating subscriber (messages={MAX_MESSAGES}) for {subscription_path}')
-    streaming_pull_future = subscriber.subscribe(
-        subscription_path,
-        callback=process_message,
-        flow_control=pubsub_v1.types.FlowControl(max_messages=int(MAX_MESSAGES))
-    )
+@app.route("/", methods=["POST"])
+def index():
+    envelope = request.get_json()
+    if not envelope:
+        msg = "no Pub/Sub message received"
+        print(f"error: {msg}")
+        return "Invalid pubsub", 400
 
-    print(f'Listening for messages on {subscription_path}')
-    with subscriber:
-        try:
-            streaming_pull_future.result()  # Blocks indefinitely
-        except Exception as e:
-            streaming_pull_future.cancel()
-            print(f'Streaming pull cancelled: {e!r}')
-        finally:
-            print(f'Streaming pull finished')
+    if not isinstance(envelope, dict) or "message" not in envelope:
+        msg = "invalid Pub/Sub message format"
+        print(f"error: {msg}")
+        return "Invalid pubsub", 400
+
+    pubsub_message = envelope["message"]
+
+    try:
+        message_data = base64.b64decode(pubsub_message["data"]).decode("utf-8").strip()
+        print(f'Received json {message_data=}')
+
+        # The objectID is stored in the attributes, which is easy to set.
+        attributes = pubsub_message["attributes"]
+        print(f'Received {attributes=}')
+
+        bucket_path = attributes['objectId']
+
+        url = plate_solve(bucket_path)
+    except (FileNotFoundError, FileExistsError) as e:
+        print(e)
+        return '', 204
+    except Exception as e:
+        print(f'Exception in plate-solve: {e!r}')
+        return f'Incorrect solve, file moved to error bucket', 204
+    else:
+        # Success
+        return f'{url}', 204
 
 
-def process_message(message):
+def plate_solve(bucket_path):
     """Receives the message and process necessary steps.
 
     Args:
-        message (`google.cloud.pubsub.Message`): The PubSub message. Data is delivered
-            as attributes to the message. Valid keys are `bucket_path` (required).
+        bucket_path (str): Location of the file in storage bucket.
     """
-    data = message.data.decode('utf-8')
-    attributes = dict(message.attributes)
+    # Get information from the path.
+    path_info = ObservationPathInfo(path=bucket_path)
+    unit_id = path_info.unit_id
+    camera_id = path_info.camera_id
+    sequence_time = path_info.sequence_time
+    image_time = path_info.image_time
+    fileext = path_info.fileext
+
+    sequence_id = path_info.sequence_id
+    image_id = path_info.image_id
+    print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
+
+    unit_doc_ref = firestore_db.document((f'{UNIT_FS_KEY}/{unit_id}',))
+    seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
+    image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
+
+    with suppress(KeyError, TypeError):
+        image_status = image_doc_ref.get(['status']).to_dict()['status']
+        if ImageStatus[image_status] >= CURRENT_STATE:
+            print(f'Skipping image with status of {ImageStatus[image_status].name}')
+            return True
+
+    print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
+    image_doc_ref.set(dict(status=CURRENT_STATE.name), merge=True)
+
+    temp_incoming_fits = tempfile.NamedTemporaryFile(suffix=f'.{fileext}')
+
+    # Blob for plate-solved image.
+    outgoing_blob = outgoing_bucket.blob(bucket_path)
+
+    # TODO need to trigger the lookup-catalog-sources here. For now just re-solve
+    # if outgoing_blob.exists():
+    # raise FileExistsError(f'File has already been processed at {outgoing_blob.public_url}')
+
+    # Blob for calibrated image.
+    incoming_blob = incoming_bucket.blob(bucket_path)
+    if incoming_blob.exists() is False:
+        raise FileNotFoundError(f'File does not exist at location: {incoming_blob.name}')
+
+    print(f'Fetching {incoming_blob.name} to {temp_incoming_fits.name}')
+    incoming_blob.download_to_filename(temp_incoming_fits.name)
+    print(f'Got file for {bucket_path}')
 
     try:
-        bucket_path = attributes.pop('bucket_path')
-    except KeyError:
-        bucket_path = data['bucket_path']
-
-    timeout = attributes.get('timeout', 600)  # 10 min timeout
-
-    print(f"Message received: {message!r}")
-
-    if bucket_path is None:
-        print(f'Need a valid bucket_path')
-        return
-
-    image_id = image_id_from_path(bucket_path)
-
-    if image_id is None:
-        print(f'Skipping invalid image_id for {bucket_path}: {image_id}')
-        # Remove from incoming bucket (it's already archived).
-        with suppress(exceptions.NotFound):
-            incoming_bucket.blob(bucket_path).delete()
-        message.ack()
-        return
-
-    t0 = time.time()
-    solve_successful = False
-    try:
-        solve_cmd = ['/app/solver.py', '--bucket-path', bucket_path]
-        print(f'Submitting {solve_cmd}')
-        completed_process = subprocess.run(solve_cmd,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.STDOUT,
-                                           check=True,
-                                           timeout=timeout)
-        print(f'Solving completed successfully for {bucket_path} in {time.time() - t0:.0f} sec')
-        print(f'{bucket_path} solver output: {completed_process.stdout}')
-        solve_successful = True
-    except subprocess.CalledProcessError as e:
-        print(f'Error in {bucket_path} plate solve script: {e!r}')
-        print(f'{bucket_path} solver output: {e.output}')
-        firestore_db.document(f'images/{image_id}').set(dict(status='error'), merge=True)
-
-        try:
-            image_blob = incoming_bucket.blob(bucket_path)
-            error_blob = incoming_bucket.copy_blob(image_blob, error_bucket)
-            image_blob.delete()
-            print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
-        except exceptions.NotFound:
-            print(f'Error deleting after error, {bucket_path} blob path not found')
-    except FileNotFoundError:
-        print(f'Unable to download {bucket_path}, skipping.')
+        print(f"Starting plate-solving for FITS file {bucket_path}")
+        solve_info = fits_utils.get_solve_field(temp_incoming_fits.name,
+                                                skip_solved=False,
+                                                timeout=300)
+        print(f'Solving completed successfully for {bucket_path}')
+        print(f'{bucket_path} solve info: {solve_info}')
     except Exception as e:
-        print(f'Error in {bucket_path} plate solve: {e!r}')
+        # Mark the firestore metadata with error.
+        print(f'Error in {bucket_path} plate solve script: {e!r}')
+        image_doc_ref.set(dict(status='error'), merge=True)
 
+        # Move the file to the error bucket.
         try:
-            error_blob = incoming_bucket.copy_blob(incoming_bucket.blob(bucket_path), error_bucket)
+            error_blob = incoming_bucket.copy_blob(incoming_blob, error_bucket)
+            incoming_blob.delete()
             print(f'Moved error FITS {bucket_path} to {error_blob.public_url}')
         except exceptions.NotFound:
             print(f'Error deleting after error, {bucket_path} blob path not found')
-    finally:
-        t1 = time.time()
-        print(f'{bucket_path} finished in {t1 - t0:0.2f} secs. Solve success: {solve_successful}')
-        message.ack()
+        finally:
+            raise Exception('Error solving')
 
+    solved_header = fits_utils.getheader(temp_incoming_fits.name)
 
-if __name__ == '__main__':
-    main()
+    print(f'Cleaning FITS headers')
+    try:
+        solved_header.remove('COMMENT', ignore_missing=True, remove_all=True)
+        solved_header.add_history(f'Plate-solved at {current_time(pretty=True)}')
+        solved_header['SOLVED'] = True
+    except Exception as e:
+        print(f'Problem cleaning headers: {e!r}')
+
+    #  Upload the plate-solved image.
+    print(f'Uploading to {outgoing_blob.public_url}')
+    outgoing_blob.upload_from_filename(temp_incoming_fits.name)
+
+    print(f'Recording metadata for {bucket_path}')
+    image_doc_updates = dict(
+        status=ImageStatus(CURRENT_STATE + 1).name,
+        plate_solved=True,
+        solved_url=outgoing_blob.public_url,
+        ra_image=solved_header.get('CRVAL1'),
+        dec_image=solved_header.get('CRVAL2'),
+    )
+
+    # Record the metadata in firestore.
+    image_doc_ref.set(
+        image_doc_updates,
+        merge=True
+    )
+
+    return outgoing_blob.public_url
