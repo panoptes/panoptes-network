@@ -4,7 +4,7 @@ import sys
 import requests
 from google.cloud import firestore
 from google.cloud import storage
-from panoptes.pipeline.cloud.handler import Handler
+from panoptes.pipeline.utils.gcp.functions import cloud_function_entry_point
 from panoptes.pipeline.utils.gcp.storage import copy_blob_to_bucket, move_blob_to_bucket
 from panoptes.pipeline.utils.metadata import ObservationPathInfo, record_metadata
 
@@ -36,7 +36,7 @@ except RuntimeError:
 
 def entry_point(raw_message, context):
     """Process the raw message and """
-    Handler.cloud_function_entry_point(raw_message, context, operation=process_topic)
+    cloud_function_entry_point(raw_message, context, operation=process_topic)
 
 
 def process_topic(bucket_path):
