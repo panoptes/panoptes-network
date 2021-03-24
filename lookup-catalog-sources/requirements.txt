@@ -8,4 +8,4 @@ pendulum
 python-dateutil
 requests
 panoptes-utils[images]>=0.2.33
-git+git://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
+git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline

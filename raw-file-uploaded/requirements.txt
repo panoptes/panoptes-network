@@ -1,3 +1,4 @@
 google-cloud-firestore
 google-cloud-storage
 python-dateutil
+git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
