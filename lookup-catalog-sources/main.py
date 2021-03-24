@@ -1,36 +1,22 @@
 import base64
 import os
-import re
 import sys
 from contextlib import suppress
-from enum import IntEnum, auto
 from io import BytesIO
-from typing import Dict, Any, Union, Pattern
+from typing import Dict, Any, Union
 
 import numpy as np
 import requests
 from astropy.wcs import WCS
-from dateutil.parser import parse as parse_date
-from dateutil.tz import UTC
 from flask import Flask, request
 from google.cloud import firestore
 from google.cloud import storage
 from panoptes.pipeline.utils import sources
 from panoptes.pipeline.utils.gcp.bigquery import get_bq_clients
+from panoptes.pipeline.utils.metadata import ObservationPathInfo
+from panoptes.pipeline.utils.status import ImageStatus
 
-
-class PipelineStatus(IntEnum):
-    RECEIVING = auto()
-    RECEIVED = auto()
-    CALIBRATING = auto()
-    CALIBRATED = auto()
-    SOLVING = auto()
-    SOLVED = auto()
-    MATCHING = auto()
-    MATCHED = auto()
-
-
-CURRENT_STATE: PipelineStatus = PipelineStatus.MATCHING
+CURRENT_STATE: ImageStatus = ImageStatus.MATCHING
 
 app = Flask(__name__)
 
@@ -43,14 +29,6 @@ SEARCH_PARAMS: Union[str, Dict[Any, int]] = os.getenv('SEARCH_PARAMS',
 UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
 OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
 IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
-
-PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
-                                /(?P<camera_id>[a-gA-G0-9]{6})
-                                /?(?P<field_name>.*)?
-                                /(?P<sequence_time>[0-9]{8}T[0-9]{6})
-                                /(?P<image_time>[0-9]{8}T[0-9]{6})
-                                \.(?P<fileext>.*)$""",
-                                        re.VERBOSE)
 
 FITS_HEADER_URL: str = 'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header'
 
@@ -106,25 +84,22 @@ def index():
 
 def lookup_sources(bucket_path):
     # Get information from the path.
-    path_match_result = PATH_MATCHER.match(bucket_path)
-    unit_id = path_match_result.group('unit_id')
-    camera_id = path_match_result.group('camera_id')
-    sequence_time = path_match_result.group('sequence_time')
-    image_time = path_match_result.group('image_time')
+    path_info = ObservationPathInfo(path=bucket_path)
+    unit_id = path_info.unit_id
+    camera_id = path_info.camera_id
+    image_time = path_info.image_time
 
-    sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
-    image_id = f'{unit_id}_{camera_id}_{image_time}'
+    sequence_id = path_info.sequence_id
+    image_id = path_info.image_id
 
-    image_time = parse_date(image_time).replace(tzinfo=UTC)
-
-    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    unit_doc_ref = firestore_db.document((f'{UNIT_FS_KEY}/{unit_id}',))
     seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
     image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
 
     with suppress(KeyError, TypeError):
         image_status = image_doc_ref.get(['status']).to_dict()['status']
-        if PipelineStatus[image_status] >= CURRENT_STATE:
-            print(f'Skipping image with status of {PipelineStatus[image_status].name}')
+        if ImageStatus[image_status] >= CURRENT_STATE:
+            print(f'Skipping image with status of {ImageStatus[image_status].name}')
             return True
 
     print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
@@ -186,7 +161,7 @@ def lookup_sources(bucket_path):
 
     print(f'Recording firestore metadata for {bucket_path}')
     image_doc_updates = dict(
-        status=PipelineStatus(CURRENT_STATE + 1).name,
+        status=ImageStatus(CURRENT_STATE + 1).name,
         has_sources=True,
         sources_url=outgoing_blob.public_url,
     )
