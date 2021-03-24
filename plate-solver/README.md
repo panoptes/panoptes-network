@@ -1,7 +1,7 @@
 Plate Solver
 ------------
 
-An astronomical-plate solving service that runs on a Google Kubernetes Cluster.
+An astronomical-plate solving service that runs on a GCP Cloud Run cluster.
 
 Input:
 

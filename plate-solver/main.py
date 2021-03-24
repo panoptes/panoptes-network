@@ -1,32 +1,19 @@
 import base64
 import os
-import re
 import sys
 import tempfile
 from contextlib import suppress
-from enum import IntEnum, auto
-from typing import Pattern
 
 from flask import Flask, request
 from google.cloud import exceptions
 from google.cloud import firestore
 from google.cloud import storage
+from panoptes.pipeline.utils.metadata import ObservationPathInfo
+from panoptes.pipeline.utils.status import ImageStatus
 from panoptes.utils.images import fits as fits_utils
 from panoptes.utils.time import current_time
 
-
-class PipelineStatus(IntEnum):
-    RECEIVING = auto()
-    RECEIVED = auto()
-    CALIBRATING = auto()
-    CALIBRATED = auto()
-    SOLVING = auto()
-    SOLVED = auto()
-    MATCHING = auto()
-    MATCHED = auto()
-
-
-CURRENT_STATE: PipelineStatus = PipelineStatus.SOLVING
+CURRENT_STATE: ImageStatus = ImageStatus.SOLVING
 
 app = Flask(__name__)
 
@@ -38,14 +25,6 @@ TIMEOUT: int = os.getenv('TIMEOUT', 600)
 UNIT_FS_KEY: str = os.getenv('UNIT_FS_KEY', 'units')
 OBSERVATION_FS_KEY: str = os.getenv('OBSERVATION_FS_KEY', 'observations')
 IMAGE_FS_KEY: str = os.getenv('IMAGE_FS_KEY', 'images')
-
-PATH_MATCHER: Pattern[str] = re.compile(r""".*(?P<unit_id>PAN\d{3})
-                                /(?P<camera_id>[a-gA-G0-9]{6})
-                                /?(?P<field_name>.*)?
-                                /(?P<sequence_time>[0-9]{8}T[0-9]{6})
-                                /(?P<image_time>[0-9]{8}T[0-9]{6})
-                                \.(?P<fileext>.*)$""",
-                                        re.VERBOSE)
 
 # Storage
 try:
@@ -103,25 +82,25 @@ def plate_solve(bucket_path):
         bucket_path (str): Location of the file in storage bucket.
     """
     # Get information from the path.
-    path_match_result = PATH_MATCHER.match(bucket_path)
-    unit_id = path_match_result.group('unit_id')
-    camera_id = path_match_result.group('camera_id')
-    sequence_time = path_match_result.group('sequence_time')
-    image_time = path_match_result.group('image_time')
-    fileext = path_match_result.group('fileext')
+    path_info = ObservationPathInfo(path=bucket_path)
+    unit_id = path_info.unit_id
+    camera_id = path_info.camera_id
+    sequence_time = path_info.sequence_time
+    image_time = path_info.image_time
+    fileext = path_info.fileext
 
-    sequence_id = f'{unit_id}_{camera_id}_{sequence_time}'
-    image_id = f'{unit_id}_{camera_id}_{image_time}'
+    sequence_id = path_info.sequence_id
+    image_id = path_info.image_id
     print(f'Solving sequence_id={sequence_id} image_id={image_id} for {bucket_path}')
 
-    unit_doc_ref = firestore_db.document(f'{UNIT_FS_KEY}/{unit_id}')
+    unit_doc_ref = firestore_db.document((f'{UNIT_FS_KEY}/{unit_id}',))
     seq_doc_ref = unit_doc_ref.collection(OBSERVATION_FS_KEY).document(sequence_id)
     image_doc_ref = seq_doc_ref.collection(IMAGE_FS_KEY).document(image_id)
 
     with suppress(KeyError, TypeError):
         image_status = image_doc_ref.get(['status']).to_dict()['status']
-        if PipelineStatus[image_status] >= CURRENT_STATE:
-            print(f'Skipping image with status of {PipelineStatus[image_status].name}')
+        if ImageStatus[image_status] >= CURRENT_STATE:
+            print(f'Skipping image with status of {ImageStatus[image_status].name}')
             return True
 
     print(f'Setting image {image_doc_ref.id} to {CURRENT_STATE.name}')
@@ -152,8 +131,6 @@ def plate_solve(bucket_path):
                                                 timeout=300)
         print(f'Solving completed successfully for {bucket_path}')
         print(f'{bucket_path} solve info: {solve_info}')
-
-        solved_path = solve_info['solved_fits_file']
     except Exception as e:
         # Mark the firestore metadata with error.
         print(f'Error in {bucket_path} plate solve script: {e!r}')
@@ -185,7 +162,7 @@ def plate_solve(bucket_path):
 
     print(f'Recording metadata for {bucket_path}')
     image_doc_updates = dict(
-        status=PipelineStatus(CURRENT_STATE + 1).name,
+        status=ImageStatus(CURRENT_STATE + 1).name,
         plate_solved=True,
         solved_url=outgoing_blob.public_url,
         ra_image=solved_header.get('CRVAL1'),
@@ -199,23 +176,3 @@ def plate_solve(bucket_path):
     )
 
     return outgoing_blob.public_url
-
-
-def move_blob_to_bucket(blob_name, new_bucket, remove=True):
-    """Copy the blob from the incoming bucket to the `new_bucket`.
-
-    Args:
-        blob_name (str): The relative path to the blob.
-        new_bucket (str): The name of the bucket where we move/copy the file.
-        remove (bool, optional): If file should be removed afterwards, i.e. a move, or just copied.
-            Default True as per the function name.
-    """
-    print(f'Moving {blob_name} → {new_bucket}')
-    incoming_bucket.copy_blob(incoming_bucket.get_blob(blob_name), new_bucket)
-    if remove:
-        incoming_bucket.delete_blob(blob_name)
-
-
-def copy_blob_to_bucket(*args, **kwargs):
-    kwargs['remove'] = False
-    move_blob_to_bucket(*args, **kwargs)

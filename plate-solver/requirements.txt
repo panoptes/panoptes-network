@@ -2,4 +2,4 @@ Flask
 google-cloud-firestore
 google-cloud-storage
 gunicorn
-panoptes-utils[images]>=0.2.32
+panoptes-utils[images]>=0.2.33
