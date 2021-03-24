@@ -1,5 +1,3 @@
-Flask
 google-cloud-firestore
 google-cloud-storage
-gunicorn
 python-dateutil
