@@ -6,8 +6,9 @@ gcloud functions deploy \
   "${TOPIC}" \
   --trigger-topic "${TOPIC}" \
   --entry-point entry_point \
-  --memory '256m' \
+  --memory '512m' \
   --no-allow-unauthenticated \
   --runtime python38 \
+  --ingress-settings=internal-and-gclb \
   --service-account "piaa-pipeline@panoptes-exp.iam.gserviceaccount.com" \
   --update-labels "use=pipeline"

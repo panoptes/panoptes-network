@@ -6,7 +6,7 @@ from google.cloud import firestore
 from google.cloud import storage
 from panoptes.pipeline.utils.gcp.functions import cloud_function_entry_point
 from panoptes.pipeline.utils.gcp.storage import copy_blob_to_bucket, move_blob_to_bucket
-from panoptes.pipeline.utils.metadata import ObservationPathInfo, record_metadata
+from panoptes.pipeline.utils.metadata import ObservationPathInfo
 
 INCOMING_BUCKET: str = os.getenv('INCOMING_BUCKET', 'panoptes-images-incoming')
 OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-raw')
@@ -35,11 +35,11 @@ except RuntimeError:
 
 
 def entry_point(raw_message, context):
-    """Process the raw message and """
-    cloud_function_entry_point(raw_message, context, operation=process_topic)
+    """Process the raw message """
+    cloud_function_entry_point(raw_message=raw_message, operation=process_topic)
 
 
-def process_topic(bucket_path):
+def process_topic(bucket_path, *args, **kwargs):
     """Look for uploaded files and process according to the file type.
 
     Triggered when file is uploaded to bucket and forwards on to appropriate service.
@@ -55,6 +55,9 @@ def process_topic(bucket_path):
     Returns:
         None; the output is written to Stackdriver Logging
     """
+    # Use bucket path instead of public url
+    bucket_path = bucket_path.split(f'{INCOMING_BUCKET}/')[-1]
+
     process_lookup = {
         '.fits': process_fits,
         '.fz': process_fits,
@@ -100,39 +103,32 @@ def process_fits(bucket_path):
     Args:
         bucket_path (str): The relative path in a google storage bucket.
     """
-    try:
-        if 'pointing' not in bucket_path:
-            header = lookup_fits_header(bucket_path)
-            record_metadata(bucket_path, header, firestore_db=firestore.Client())
-    except Exception as e:
-        print(f'Error adding firestore record for {bucket_path}: {e!r}')
-    else:
-        # Archive file.
-        copy_blob_to_bucket(bucket_path, archive_bucket)
+    # Archive file.
+    copy_blob_to_bucket(bucket_path, incoming_bucket, archive_bucket)
 
-        # Move to raw-image bucket, which triggers background subtraction.
-        move_blob_to_bucket(bucket_path, outgoing_bucket)
+    # Move to raw-image bucket, which triggers image calibration steps.
+    move_blob_to_bucket(bucket_path, incoming_bucket, outgoing_bucket)
 
 
 def process_cr2(bucket_path):
     """Move cr2 to archive and observation bucket"""
-    copy_blob_to_bucket(bucket_path, archive_bucket)
-    move_blob_to_bucket(bucket_path, outgoing_bucket)
+    copy_blob_to_bucket(bucket_path, incoming_bucket, archive_bucket)
+    move_blob_to_bucket(bucket_path, incoming_bucket, outgoing_bucket)
 
 
 def process_jpg(bucket_path):
     """Move jpgs to observation bucket"""
-    move_blob_to_bucket(bucket_path, jpg_images_bucket)
+    move_blob_to_bucket(bucket_path, incoming_bucket, jpg_images_bucket)
 
 
 def process_timelapse(bucket_path):
     """Move jpgs to observation bucket"""
-    move_blob_to_bucket(bucket_path, timelapse_bucket)
+    move_blob_to_bucket(bucket_path, incoming_bucket, timelapse_bucket)
 
 
 def process_unknown(bucket_path):
     """Move unknown extensions to the temp bucket."""
-    move_blob_to_bucket(bucket_path, temp_bucket)
+    move_blob_to_bucket(bucket_path, incoming_bucket, temp_bucket)
 
 
 def lookup_fits_header(bucket_path):
