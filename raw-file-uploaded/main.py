@@ -4,7 +4,6 @@ import sys
 import requests
 from google.cloud import firestore
 from google.cloud import storage
-from panoptes.pipeline.utils.gcp.functions import cloud_function_entry_point
 from panoptes.pipeline.utils.gcp.storage import copy_blob_to_bucket, move_blob_to_bucket
 from panoptes.pipeline.utils.metadata import ObservationPathInfo
 
@@ -36,7 +35,19 @@ except RuntimeError:
 
 def entry_point(raw_message, context):
     """Process the raw message """
-    cloud_function_entry_point(raw_message=raw_message, operation=process_topic)
+    attributes = raw_message['attributes']
+    print(f"Attributes: {attributes!r}")
+    bucket_path = attributes['objectId']
+
+    if bucket_path is None:
+        raise Exception(f'No file requested')
+
+    try:
+        process_topic(bucket_path)
+    except Exception as e:
+        print(f'Problem receiving file: {e!r}')
+
+    return True
 
 
 def process_topic(bucket_path, *args, **kwargs):
@@ -65,6 +76,12 @@ def process_topic(bucket_path, *args, **kwargs):
         '.jpg': process_jpg,
         '.mp4': process_timelapse,
     }
+
+    # Remove legacy background files.
+    if '-background.fits' in bucket_path:
+        print(f'Removing legacy file {bucket_path}')
+        incoming_bucket.delete_blob(bucket_path)
+        return True
 
     try:
         path_info = ObservationPathInfo(path=bucket_path)
@@ -112,8 +129,7 @@ def process_fits(bucket_path):
 
 def process_cr2(bucket_path):
     """Move cr2 to archive and observation bucket"""
-    copy_blob_to_bucket(bucket_path, incoming_bucket, archive_bucket)
-    move_blob_to_bucket(bucket_path, incoming_bucket, outgoing_bucket)
+    move_blob_to_bucket(bucket_path, incoming_bucket, archive_bucket)
 
 
 def process_jpg(bucket_path):
