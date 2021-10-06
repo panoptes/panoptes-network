@@ -1,15 +1,14 @@
-import sys
-import os
-import rawpy
-import json
 import base64
-from copy import copy
+import json
+import os
+import sys
 from contextlib import suppress
+from copy import copy
 
+import rawpy
+from astropy.io import fits
 from flask import jsonify
 from google.cloud import storage
-
-from astropy.io import fits
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-incoming')
