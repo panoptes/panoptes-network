@@ -1,0 +1,11 @@
+Flask
+astropy
+git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
+google-cloud-firestore
+google-cloud-storage
+imageio
+numpy
+pandas
+python-dateutil
+rawpy
+tqdm

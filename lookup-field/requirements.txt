@@ -1,3 +1,0 @@
-astropy
-Flask
-panoptes-utils

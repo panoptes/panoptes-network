@@ -1,5 +1,0 @@
-Flask
-astropy
-google-cloud-firestore
-google-cloud-storage
-pandas

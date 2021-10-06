@@ -2,7 +2,6 @@ import os
 import sys
 
 import requests
-from google.cloud import firestore
 from google.cloud import storage
 from panoptes.pipeline.utils.gcp.storage import copy_blob_to_bucket, move_blob_to_bucket
 from panoptes.pipeline.utils.metadata import ObservationPathInfo
@@ -12,14 +11,12 @@ OUTGOING_BUCKET: str = os.getenv('OUTGOING_BUCKET', 'panoptes-images-raw')
 TIMELAPSE_BUCKET: str = os.getenv('TIMELAPSE_BUCKET', 'panoptes-timelapse')
 TEMP_BUCKET: str = os.getenv('TEMP_BUCKET', 'panoptes-images-temp')
 JPG_BUCKET: str = os.getenv('JPG_BUCKET', 'panoptes-images-pretty')
-ARCHIVE_BUCKET: str = os.getenv('ARCHIVE_BUCKET', 'panoptes-images-temp')
+ARCHIVE_BUCKET: str = os.getenv('ARCHIVE_BUCKET', 'panoptes-images-archive')
 
 FITS_HEADER_URL: str = os.getenv('FITS_HEADER_URL',
                                  'https://us-central1-panoptes-exp.cloudfunctions.net/get-fits-header')
 
 try:
-    firestore_db = firestore.Client()
-
     # Storage
     sc = storage.Client()
     incoming_bucket = sc.get_bucket(INCOMING_BUCKET)
@@ -93,7 +90,7 @@ def process_topic(bucket_path, *args, **kwargs):
 
         # Rename without field name (which triggers processing again).
         if path_info.field_name != '':
-            new_path = path_info.as_path(ext=fileext)
+            new_path = str(path_info.as_path(ext=fileext[1:]))
             print(f'Removed {path_info.field_name!r}, moving: {bucket_path} -> {new_path}')
             incoming_bucket.rename_blob(incoming_bucket.get_blob(bucket_path), new_path)
             return False

@@ -1,6 +1,0 @@
-astropy
-Flask
-google-cloud-storage
-imageio
-numpy
-rawpy
