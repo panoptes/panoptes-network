@@ -4,6 +4,7 @@ TOPIC=${1:-raw-file-uploaded}
 
 gcloud functions deploy \
   "${TOPIC}" \
+  --source "${TOPIC}" \
   --trigger-topic "${TOPIC}" \
   --entry-point entry_point \
   --memory '2048m' \
