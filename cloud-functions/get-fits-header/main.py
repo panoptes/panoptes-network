@@ -4,7 +4,7 @@ from flask import jsonify
 from google.cloud import storage
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-raw-images')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-images-raw')
 
 
 # Entry point
@@ -38,7 +38,7 @@ def entry_point(request):
         return jsonify(success=success, msg='No bucket_path, nothing to do!')
 
     try:
-        bucket_path = bucket_path.replace('https://storage.googleapis.com/panoptes-raw-images/', '')
+        bucket_path = bucket_path.replace(f'https://storage.googleapis.com/{bucket_name}/', '')
     except AttributeError as e:
         print(f'Problem with bucket_path={bucket_path}: {e!r}')
 
