@@ -3,15 +3,12 @@ Data Explorer
 
 https://www.panoptes-data.net
 
-This folder defines a Data Explorer dashboard web service that is main portal for
-accessing PANOPTES data.  
+This folder defines a Data Explorer dashboard web service that is main portal for accessing PANOPTES data.
 
-This service primarily utilizes the [holoviz.org](https://holoviz.org) ecosystem for
-visualization and data interaction.
+This service primarily utilizes the [holoviz.org](https://holoviz.org) ecosystem for visualization and data interaction.
 
-Each component of the Data Explorer is split into separation "modules", which can be
-developed independently of the web service. Modules can be developed, and used, in
-jupyter notebooks. 
+Each component of the Data Explorer is split into separation "modules", which can be developed independently of the web
+service. Modules can be developed, and used, in jupyter notebooks.
 
 ## Development
 
@@ -36,9 +33,8 @@ This will make the service available at https://127.0.0.1:8080.
 
 There are two environment variables that can route the traffic depending on your needs.
 
-`BOKEH_APP_URL=127.0.0.1:5006`: Defines the link between the Flask app and the Bokeh app.
-This should be entered as an environment variable like in the example above. You need
-to include this but probably don't need to change it.
+`BOKEH_APP_URL=127.0.0.1:5006`: Defines the link between the Flask app and the Bokeh app. This should be entered as an
+environment variable like in the example above. You need to include this but probably don't need to change it.
 
 ### Deploy
 

@@ -1,4 +1,5 @@
 -e git+git://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils
+-e git+git://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
 astropy
 bokeh
 flask

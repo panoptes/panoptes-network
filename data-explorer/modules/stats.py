@@ -5,11 +5,12 @@ import pandas as pd  # noqa
 import panel as pn
 import param
 from astropy.utils.data import download_file
-from panoptes.utils.logger import logger
+from loguru import logger
 
 logger.enable('panoptes')
 
-BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/stats.csv')
+BASE_URL = os.getenv('BASE_URL',
+                     'https://storage.googleapis.com/panoptes-exp.appspot.com/stats.csv')
 
 
 class Stats(param.Parameterized):

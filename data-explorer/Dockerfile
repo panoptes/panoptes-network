@@ -1,7 +1,13 @@
-FROM gcr.io/panoptes-exp/panoptes-utils:latest
+FROM gcr.io/panoptes-exp/panoptes-utils:develop
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ENV PYTHONUNBUFFERED 1
 
 ENV PORT 8080
-ENV PANUSER panoptes
+ARG userid=1000
+ENV USERID $userid
+
 WORKDIR /app
 
 USER root
@@ -13,11 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl -fsSL https://nginx.org/keys/nginx_signing.key | apt-key add - && \
     apt-get update && \
     apt-get install nginx && \
-    chown -R $PANUSER:$PANUSER /app
+    chown -R ${userid}:${userid} /app
 
 # Data Explorer requirements
 COPY ./requirements.txt .
-USER $PANUSER
+USER ${userid}
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -27,12 +33,13 @@ RUN apt-get autoremove --purge -y gcc pkg-config && \
     apt-get autoremove --purge -y && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
-    echo "$PANUSER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    echo "${userid} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     # Remove default site and link our conf below.
     rm /etc/nginx/conf.d/default.conf
 
 EXPOSE $PORT
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
-COPY --chown=panoptes:panoptes . .
+COPY --chown="${userid}:${userid}" . .
 
-CMD ./startup_script.sh
+USER ${userid}
+CMD [ "bash ./startup_script.sh" ]

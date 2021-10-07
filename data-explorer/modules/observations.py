@@ -9,15 +9,18 @@ import pendulum
 from astropy.coordinates import SkyCoord
 from astropy.utils.data import download_file
 from bokeh.models import (ColumnDataSource, DataTable, TableColumn, NumberFormatter, DateFormatter)
-from panoptes.utils.data import search_observations, get_metadata
-from panoptes.utils.logger import logger
+from loguru import logger
+
+from panoptes.pipeline.utils.metadata import search_observations
 
 logger.enable('panoptes')
 pn.extension()
 
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
-BASE_URL = os.getenv('BASE_URL', 'https://storage.googleapis.com/panoptes-exp.appspot.com/observations.csv')
-OBSERVATIONS_BASE_URL = os.getenv('OBSERVATIONS_BASE_URL', 'https://storage.googleapis.com/panoptes-observations')
+BASE_URL = os.getenv('BASE_URL',
+                     'https://storage.googleapis.com/panoptes-exp.appspot.com/observations.csv')
+OBSERVATIONS_BASE_URL = os.getenv('OBSERVATIONS_BASE_URL',
+                                  'https://storage.googleapis.com/panoptes-observations')
 
 
 class ObservationsExplorer(param.Parameterized):
@@ -53,8 +56,10 @@ class ObservationsExplorer(param.Parameterized):
     )
     time = param.DateRange(
         label='Date Range',
-        default=(pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None)),
-        bounds=(pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None))
+        default=(
+            pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None)),
+        bounds=(
+            pendulum.parse('2016-01-01').replace(tzinfo=None), pendulum.now().replace(tzinfo=None))
     )
     min_num_images = param.Integer(
         doc='Minimum number of images.',
@@ -100,7 +105,8 @@ class ObservationsExplorer(param.Parameterized):
                                      end_date=now,
                                      min_num_images=1,
                                      source=self._observations_df
-                                     ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
+                                     ).sort_values(by=['time', 'unit_id', 'camera_id'],
+                                                   ascending=False)
         else:
             # If using the default unit_ids option, then search for all.
             unit_ids = self.unit_id
@@ -122,7 +128,8 @@ class ObservationsExplorer(param.Parameterized):
                                      end_date=self.time[1],
                                      min_num_images=self.min_num_images,
                                      unit_id=unit_ids
-                                     ).sort_values(by=['time', 'unit_id', 'camera_id'], ascending=False)
+                                     ).sort_values(by=['time', 'unit_id', 'camera_id'],
+                                                   ascending=False)
 
         df.time = pd.to_datetime(df.time)
         cds = ColumnDataSource(data=df, name='observations_source')
@@ -132,9 +139,9 @@ class ObservationsExplorer(param.Parameterized):
             newest_index = new_row_index[-1]
             row = df.iloc[newest_index]
             print(f'Looking up sequence_id={row.sequence_id}')
-            self.images_df = get_metadata(sequence_id=row.sequence_id)
-            if self.images_df is not None:
-                self.images_df = self.images_df.dropna()
+            # self.images_df = get_metadata(sequence_id=row.sequence_id)
+            # if self.images_df is not None:
+            #     self.images_df = self.images_df.dropna()
 
         cds.selected.on_change('indices', obs_row_selected)
 
