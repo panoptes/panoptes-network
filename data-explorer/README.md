@@ -43,5 +43,5 @@ See [Deployment](../README.md#deploy) in main README for preferred deployment me
 Basically, you can:
 
 ```bash
-./deploy-firestore-triggers.sh
+./deploy.sh
 ```
