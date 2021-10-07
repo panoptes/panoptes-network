@@ -1,0 +1,4 @@
+Flask
+git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline
+google-cloud-storage
+requests
