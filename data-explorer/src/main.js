@@ -3,6 +3,7 @@ import App from './App.vue'
 import Buefy from 'buefy'
 import 'buefy/dist/buefy.css'
 import {firestorePlugin} from 'vuefire'
+import router from './router'
 
 Vue.use(firestorePlugin)
 Vue.use(Buefy)
@@ -10,5 +11,6 @@ Vue.use(Buefy)
 Vue.config.productionTip = false
 
 new Vue({
-    render: h => h(App),
+    router,
+    render: h => h(App)
 }).$mount('#app')
