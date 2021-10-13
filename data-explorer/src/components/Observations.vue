@@ -2,10 +2,10 @@
   <section class="section">
     <div class="card">
       <header class="card-header">
-        <p class="card-header-title">Recent images</p>
+        <p class="card-header-title">Recent observations</p>
       </header>
       <div class="card-content has-text-left">
-        <b-table :data="images"
+        <b-table :data="observations"
                  striped
                  hoverable
                  narrowed
@@ -19,16 +19,15 @@
             {{ props.row.time.toDate().toLocaleString() }}
           </b-table-column>
           <b-table-column field="id" label="ID" sortable v-slot="props">{{ props.row.id }}</b-table-column>
+          <b-table-column field="field_name" label="Field name" sortable v-slot="props">{{ props.row.field_name }}</b-table-column>
           <b-table-column field="coords" label="Coords" sortable v-slot="props">
-            {{ props.row.ra_image.toFixed(2) }}°
-            {{ props.row.dec_image.toFixed(2) }}°
+            <span v-if="props.row.ra">
+              {{ props.row.ra.toFixed(2) }}° {{ props.row.dec.toFixed(2) }}°
+            </span>
           </b-table-column>
-          <b-table-column field="exptime" label="Exptime" sortable v-slot="props">{{
-              props.row.exptime
-            }}
-          </b-table-column>
-          <b-table-column field="public_url" label="URL" v-slot="props">
-            <b-button tag="a" :href="props.row.public_url" type="is-link is-light is-small">.FITS</b-button>
+          <b-table-column field="num_images" label="Images" sortable v-slot="props">{{ props.row.num_images }}</b-table-column>
+          <b-table-column field="total_minutes_exptime" label="Total minutes" sortable v-slot="props">
+            {{ props.row.total_minutes_exptime }}
           </b-table-column>
           <b-table-column field="status" label="Status" sortable v-slot="props">
             <b-tag type="is-success is-uppercase">{{ props.row.status }}</b-tag>
@@ -48,14 +47,14 @@
 import {db} from "../db";
 
 export default {
-  name: 'RecentImages',
+  name: 'Observations',
   data() {
     return {
-      images: [],
+      observations: [],
     }
   },
   firestore: {
-    images: db.collection('images').orderBy('time', 'desc').limit(25)
+    observations: db.collection('observations').orderBy('time', 'desc').limit(25)
   },
   methods: {}
 }
