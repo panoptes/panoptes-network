@@ -8,14 +8,12 @@ from google.cloud import storage
 PROJECT_ID = os.getenv('PROJECT_ID', 'panoptes-exp')
 BUCKET_NAME = os.getenv('BUCKET_NAME', 'panoptes-exp.appspot.com')
 
-storage_client = storage.Client()
-output_bucket = storage_client.bucket(BUCKET_NAME)
-firestore_db = firestore.Client()
+storage_client: storage.Client = storage.Client()
+output_bucket: storage.Bucket = storage_client.bucket(BUCKET_NAME)
+firestore_db: firestore.Client = firestore.Client()
 
 
 def entry_point(request):
-    output_filename = 'observations.csv'
-
     # Get the observation subcollection for each unit.
     field_obs = list()
     for unit_ref in firestore_db.collection('units').stream():
@@ -44,8 +42,14 @@ def entry_point(request):
         field_obs.unit_id == 'Panoptes Unit PAN006 @ Wheaton College', 'unit_id'] = 'PAN006'
 
     # Write to a CSV file object directly to bucket.
-    blob = output_bucket.blob(output_filename)
-    blob.upload_from_string(field_obs.to_csv(), content_type='text/csv')
-    blob.make_public()
+    csv_blob = output_bucket.blob('observations.csv')
+    csv_blob.upload_from_string(field_obs.to_csv(), content_type='text/csv')
+    csv_blob.make_public()
 
-    return jsonify(success=True, public_url=blob.public_url)
+    # Write out to json as well.
+    json_blob = output_bucket.blob('observations.json')
+    json_blob.upload_from_string(field_obs.to_json(orient='records'),
+                                 content_type='application/json')
+    json_blob.make_public()
+
+    return jsonify(success=True, public_url=[csv_blob.public_url, json_blob.public_url])
