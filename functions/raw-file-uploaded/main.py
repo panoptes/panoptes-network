@@ -90,7 +90,10 @@ def process_topic(bucket_path, *args, **kwargs):
 
         # Rename without field name (which triggers processing again).
         if path_info.field_name != '':
-            new_path = str(path_info.as_path(ext=fileext[1:]))
+            rename_fileext = fileext[1:]  # remove period
+            if rename_fileext == 'fz':
+                rename_fileext = 'fits.fz'
+            new_path = str(path_info.as_path(ext=rename_fileext))
             print(f'Removed {path_info.field_name!r}, moving: {bucket_path} -> {new_path}')
             incoming_bucket.rename_blob(incoming_bucket.get_blob(bucket_path), new_path)
             return False
