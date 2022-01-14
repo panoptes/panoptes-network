@@ -1,0 +1,5 @@
+Flask
+astropy
+google-cloud-storage
+numpy
+rawpy

@@ -1,7 +1,0 @@
-click
-google-auth
-google-cloud-firestore
-halo
-mock
-panoptes-utils>=0.2.33
-git+https://github.com/panoptes/panoptes-pipeline@develop#egg=panoptes-pipeline

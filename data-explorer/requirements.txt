@@ -1,9 +1,0 @@
--e git+git://github.com/panoptes/panoptes-utils@develop#egg=panoptes-utils
-astropy
-bokeh
-flask
-flask-cors
-hvplot
-pandas
-panel
-pendulum
