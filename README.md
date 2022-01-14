@@ -3,6 +3,8 @@ PANOPTES Network
 
 - [PANOPTES Network](#panoptes-network)
     - [Data Model](#data-model)
+        - [Overview](#data-overview)
+        - [Keys](#data-keys)
         - [Data Descriptions](#data-descriptions)
             - [Unit](#unit)
             - [Observation](#observation)
@@ -10,56 +12,45 @@ PANOPTES Network
             - [Star](#star)
             - [Lightcurve](#lightcurve)
     - [Data Explorer](#data-explorer)
-    - [Services](#services)
-        - [Deploying services](#deploying-services)
-        - [Creating new services](#creating-new-services)
+    - [Functions](#functions)
     - [Development](#development)
         - [Setup](#setup)
 
 Software related to the wider PANOPTES network that ties the individual units together. This is a repository to host the
 various Google Cloud Platform services.
 
-Each subfolder defines a different service.
+The repository uses a number of Google Cloud Platform productions, including the Data Explorer (`data-explorer/`) and a
+number of [Cloud Functions](https://cloud.google.com/functions).
 
-Each service is either a [Cloud Function](https://cloud.google.com/functions) or
-a [Cloud Run](https://cloud.google.com/run) instance, however all services are defined as web services that respond to
-HTTP JSON requests.
-
-Most services do not allow unauthenticated requests. Services largely communicate with each other
-via [PubSub](https://cloud.google.com/pubsub/) messages.
-
-See the README for a specific service for more details. See the [Services](#services) section for a list of services.
+The Cloud Functions largely communicate with each other via [PubSub](https://cloud.google.com/pubsub/)
+messages based on certain events, such as when an image is uploaded or when a certain processing step is complete.
 
 ## Data Model
 
-> :construction: Todo: Replace this section with easy graphic and then link to detailed document with this information.
+### Overview
 
-Data is organized by the object type:
+<a href="#" id="data-overview"></a>
 
-```md
-# Data Model
+The data model for the PANOPTES units and the Observations and Images they take is a simple nested structure based on
+the unit id (e.g. `PAN023`), see [Data Descriptions](#data-descriptions) below. Data is stored
+in [Google Firestore](https://firebase.google.com/docs/firestore).
 
-Units Mount Sensors Cameras Observations Images
+The basic model is that a `unit` has `observations` that contain `images`. Each level has a corresponding document for
+metadata, so an individual `unit` also has a `name`, `latitude`, `longitude`, etc. In Firestore these are called "
+collections" and "documents": we have a `units` collection that contains zero or more
+`unit` documents; a `unit` document has an associated `observations` collection, etc.
 
-```
+### Keys
 
-Data is stored in [Google Firestore](https://firebase.google.com/docs/firestore) database with a flat structure:
+<a href="#" id="data-keys"></a>
 
-```md
-# Data Storage
-
-images observations units processed_observations lightcurves
-```
-
-<a href="#" id="data-input"></a>
+Each document in a collection can be identified by a unique key:
 
 | collection               | key           | key example                     | description                                                                               |
 | ------------------------ | ------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
 | `images`                 | `image_id`    | `PAN012_95cdbc_20191025T023434` | A single image at a set exposure.                                                         |
 | `observations`           | `sequence_id` | `PAN012_95cdbc_20191025T023224` | A sequence of images defined by a mount slew.                                             |
 | `units`                  | `unit_id`     | `PAN001`                        | Data for a given PANOPTES unit.                                                           |
-| `processed_observations` | [generated*]  | `8zPAXSech07URES7WuTz`          | Metadata about a processed observation. Each observation may be processed multiple times. |
-| `lightcurves`            | [generated*]  | `P2t4GGYpkByRqAabWqhe`          | Generated lightcurve data from a single processing run.                                   |
 
 ### Data Descriptions
 
@@ -166,16 +157,17 @@ _coming soon..._
 _coming soon..._
 
 ## Data Explorer
+<a href="#" id="data-explorer"></a>
 
 The Data Explorer is a web-based tool to explore PANOPTES data at the observation and lightcurve level.
 
 See [Data Explorer README](data-explorer/README.md) for details.
 
-## Services
+## Functions
 
-<a href="#" id="services"></a>
+<a href="#" id="functions"></a>
 
-There are a few different categories of services that are in use on the panoptes-network.
+There are a few different categories of functions that are in use on the panoptes-network.
 
 | Service                                        | Trigger | Description                                                     |
 | ---------------------------------------------- | ------- | --------------------------------------------------------------- |
@@ -183,26 +175,6 @@ There are a few different categories of services that are in use on the panoptes
 | [`make-rgb-fits`](make-rgb-fits/README.md)     | PubSub  | Makes interpolated RGB `.fits` from `.CR2` file.                |
 | [`lookup-field`](lookup-field/README.md)       | Http    | A simple service to lookup astronomical sources by search term. |
 | [`get-fits-header`](get-fits-header/README.md) | Http    | Returns the FITS headers for a given file.                      |
-
-### Deploying services
-
-<a href="#" id="deploying-services"></a>
-<a href="#" id="deploy"></a>
-
-You can deploy any service using `bin/deploy` from the top level directory. The command takes the service name as a
-parameter:
-
-```bash
-$ bin/deploy record-image
-```
-
-### Creating new services
-
-> Todo: More here.
-
-Services are either written in Python or JavaScript.
-
-See https://github.com/firebase/functions-samples
 
 ## Development
 
