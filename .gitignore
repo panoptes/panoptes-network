@@ -64,3 +64,5 @@ var
 TODO.md
 .spyproject
 venv/*
+public/css/*
+public/js/*
